@@ -14,15 +14,23 @@ final class LoggedFood: Identifiable {
     var protein: Int = 0
     var carbs: Int = 0
     var fat: Int = 0
+    /// Identifiant du repas scanné auquel cet aliment appartient (nil = ajout isolé).
+    /// Les aliments d'un même scan partagent le même groupId.
+    var mealGroupID: UUID?
+    /// Titre du repas scanné (ex. "Nasi lemak"), porté par chaque aliment du groupe.
+    var mealTitle: String?
 
     init(date: Date = Date(), meal: MealType, name: String, grams: Int,
-         kcal: Int, protein: Int, carbs: Int, fat: Int)
+         kcal: Int, protein: Int, carbs: Int, fat: Int,
+         mealGroupID: UUID? = nil, mealTitle: String? = nil)
     {
         self.date = date
         mealRaw = meal.rawValue
         self.name = name
         self.grams = grams
         self.kcal = kcal; self.protein = protein; self.carbs = carbs; self.fat = fat
+        self.mealGroupID = mealGroupID
+        self.mealTitle = mealTitle
     }
 
     var meal: MealType {

@@ -60,11 +60,41 @@ struct TodayView: View {
         }
     }
 
-    private var mealsToday: [(MealType, [LoggedFood])] {
-        MealType.allCases.compactMap { type in
-            let items = todayFoods.filter { $0.meal == type }
-            return items.isEmpty ? nil : (type, items)
+    /// Un bloc affiché dans « Repas du jour » : soit un repas scanné (plusieurs aliments),
+    /// soit un créneau d'aliments ajoutés isolément.
+    private struct DayGroup: Identifiable {
+        let id: String
+        let title: String
+        let icon: AppIcon
+        let tint: Color
+        let foods: [LoggedFood]
+        var kcal: Int {
+            foods.reduce(0) { $0 + $1.kcal }
         }
+    }
+
+    private var dayGroups: [DayGroup] {
+        var groups: [DayGroup] = []
+        // 1) Repas scannés : un bloc par mealGroupID (ordre d'apparition).
+        var seenGroups = Set<UUID>()
+        for food in todayFoods {
+            guard let gid = food.mealGroupID, !seenGroups.contains(gid) else { continue }
+            seenGroups.insert(gid)
+            let foods = todayFoods.filter { $0.mealGroupID == gid }
+            let type = foods.first?.meal ?? .snack
+            let title = foods.first?.mealTitle ?? "Repas scanné · \(type.title)"
+            groups.append(DayGroup(id: gid.uuidString, title: title,
+                                   icon: .camera, tint: type.tint, foods: foods))
+        }
+        // 2) Aliments isolés (sans groupe) : regroupés par créneau.
+        for type in MealType.allCases {
+            let foods = todayFoods.filter { $0.meal == type && $0.mealGroupID == nil }
+            if !foods.isEmpty {
+                groups.append(DayGroup(id: "meal-\(type.rawValue)", title: type.title,
+                                       icon: type.icon, tint: type.tint, foods: foods))
+            }
+        }
+        return groups
     }
 
     var body: some View {
@@ -91,11 +121,11 @@ struct TodayView: View {
                     .buttonStyle(.lumePress)
                     .lumeEntrance(4)
                 SectionHeader(title: "Repas du jour").lumeEntrance(5)
-                if mealsToday.isEmpty {
+                if dayGroups.isEmpty {
                     emptyState.lumeEntrance(6)
                 } else {
-                    ForEach(Array(mealsToday.enumerated()), id: \.element.0) { idx, pair in
-                        mealGroup(type: pair.0, foods: pair.1).lumeEntrance(6 + idx)
+                    ForEach(Array(dayGroups.enumerated()), id: \.element.id) { idx, group in
+                        mealGroup(group).lumeEntrance(6 + idx)
                     }
                 }
             }
@@ -113,18 +143,19 @@ struct TodayView: View {
         .sheet(item: $routeEntry) { FoodDetailView(entry: $0) }
     }
 
-    /// Un repas (Petit-déj / Déjeuner / …) : en-tête avec sous-total + une ligne par aliment.
-    private func mealGroup(type: MealType, foods: [LoggedFood]) -> some View {
+    /// Un bloc « Repas du jour » : en-tête (titre + total) puis une ligne par aliment.
+    private func mealGroup(_ group: DayGroup) -> some View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             HStack(spacing: Spacing.sm) {
-                Image(appIcon: type.icon).lumeIcon(15, weight: .semibold).foregroundStyle(type.tint)
-                Text(type.title).font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink)
+                Image(appIcon: group.icon).lumeIcon(15, weight: .semibold).foregroundStyle(group.tint)
+                Text(group.title).font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink)
+                    .lineLimit(1)
                 Spacer()
-                Text("\(foods.reduce(0) { $0 + $1.kcal }) kcal")
+                Text("\(group.kcal) kcal")
                     .font(.lumeFootnote.weight(.semibold)).foregroundStyle(LumeColor.muted).monospacedDigit()
             }
             .padding(.horizontal, Spacing.xs)
-            ForEach(foods) { food in
+            ForEach(group.foods) { food in
                 FoodRow(name: food.name,
                         detail: "\(food.grams) g · P \(food.protein) G \(food.carbs) L \(food.fat)",
                         kcal: food.kcal,

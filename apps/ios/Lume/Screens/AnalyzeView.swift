@@ -71,12 +71,18 @@ struct AnalyzeView: View {
 
     private func addToJournal() {
         let meal = mealForNow()
-        for it in items {
+        // Tous les aliments de ce scan partagent un même identifiant de repas → carte groupée.
+        let groupID = UUID()
+        // On ignore les aliments non résolus (macros à 0) pour ne pas polluer le journal.
+        let kept = items.filter { $0.matched }
+        guard !kept.isEmpty else { dismiss(); return }
+        for it in kept {
             ctx.insert(LoggedFood(meal: meal, name: it.name, grams: it.grams,
                                   kcal: it.macros.kcal, protein: it.macros.protein,
-                                  carbs: it.macros.carbs, fat: it.macros.fat))
+                                  carbs: it.macros.carbs, fat: it.macros.fat,
+                                  mealGroupID: groupID, mealTitle: nil))
         }
-        let t = total
+        let t = kept.reduce(Macros.zero) { $0 + $1.macros }
         Task { await health.logMeal(kcal: t.kcal, protein: t.protein, carbs: t.carbs, fat: t.fat) }
         added = true
         dismiss()
