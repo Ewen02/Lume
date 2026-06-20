@@ -4,7 +4,7 @@ import SwiftData
 /// Un aliment journalisé (entrée du journal alimentaire). Persistant, synchronisé CloudKit.
 /// CloudKit impose des valeurs par défaut sur toutes les propriétés (pas de contrainte d'unicité).
 @Model
-final class LoggedFood {
+final class LoggedFood: Identifiable {
     var id: UUID = UUID()
     var date: Date = Date()
     var mealRaw: String = MealType.lunch.rawValue

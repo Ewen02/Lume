@@ -11,7 +11,7 @@ struct TodayView: View {
     private let cal = Calendar.current
     @State private var showWater = false
     @State private var showSearch = false
-    @State private var routeFood: FoodItem?
+    @State private var routeEntry: LoggedFood?
     @State private var highlight = false
 
     /// Change de valeur quand un repas vient d'être ajouté → déclenche l'animation de mise en valeur.
@@ -95,17 +95,7 @@ struct TodayView: View {
                     emptyState.lumeEntrance(6)
                 } else {
                     ForEach(Array(mealsToday.enumerated()), id: \.element.0) { idx, pair in
-                        Button {
-                            if let first = pair.1.first {
-                                routeFood = FoodItem(name: first.name, grams: first.grams, macros: first.macros)
-                            }
-                        } label: {
-                            MealCell(icon: pair.0.icon, tint: pair.0.tint, title: pair.0.title,
-                                     subtitle: pair.1.map(\.name).joined(separator: ", "),
-                                     kcal: pair.1.reduce(0) { $0 + $1.kcal })
-                        }
-                        .buttonStyle(.lumePress)
-                        .lumeEntrance(6 + idx)
+                        mealGroup(type: pair.0, foods: pair.1).lumeEntrance(6 + idx)
                     }
                 }
             }
@@ -120,7 +110,28 @@ struct TodayView: View {
         }
         .sheet(isPresented: $showWater) { WaterDetailView() }
         .sheet(isPresented: $showSearch) { SearchView() }
-        .sheet(item: $routeFood) { FoodDetailView(food: $0, canAddToJournal: false) }
+        .sheet(item: $routeEntry) { FoodDetailView(entry: $0) }
+    }
+
+    /// Un repas (Petit-déj / Déjeuner / …) : en-tête avec sous-total + une ligne par aliment.
+    private func mealGroup(type: MealType, foods: [LoggedFood]) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                Image(appIcon: type.icon).lumeIcon(15, weight: .semibold).foregroundStyle(type.tint)
+                Text(type.title).font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink)
+                Spacer()
+                Text("\(foods.reduce(0) { $0 + $1.kcal }) kcal")
+                    .font(.lumeFootnote.weight(.semibold)).foregroundStyle(LumeColor.muted).monospacedDigit()
+            }
+            .padding(.horizontal, Spacing.xs)
+            ForEach(foods) { food in
+                FoodRow(name: food.name,
+                        detail: "\(food.grams) g · P \(food.protein) G \(food.carbs) L \(food.fat)",
+                        kcal: food.kcal,
+                        trailing: .forward) { routeEntry = food }
+                    .onTapGesture { routeEntry = food }
+            }
+        }
     }
 
     private var header: some View {

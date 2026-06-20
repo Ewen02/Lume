@@ -10,14 +10,26 @@ struct FoodDetailView: View {
     private let base: FoodItem
     private let meal: MealType
     /// `true` quand l'aliment n'est pas encore au journal (recherche/favoris) → bouton d'ajout.
-    /// `false` en consultation d'une entrée déjà loggée (depuis Aujourd'hui) → simple fermeture.
+    /// `false` en consultation d'une entrée déjà loggée (depuis Aujourd'hui) → modifier/supprimer.
     private let canAddToJournal: Bool
+    /// Entrée du journal en cours de consultation (permet de la modifier ou la supprimer).
+    private let entry: LoggedFood?
 
     init(food: FoodItem = Mock.foods[0], meal: MealType = .snack, canAddToJournal: Bool = true) {
         base = food
         self.meal = meal
         self.canAddToJournal = canAddToJournal
+        entry = nil
         _grams = State(initialValue: food.grams)
+    }
+
+    /// Ouvre une entrée déjà journalisée pour la modifier ou la supprimer.
+    init(entry: LoggedFood) {
+        base = FoodItem(name: entry.name, grams: entry.grams, macros: entry.macros)
+        meal = entry.meal
+        canAddToJournal = false
+        self.entry = entry
+        _grams = State(initialValue: entry.grams)
     }
 
     /// macros recalculées au prorata des grammes
@@ -39,6 +51,22 @@ struct FoodDetailView: View {
         ctx.insert(LoggedFood(meal: meal, name: base.name, grams: grams,
                               kcal: m.kcal, protein: m.protein, carbs: m.carbs, fat: m.fat))
         added = true
+        dismiss()
+    }
+
+    /// Enregistre la nouvelle portion sur l'entrée du journal existante.
+    private func saveChanges() {
+        guard let entry else { return }
+        let m = scaledMacros
+        entry.grams = grams
+        entry.kcal = m.kcal; entry.protein = m.protein; entry.carbs = m.carbs; entry.fat = m.fat
+        added = true
+        dismiss()
+    }
+
+    private func deleteEntry() {
+        guard let entry else { return }
+        ctx.delete(entry)
         dismiss()
     }
 
@@ -68,6 +96,13 @@ struct FoodDetailView: View {
             if canAddToJournal {
                 PrimaryButton(title: "Ajouter au journal", icon: .add) { addToJournal() }
                     .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.sm)
+            } else if entry != nil {
+                // Entrée déjà au journal : modifier la portion ou supprimer.
+                HStack(spacing: Spacing.md) {
+                    SecondaryButton(title: "Supprimer", icon: .minusCircle) { deleteEntry() }
+                    PrimaryButton(title: "Enregistrer", icon: .validate) { saveChanges() }
+                }
+                .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.sm)
             } else {
                 SecondaryButton(title: "Fermer") { dismiss() }
                     .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.sm)
