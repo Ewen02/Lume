@@ -65,7 +65,11 @@ struct APIClient: FoodAPI {
         }
     }
 
-    private struct AnalyzedItemDTO: Decodable { let name: String; let grams: Int; let macros: MacrosDTO }
+    private struct AnalyzedItemDTO: Decodable {
+        let name: String; let grams: Int; let macros: MacrosDTO
+        let matched: Bool?
+    }
+
     private struct AnalyzeResponse: Decodable { let items: [AnalyzedItemDTO] }
     private struct FoodDTO: Decodable { let name: String; let per100g: MacrosDTO; let source: String; let barcode: String? }
     private struct BarcodeResponse: Decodable { let product: FoodDTO? }
@@ -101,7 +105,7 @@ struct APIClient: FoodAPI {
         let body = try JSONSerialization.data(withJSONObject: ["image": imageData.base64EncodedString()])
         let req = try makeRequest("analyze", method: "POST", body: body)
         let res = try await send(req, as: AnalyzeResponse.self)
-        return res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model) }
+        return res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model, matched: $0.matched ?? true) }
     }
 
     /// GET /foods/barcode/:code

@@ -167,8 +167,12 @@ struct AnalyzeView: View {
         return HStack(spacing: Spacing.md) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.wrappedValue.name).font(.lumeCallout).foregroundStyle(LumeColor.ink)
-                Text("\(item.wrappedValue.macros.kcal) kcal · P \(item.wrappedValue.macros.protein) G \(item.wrappedValue.macros.carbs) L \(item.wrappedValue.macros.fat)")
-                    .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                if item.wrappedValue.matched {
+                    Text("\(item.wrappedValue.macros.kcal) kcal · P \(item.wrappedValue.macros.protein) G \(item.wrappedValue.macros.carbs) L \(item.wrappedValue.macros.fat)")
+                        .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                } else {
+                    Text("Macros introuvables").font(.lumeFootnote).foregroundStyle(LumeColor.warning)
+                }
             }
             Spacer()
             PortionStepper(grams: grams)
