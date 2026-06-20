@@ -13,10 +13,11 @@ export class NutritionResolver {
   async resolve(items: RecognizedItem[]): Promise<AnalyzedMeal> {
     const analyzed: AnalyzedItem[] = [];
     for (const item of items) {
-      const food = await this.db.resolve(item.name);
+      // On cherche avec le nom anglais (queryName), mais on AFFICHE le nom français (item.name).
+      const food = await this.db.resolve(item.queryName);
       if (food) {
         analyzed.push({
-          name: food.name,
+          name: item.name,
           grams: item.grams,
           macros: food.macrosFor(item.grams),
           source: food.source,

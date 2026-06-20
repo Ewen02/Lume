@@ -8,23 +8,32 @@ import { RecognizedItem } from '../../domain/value-objects/recognized-item.vo';
 
 class FakeVision implements VisionPort {
   async recognize(): Promise<RecognizedItem[]> {
-    return [new RecognizedItem('poulet', 150, 0.95)];
+    // Nom affiché en français, nom de recherche en anglais.
+    return [new RecognizedItem('Poulet grillé', 150, 0.95, 'grilled chicken')];
   }
 }
 class FakeDb implements NutritionDbPort {
-  async resolve(): Promise<Food | null> {
-    return new Food('Poulet', new Macros(165, 31, 0, 4), 'USDA');
+  resolvedWith?: string;
+  async resolve(name: string): Promise<Food | null> {
+    this.resolvedWith = name;
+    return new Food('Chicken, broilers or fryers', new Macros(165, 31, 0, 4), 'USDA');
   }
-  async search(): Promise<Food[]> { return []; }
+  async search(): Promise<Food[]> {
+    return [];
+  }
 }
 
 describe('AnalyzeMealUseCase', () => {
   it('relie vision → résolution déterministe', async () => {
-    const usecase = new AnalyzeMealUseCase(new FakeVision(), new NutritionResolver(new FakeDb()));
+    const db = new FakeDb();
+    const usecase = new AnalyzeMealUseCase(new FakeVision(), new NutritionResolver(db));
     const meal = await usecase.execute('data:image/jpeg;base64,xxx');
     expect(meal.items).toHaveLength(1);
     const it = meal.items[0];
-    expect(it.name).toBe('Poulet');
+    // Affiche le nom FRANÇAIS du LLM, pas le nom anglais de la base USDA.
+    expect(it.name).toBe('Poulet grillé');
+    // …mais la recherche en base utilise le nom ANGLAIS (queryName).
+    expect(db.resolvedWith).toBe('grilled chicken');
     expect(it.grams).toBe(150);
     // 165/100 * 150 = 248 kcal
     expect(it.macros.kcal).toBe(248);

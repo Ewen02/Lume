@@ -24,7 +24,30 @@ export class UsdaAdapter implements NutritionDbPort {
 
   async resolve(name: string): Promise<Food | null> {
     const list = await this.search(name);
-    return list[0] ?? null;
+    return this.bestMatch(name, list);
+  }
+
+  /**
+   * Choisit le résultat le plus pertinent pour la requête plutôt que le 1er brut.
+   * Score = nombre de mots de la requête présents dans le nom du candidat ;
+   * sans aucun recouvrement, on considère qu'il n'y a pas de match (évite "dragon fruit" → "wine").
+   */
+  private bestMatch(query: string, list: Food[]): Food | null {
+    if (list.length === 0) return null;
+    const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+    if (words.length === 0) return list[0];
+    let best: Food | null = null;
+    let bestScore = 0;
+    for (const food of list) {
+      const name = food.name.toLowerCase();
+      const score = words.filter((w) => name.includes(w)).length;
+      if (score > bestScore) {
+        bestScore = score;
+        best = food;
+      }
+    }
+    // Aucun mot de la requête retrouvé dans aucun candidat → pas de match fiable.
+    return bestScore > 0 ? best : null;
   }
 
   async search(query: string): Promise<Food[]> {

@@ -5,14 +5,16 @@ import { RecognizedItem } from '../../domain/value-objects/recognized-item.vo';
 
 /** Données de démonstration utilisées tant qu'aucune clé Anthropic n'est configurée. */
 const MOCK: RecognizedItem[] = [
-  new RecognizedItem('poulet grillé', 150, 0.96),
-  new RecognizedItem('riz basmati', 200, 0.91),
-  new RecognizedItem('brocoli', 80, 0.82),
+  new RecognizedItem('Poulet grillé', 150, 0.96, 'grilled chicken breast'),
+  new RecognizedItem('Riz basmati', 200, 0.91, 'white rice cooked'),
+  new RecognizedItem('Brocoli', 80, 0.82, 'broccoli'),
 ];
 
 const PROMPT = `Tu es un assistant de reconnaissance alimentaire. Analyse la photo d'un repas et identifie chaque aliment distinct.
 Réponds UNIQUEMENT avec un tableau JSON valide, sans aucun texte ni balise de code, au format exact :
-[{"food": "nom court en français", "grams": 123, "confidence": 0.0}]
+[{"food": "nom court en français", "food_en": "short English name", "grams": 123, "confidence": 0.0}]
+- "food" : nom court en français, pour l'affichage (ex. "Fruit du dragon").
+- "food_en" : nom générique en anglais pour une base nutritionnelle USDA (ex. "dragon fruit", "grilled chicken breast", "white rice cooked"). Utilise le terme le plus standard.
 - "grams" : portion estimée en grammes (entier).
 - "confidence" : ta confiance entre 0 et 1.
 Ne renvoie JAMAIS de calories ni de macronutriments : seulement l'aliment, la portion et la confiance.`;
@@ -82,14 +84,17 @@ export class ClaudeVisionAdapter implements VisionPort {
       if (!Array.isArray(arr)) return [];
       return arr
         .filter((x: any) => x && typeof x.food === 'string')
-        .map(
-          (x: any) =>
-            new RecognizedItem(
-              String(x.food),
-              Math.max(1, Math.round(Number(x.grams) || 0)),
-              Math.min(1, Math.max(0, Number(x.confidence) || 0)),
-            ),
-        );
+        .map((x: any) => {
+          const fr = String(x.food);
+          // Nom de recherche USDA : l'anglais si fourni, sinon le nom FR en dernier recours.
+          const en = typeof x.food_en === 'string' && x.food_en.trim() ? String(x.food_en) : fr;
+          return new RecognizedItem(
+            fr,
+            Math.max(1, Math.round(Number(x.grams) || 0)),
+            Math.min(1, Math.max(0, Number(x.confidence) || 0)),
+            en,
+          );
+        });
     } catch {
       return [];
     }
