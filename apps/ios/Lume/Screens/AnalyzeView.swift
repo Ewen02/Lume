@@ -15,17 +15,20 @@ struct AnalyzeView: View {
     @State private var phase: Phase
     @State private var added = false
     @State private var per100g: [UUID: Macros] = [:]
+    private let onLogged: () -> Void
 
     /// Mode démo / preview : aliments fournis directement.
-    init(detected: [FoodItem] = Mock.detected) {
+    init(detected: [FoodItem] = Mock.detected, onLogged: @escaping () -> Void = {}) {
         imageData = nil
+        self.onLogged = onLogged
         _items = State(initialValue: detected)
         _phase = State(initialValue: .loaded)
     }
 
     /// Mode réel : analyse une photo via l'API.
-    init(imageData: Data) {
+    init(imageData: Data, onLogged: @escaping () -> Void = {}) {
         self.imageData = imageData
+        self.onLogged = onLogged
         _items = State(initialValue: [])
         _phase = State(initialValue: .loading)
     }
@@ -77,6 +80,7 @@ struct AnalyzeView: View {
         Task { await health.logMeal(kcal: t.kcal, protein: t.protein, carbs: t.carbs, fat: t.fat) }
         added = true
         dismiss()
+        onLogged()
     }
 
     var body: some View {

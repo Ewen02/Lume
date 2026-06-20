@@ -13,6 +13,12 @@ struct CaptureView: View {
     @State private var errorMessage: String?
     @State private var photoItem: PhotosPickerItem?
     @State private var showFavorites = false
+    @State private var flash = false
+    @State private var shutterTrigger = 0
+
+    /// Appelé après un ajout réel au journal → permet à RootView de fermer la capture
+    /// et d'animer le dashboard.
+    var onLogged: () -> Void = {}
 
     private struct AnalyzePayload: Identifiable { let id = UUID(); let data: Data }
 
@@ -34,6 +40,8 @@ struct CaptureView: View {
         }
         .background(LumeColor.cream.ignoresSafeArea())
         .overlay { if isResolving { loadingOverlay } }
+        .overlay { if flash { Color.white.ignoresSafeArea().transition(.opacity) } }
+        .sensoryFeedback(.impact(weight: .medium), trigger: shutterTrigger)
         .task { if mode == 0 { await startCameraIfAllowed() } }
         .onDisappear { camera.stop() }
         .onChange(of: mode) { _, newMode in
@@ -41,10 +49,10 @@ struct CaptureView: View {
             if newMode == 0 { Task { await startCameraIfAllowed() } } else { camera.stop() }
         }
         .fullScreenCover(item: $analyzePayload) { payload in
-            AnalyzeView(imageData: payload.data)
+            AnalyzeView(imageData: payload.data, onLogged: handleLogged)
         }
         .sheet(item: $product) { p in
-            BarcodeResultView(product: p)
+            BarcodeResultView(product: p, onLogged: handleLogged)
         }
         .sheet(isPresented: $showFavorites) { FavoritesView() }
         .onChange(of: photoItem) { _, newValue in
@@ -152,10 +160,21 @@ struct CaptureView: View {
     }
 
     private func takePhoto() {
-        guard mode == 0 else { return }
-        if CameraController.isAvailable {
-            camera.capturePhoto { data in analyzePayload = AnalyzePayload(data: data) }
+        guard mode == 0, CameraController.isAvailable else { return }
+        // Effet d'obturateur : flash blanc bref + retour haptique.
+        shutterTrigger += 1
+        withAnimation(.easeOut(duration: 0.08)) { flash = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            withAnimation(.easeIn(duration: 0.18)) { flash = false }
         }
+        camera.capturePhoto { data in analyzePayload = AnalyzePayload(data: data) }
+    }
+
+    /// Un aliment a été ajouté au journal depuis Analyse/Code-barres : on ferme la capture
+    /// et on prévient le parent (RootView) pour animer le dashboard.
+    private func handleLogged() {
+        dismiss()
+        onLogged()
     }
 
     /// Demande l'autorisation caméra puis démarre le viseur. Sans caméra (simu), no-op.

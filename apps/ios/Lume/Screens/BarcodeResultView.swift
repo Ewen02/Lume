@@ -9,9 +9,11 @@ struct BarcodeResultView: View {
     let product: ScannedProduct
     @State private var grams = 30
     @State private var added = false
+    private let onLogged: () -> Void
 
-    init(product: ScannedProduct = .sample) {
+    init(product: ScannedProduct = .sample, onLogged: @escaping () -> Void = {}) {
         self.product = product
+        self.onLogged = onLogged
     }
 
     private var portion: Macros {
@@ -39,6 +41,7 @@ struct BarcodeResultView: View {
         Task { await health.logMeal(kcal: p.kcal, protein: p.protein, carbs: p.carbs, fat: p.fat) }
         added = true
         dismiss()
+        onLogged()
     }
 
     var body: some View {

@@ -12,8 +12,13 @@ struct TodayView: View {
     @State private var showWater = false
     @State private var showSearch = false
     @State private var routeFood: FoodItem?
+    @State private var highlight = false
 
-    init() {
+    /// Change de valeur quand un repas vient d'être ajouté → déclenche l'animation de mise en valeur.
+    var highlightTrigger: UUID = .init()
+
+    init(highlightTrigger: UUID = UUID()) {
+        self.highlightTrigger = highlightTrigger
         let c = Calendar.current
         let dayStart = c.startOfDay(for: Date())
         let weekStart = c.date(byAdding: .day, value: -6, to: dayStart)!
@@ -73,6 +78,8 @@ struct TodayView: View {
                 } }
                 .lumeEntrance(1)
                 CalorieCard(consumed: consumed.kcal, goal: target.kcal)
+                    .scaleEffect(highlight ? 1.04 : 1)
+                    .shadow(color: LumeColor.protein.opacity(highlight ? 0.45 : 0), radius: highlight ? 18 : 0)
                     .lumeEntrance(2)
                 HStack(spacing: Spacing.md) {
                     MacroCard(letter: "P", value: consumed.protein, goal: target.protein, color: LumeColor.protein, label: "Protéines")
@@ -105,6 +112,12 @@ struct TodayView: View {
             .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 130)
         }
         .background(LumeColor.cream)
+        .onChange(of: highlightTrigger) { _, _ in
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) { highlight = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                withAnimation(.smooth) { highlight = false }
+            }
+        }
         .sheet(isPresented: $showWater) { WaterDetailView() }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $routeFood) { FoodDetailView(food: $0, canAddToJournal: false) }

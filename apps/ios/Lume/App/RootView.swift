@@ -4,6 +4,7 @@ struct RootView: View {
     @AppStorage("lume.hasOnboarded") private var hasOnboarded = false
     @State private var tab: LumeTab = .today
     @State private var showCapture = false
+    @State private var justLoggedID = UUID()
 
     var body: some View {
         if hasOnboarded {
@@ -19,7 +20,7 @@ struct RootView: View {
             LumeColor.cream.ignoresSafeArea()
 
             switch tab {
-            case .today: TodayView()
+            case .today: TodayView(highlightTrigger: justLoggedID)
             case .workout: WorkoutHomeView()
             case .progress: ProgressDashboardView()
             case .profile: ProfileView()
@@ -32,8 +33,15 @@ struct RootView: View {
                         .offset(y: -30)
                 }
         }
-        .sheet(isPresented: $showCapture) { CaptureView() }
+        .sheet(isPresented: $showCapture) {
+            CaptureView {
+                // Aliment ajouté : on revient sur le dashboard et on l'anime.
+                withAnimation(.smooth) { tab = .today }
+                justLoggedID = UUID()
+            }
+        }
         .sensoryFeedback(.selection, trigger: tab)
+        .sensoryFeedback(.success, trigger: justLoggedID)
     }
 }
 
