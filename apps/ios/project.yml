@@ -44,14 +44,10 @@ targets:
         # ⚠️ Désactivé pour Personal Team (compte gratuit) — réactiver avec un compte payant.
         # UIBackgroundModes: [remote-notification]
         # Config API (lue par LumeConfig depuis Info.plist)
-        # ⚠️ Dev : IP locale du Mac (iPhone + Mac sur le même WiFi). Adapter si l'IP change.
-        # localhost ne marche QUE sur simulateur ; sur device il faut l'IP du Mac.
-        LUME_API_BASE_URL: "http://192.168.1.14:3000"
-        # Doit être identique à API_TOKEN dans apps/server/.env
+        # Backend déployé sur Railway (HTTPS public) — marche partout, y compris en 5G.
+        LUME_API_BASE_URL: "https://lumeserver-production.up.railway.app"
+        # Doit être identique à API_TOKEN dans les variables d'env Railway.
         LUME_API_TOKEN: "6a2c72d98f6671d3a3488fc6f419a39775a0295a95d56f21d60956e150c734da"
-        # Autorise localhost en dev
-        NSAppTransportSecurity:
-          NSAllowsLocalNetworking: true
 
   LumeTests:
     type: bundle.unit-test
