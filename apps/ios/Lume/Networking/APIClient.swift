@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 
 extension Macros {
     /// Mise à l'échelle (ex. depuis des valeurs pour 100 g).
@@ -51,8 +52,9 @@ struct APIClient: FoodAPI {
 
     private let session: URLSession = {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 20
-        config.timeoutIntervalForResource = 40
+        // L'analyse vision (Claude + image) peut être lente : laisser de la marge.
+        config.timeoutIntervalForRequest = 60
+        config.timeoutIntervalForResource = 90
         return URLSession(configuration: config)
     }()
 
@@ -102,10 +104,26 @@ struct APIClient: FoodAPI {
 
     /// POST /analyze — image base64 → aliments détectés (macros déterministes côté serveur).
     func analyze(imageData: Data) async throws -> [FoodItem] {
-        let body = try JSONSerialization.data(withJSONObject: ["image": imageData.base64EncodedString()])
+        // Redimensionne avant envoi : upload + analyse Claude bien plus rapides, précision conservée.
+        let payload = Self.downscaledJPEG(imageData) ?? imageData
+        let body = try JSONSerialization.data(withJSONObject: ["image": payload.base64EncodedString()])
         let req = try makeRequest("analyze", method: "POST", body: body)
         let res = try await send(req, as: AnalyzeResponse.self)
         return res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model, matched: $0.matched ?? true) }
+    }
+
+    /// Réduit l'image à ~1024 px de côté max et la recompresse en JPEG (≈ quelques centaines de Ko).
+    private static func downscaledJPEG(_ data: Data, maxSide: CGFloat = 1024) -> Data? {
+        guard let image = UIImage(data: data) else { return nil }
+        let longest = max(image.size.width, image.size.height)
+        let scale = longest > maxSide ? maxSide / longest : 1
+        let newSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let resized = UIGraphicsImageRenderer(size: newSize, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+        return resized.jpegData(compressionQuality: 0.7)
     }
 
     /// GET /foods/barcode/:code

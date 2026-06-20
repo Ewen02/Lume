@@ -80,30 +80,33 @@ struct AnalyzeView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(spacing: Spacing.lg) {
-                    photo
-                    switch phase {
-                    case .loading: loadingCard
-                    case .failed: failedCard
-                    case .loaded:
-                        totalCard
-                        SectionHeader(title: "Aliments détectés", actionTitle: "Ajouter", actionIcon: .add)
-                        ForEach($items) { $item in itemRow($item) }
-                    }
+        ScrollView {
+            VStack(spacing: Spacing.lg) {
+                photo
+                switch phase {
+                case .loading: loadingCard
+                case .failed: failedCard
+                case .loaded:
+                    totalCard
+                    SectionHeader(title: "Aliments détectés", actionTitle: "Ajouter", actionIcon: .add)
+                    ForEach($items) { $item in itemRow($item) }
                 }
-                .padding(.horizontal, Spacing.xl).padding(.bottom, 100)
             }
-            if phase == .loaded {
-                PrimaryButton(title: "Ajouter au journal", icon: .validate) { addToJournal() }
-                    .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.sm)
-            }
+            .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.lg)
         }
         .background(LumeColor.cream.ignoresSafeArea())
         .safeAreaInset(edge: .top) {
             TopBar(title: "Analyse", leading: .back, trailing: .edit, onLeading: { dismiss() })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
+        }
+        .safeAreaInset(edge: .bottom) {
+            // Bouton flottant : safeAreaInset réserve automatiquement la place dans le ScrollView
+            // → la dernière carte n'est plus masquée.
+            if phase == .loaded {
+                PrimaryButton(title: "Ajouter au journal", icon: .validate) { addToJournal() }
+                    .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, Spacing.sm)
+                    .background(.clear)
+            }
         }
         .sensoryFeedback(.success, trigger: added)
         .task { if phase == .loading { await runAnalyze() } }
