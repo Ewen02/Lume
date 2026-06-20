@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  server:
+    name: Serveur (NestJS) — tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Tests serveur (Jest)
+        run: pnpm --filter @lume/server test
+
+  ios:
+    name: iOS — build (best effort, nécessite un 1er build vert)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Installer XcodeGen
+        run: brew install xcodegen
+      - name: Générer le projet Xcode
+        working-directory: apps/ios
+        run: xcodegen generate
+      - name: Build (simulateur, sans signature)
+        working-directory: apps/ios
+        run: |
+          xcodebuild \
+            -project Lume.xcodeproj \
+            -scheme Lume \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

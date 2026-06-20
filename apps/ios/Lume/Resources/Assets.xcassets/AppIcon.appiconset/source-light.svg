@@ -1,0 +1,23 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Lume">
+  <rect width="512" height="512" rx="114" fill="#F6F5F1"/>
+  <g fill="none" stroke="#1B1B1D" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <!-- arc (voûte) ouvert -->
+    <path d="M150 300 A106 106 0 0 1 362 300"/>
+    <!-- ligne d'horizon, légèrement bombée -->
+    <path d="M132 344 q124 -34 248 0"/>
+  </g>
+  <!-- étoile 4 branches posée sur l'horizon -->
+  <path d="M256 232
+           C262 270 270 286 300 300
+           C270 314 262 330 256 368
+           C250 330 242 314 212 300
+           C242 286 250 270 256 232 Z"
+        fill="#1B1B1D"/>
+  <!-- étincelle corail (haut droite) -->
+  <path d="M398 120
+           C402 140 408 148 426 152
+           C408 156 402 164 398 184
+           C394 164 388 156 370 152
+           C388 148 394 140 398 120 Z"
+        fill="#F2542D"/>
+</svg>

@@ -1,0 +1,24 @@
+{
+  "name": "lume",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run start:dev",
+    "lint": "turbo run lint",
+    "ios": "apps/ios/lume-ios.sh",
+    "ios:open": "apps/ios/lume-ios.sh open",
+    "ios:generate": "apps/ios/lume-ios.sh generate",
+    "ios:run": "apps/ios/lume-ios.sh run",
+    "ios:build": "apps/ios/lume-ios.sh build",
+    "ios:test": "apps/ios/lume-ios.sh test",
+    "ios:sim": "apps/ios/lume-ios.sh sim",
+    "ios:shot": "apps/ios/lume-ios.sh shot",
+    "ios:log": "apps/ios/lume-ios.sh log",
+    "ios:clean": "apps/ios/lume-ios.sh clean",
+    "ios:devices": "apps/ios/lume-ios.sh devices"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.6"
+  }
+}

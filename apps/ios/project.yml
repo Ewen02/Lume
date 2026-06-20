@@ -1,0 +1,76 @@
+name: Lume
+options:
+  bundleIdPrefix: com.ewen
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""            # ← Renseigne ton Team ID Apple Developer
+
+targets:
+  Lume:
+    type: application
+    platform: iOS
+    sources:
+      - path: Lume
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ewen.lume     # ← adapte si besoin
+        CODE_SIGN_ENTITLEMENTS: Lume.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: "YES"
+        TARGETED_DEVICE_FAMILY: "1"                   # iPhone uniquement
+    info:
+      path: Lume/Info.plist
+      properties:
+        CFBundleDisplayName: Lume
+        CFBundleShortVersionString: "1.0"
+        CFBundleVersion: "1"
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        # Permissions (obligatoires pour caméra / photos / Santé)
+        NSCameraUsageDescription: "Lume utilise l'appareil photo pour scanner et photographier tes repas."
+        NSPhotoLibraryUsageDescription: "Lume accède à tes photos pour analyser un repas depuis ta galerie."
+        NSHealthShareUsageDescription: "Lume lit ton poids et tes données d'activité depuis l'app Santé."
+        NSHealthUpdateUsageDescription: "Lume enregistre tes repas, ton eau et tes séances dans l'app Santé."
+        # CloudKit : notifications distantes en arrière-plan
+        # ⚠️ Désactivé pour Personal Team (compte gratuit) — réactiver avec un compte payant.
+        # UIBackgroundModes: [remote-notification]
+        # Config API (lue par LumeConfig depuis Info.plist)
+        # ⚠️ Dev : IP locale du Mac (iPhone + Mac sur le même WiFi). Adapter si l'IP change.
+        # localhost ne marche QUE sur simulateur ; sur device il faut l'IP du Mac.
+        LUME_API_BASE_URL: "http://192.168.1.14:3000"
+        # Doit être identique à API_TOKEN dans apps/server/.env
+        LUME_API_TOKEN: "6a2c72d98f6671d3a3488fc6f419a39775a0295a95d56f21d60956e150c734da"
+        # Autorise localhost en dev
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+
+  LumeTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: LumeTests
+    dependencies:
+      - target: Lume
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.ewen.lume.tests
+        GENERATE_INFOPLIST_FILE: "YES"
+
+schemes:
+  Lume:
+    build:
+      targets:
+        Lume: all
+        LumeTests: [test]
+    test:
+      targets:
+        - LumeTests

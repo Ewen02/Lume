@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Entitlements vidés pour build/run avec une Personal Team (compte Apple gratuit).
+      HealthKit, CloudKit et Push Notifications nécessitent un compte Apple Developer payant (99 €/an).
+      La version complète est sauvegardée dans Lume.entitlements.full-account.bak — à restaurer
+      (et à remettre UIBackgroundModes + le seed CloudKit) une fois le compte payant en place.
+    -->
+</dict>
+</plist>

@@ -1,0 +1,15 @@
+# deps / build
+node_modules/
+dist/
+.turbo/
+# env
+.env
+# macOS / Xcode
+.DS_Store
+*.xcuserstate
+xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+# Projet Xcode généré par XcodeGen (régénérer avec `pnpm ios:generate`)
+apps/ios/Lume.xcodeproj/
+# logs locaux
+*.log
