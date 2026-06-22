@@ -54,6 +54,7 @@ struct WorkoutSummaryView: View {
         summary: WorkoutSummary(
             from: [ExerciseSession(exercise: Exercise(name: "Développé couché", primary: .chest, equipment: "Barre"),
                                    sets: [SetEntry(reps: 8, weight: 80, rpe: nil), SetEntry(reps: 6, weight: 85, rpe: nil)])],
-            durationSec: 2535)
+            durationSec: 2535
+        )
     ) {}
 }

@@ -12,7 +12,16 @@ struct TodayView: View {
     @State private var showWater = false
     @State private var showSearch = false
     @State private var routeEntry: LoggedFood?
+    @State private var routeDay: DayRef?
     @State private var highlight = false
+
+    /// Référence de jour passée à la sheet d'historique (Date n'est pas Identifiable).
+    private struct DayRef: Identifiable {
+        let date: Date
+        var id: TimeInterval {
+            date.timeIntervalSince1970
+        }
+    }
 
     /// Change de valeur quand un repas vient d'être ajouté → déclenche l'animation de mise en valeur.
     var highlightTrigger: UUID = .init()
@@ -48,15 +57,24 @@ struct TodayView: View {
         waterLogs.first { cal.isDate($0.day, inSameDayAs: Date()) }?.glasses ?? 0
     }
 
-    private var week: [(String, Int, Double, Bool)] {
+    private struct WeekDay: Identifiable {
+        let id = UUID()
+        let date: Date
+        let letter: String
+        let dayNumber: Int
+        let progress: Double
+        let isToday: Bool
+    }
+
+    private var week: [WeekDay] {
         let letters = ["D", "L", "M", "M", "J", "V", "S"]
         let today0 = cal.startOfDay(for: Date())
         return (0 ..< 7).reversed().map { offset in
             let day = cal.date(byAdding: .day, value: -offset, to: today0)!
             let kcal = allFoods.filter { cal.isDate($0.date, inSameDayAs: day) }.reduce(0) { $0 + $1.kcal }
             let wd = cal.component(.weekday, from: day)
-            return (letters[wd - 1], cal.component(.day, from: day),
-                    min(1.0, Double(kcal) / Double(max(target.kcal, 1))), offset == 0)
+            return WeekDay(date: day, letter: letters[wd - 1], dayNumber: cal.component(.day, from: day),
+                           progress: min(1.0, Double(kcal) / Double(max(target.kcal, 1))), isToday: offset == 0)
         }
     }
 
@@ -101,9 +119,13 @@ struct TodayView: View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 header.lumeEntrance(0)
-                HStack { ForEach(week.indices, id: \.self) { i in
-                    let d = week[i]
-                    DayRing(letter: d.0, day: d.1, progress: d.2, isToday: d.3)
+                HStack { ForEach(Array(week.enumerated()), id: \.element.id) { i, d in
+                    Button {
+                        if !d.isToday { routeDay = DayRef(date: d.date) } // aujourd'hui = vue courante
+                    } label: {
+                        DayRing(letter: d.letter, day: d.dayNumber, progress: d.progress, isToday: d.isToday)
+                    }
+                    .buttonStyle(.lumePress)
                     if i < week.count - 1 { Spacer() }
                 } }
                 .lumeEntrance(1)
@@ -143,6 +165,7 @@ struct TodayView: View {
         .sheet(isPresented: $showWater) { WaterDetailView() }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $routeEntry) { FoodDetailView(entry: $0) }
+        .sheet(item: $routeDay) { DayHistoryView(day: $0.date) }
     }
 
     /// Un bloc « Repas du jour » : en-tête (titre + total) puis une ligne par aliment.

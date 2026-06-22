@@ -78,7 +78,9 @@ private struct ShimmerModifier: ViewModifier {
 }
 
 private extension View {
-    func shimmer() -> some View { modifier(ShimmerModifier()) }
+    func shimmer() -> some View {
+        modifier(ShimmerModifier())
+    }
 }
 
 /// Ligne fantôme imitant une carte d'aliment, affichée pendant le chargement.
