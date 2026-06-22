@@ -18,6 +18,7 @@ struct AnalyzeView: View {
     @State private var correcting: FoodItem?
     @State private var showFullImage = false
     @State private var didStart = false
+    @State private var dish: String?
     private let onLogged: () -> Void
 
     /// Mode démo / preview : aliments fournis directement.
@@ -66,9 +67,10 @@ struct AnalyzeView: View {
         for attempt in 0 ..< 3 {
             do {
                 let result = try await api.analyze(imageData: data)
-                items = result
-                per100g = Dictionary(uniqueKeysWithValues: result.map { ($0.id, basis($0)) })
-                phase = result.isEmpty ? .failed : .loaded
+                items = result.items
+                dish = result.dish
+                per100g = Dictionary(uniqueKeysWithValues: result.items.map { ($0.id, basis($0)) })
+                phase = result.items.isEmpty ? .failed : .loaded
                 return
             } catch {
                 #if DEBUG
@@ -90,11 +92,12 @@ struct AnalyzeView: View {
         // On ignore les aliments non résolus (macros à 0) pour ne pas polluer le journal.
         let kept = items.filter { $0.matched }
         guard !kept.isEmpty else { dismiss(); return }
+        let title = dish?.trimmingCharacters(in: .whitespaces)
         for it in kept {
             ctx.insert(LoggedFood(meal: meal, name: it.name, grams: it.grams,
                                   kcal: it.macros.kcal, protein: it.macros.protein,
                                   carbs: it.macros.carbs, fat: it.macros.fat,
-                                  mealGroupID: groupID, mealTitle: nil))
+                                  mealGroupID: groupID, mealTitle: title?.isEmpty == false ? title : nil))
         }
         let t = kept.reduce(Macros.zero) { $0 + $1.macros }
         Task { await health.logMeal(kcal: t.kcal, protein: t.protein, carbs: t.carbs, fat: t.fat) }
@@ -217,7 +220,11 @@ struct AnalyzeView: View {
     private var totalCard: some View {
         LumeCard(radius: Radius.xxl) {
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("Total du repas").font(.lumeSubhead).foregroundStyle(LumeColor.muted)
+                if let dish, !dish.isEmpty {
+                    Text(dish).font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+                } else {
+                    Text("Total du repas").font(.lumeSubhead).foregroundStyle(LumeColor.muted)
+                }
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(total.kcal)").font(.lumeNumberL).foregroundStyle(LumeColor.ink).monospacedDigit()
                         .contentTransition(.numericText(value: Double(total.kcal)))

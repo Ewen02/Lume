@@ -39,9 +39,15 @@ enum APIError: LocalizedError {
     }
 }
 
+/// Résultat d'une analyse photo : aliments détectés + nom du plat global (si reconnu).
+struct AnalyzedMeal {
+    var dish: String?
+    var items: [FoodItem]
+}
+
 /// Abstraction réseau injectable (permet un faux client en tests/preview).
 protocol FoodAPI {
-    func analyze(imageData: Data) async throws -> [FoodItem]
+    func analyze(imageData: Data) async throws -> AnalyzedMeal
     func barcode(_ code: String) async throws -> ScannedProduct?
     func search(_ q: String) async throws -> [ScannedProduct]
 }
@@ -73,7 +79,7 @@ struct APIClient: FoodAPI {
         let confidence: Double?
     }
 
-    private struct AnalyzeResponse: Decodable { let items: [AnalyzedItemDTO] }
+    private struct AnalyzeResponse: Decodable { let dish: String?; let items: [AnalyzedItemDTO] }
     private struct FoodDTO: Decodable { let name: String; let per100g: MacrosDTO; let source: String; let barcode: String? }
     private struct BarcodeResponse: Decodable { let product: FoodDTO? }
     private struct SearchResponse: Decodable { let results: [FoodDTO] }
@@ -103,8 +109,8 @@ struct APIClient: FoodAPI {
 
     // MARK: Endpoints
 
-    /// POST /analyze — image base64 → aliments détectés (macros déterministes côté serveur).
-    func analyze(imageData: Data) async throws -> [FoodItem] {
+    /// POST /analyze — image base64 → repas analysé (nom du plat + aliments, macros déterministes côté serveur).
+    func analyze(imageData: Data) async throws -> AnalyzedMeal {
         // Redimensionne avant envoi : upload + analyse Claude bien plus rapides, précision conservée.
         let payload = Self.downscaledJPEG(imageData) ?? imageData
         // Data URL complète : le serveur (et Claude vision) attend le préfixe data:image/jpeg;base64,
@@ -112,8 +118,9 @@ struct APIClient: FoodAPI {
         let body = try JSONSerialization.data(withJSONObject: ["image": dataURL])
         let req = try makeRequest("analyze", method: "POST", body: body)
         let res = try await send(req, as: AnalyzeResponse.self)
-        return res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model,
-                                        matched: $0.matched ?? true, confidence: $0.confidence ?? 1) }
+        let items = res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model,
+                                             matched: $0.matched ?? true, confidence: $0.confidence ?? 1) }
+        return AnalyzedMeal(dish: res.dish, items: items)
     }
 
     /// Réduit l'image à ~1024 px de côté max et la recompresse en JPEG (≈ quelques centaines de Ko).

@@ -13,6 +13,7 @@ struct TodayView: View {
     @State private var showSearch = false
     @State private var routeEntry: LoggedFood?
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
+    @State private var expanded: Set<String> = []
     @State private var highlight = false
 
     private var isToday: Bool {
@@ -86,8 +87,14 @@ struct TodayView: View {
         let icon: AppIcon
         let tint: Color
         let foods: [LoggedFood]
+        /// `true` pour un repas scanné (carte repliable avec macros), `false` pour un créneau d'ajouts isolés.
+        let isScannedMeal: Bool
         var kcal: Int {
             foods.reduce(0) { $0 + $1.kcal }
+        }
+
+        var macros: Macros {
+            foods.reduce(.zero) { $0 + $1.macros }
         }
     }
 
@@ -102,14 +109,14 @@ struct TodayView: View {
             let type = foods.first?.meal ?? .snack
             let title = foods.first?.mealTitle ?? "Repas scanné · \(type.title)"
             groups.append(DayGroup(id: gid.uuidString, title: title,
-                                   icon: .camera, tint: type.tint, foods: foods))
+                                   icon: .camera, tint: type.tint, foods: foods, isScannedMeal: true))
         }
         // 2) Aliments isolés (sans groupe) : regroupés par créneau.
         for type in MealType.allCases {
             let foods = dayFoods.filter { $0.meal == type && $0.mealGroupID == nil }
             if !foods.isEmpty {
                 groups.append(DayGroup(id: "meal-\(type.rawValue)", title: type.title,
-                                       icon: type.icon, tint: type.tint, foods: foods))
+                                       icon: type.icon, tint: type.tint, foods: foods, isScannedMeal: false))
             }
         }
         return groups
@@ -169,26 +176,77 @@ struct TodayView: View {
         .sheet(item: $routeEntry) { FoodDetailView(entry: $0) }
     }
 
-    /// Un bloc « Repas du jour » : en-tête (titre + total) puis une ligne par aliment.
+    @ViewBuilder
     private func mealGroup(_ group: DayGroup) -> some View {
-        VStack(alignment: .leading, spacing: Spacing.sm) {
-            HStack(spacing: Spacing.sm) {
-                Image(appIcon: group.icon).lumeIcon(15, weight: .semibold).foregroundStyle(group.tint)
-                Text(group.title).font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink)
-                    .lineLimit(1)
-                Spacer()
-                Text("\(group.kcal) kcal")
-                    .font(.lumeFootnote.weight(.semibold)).foregroundStyle(LumeColor.muted).monospacedDigit()
-            }
-            .padding(.horizontal, Spacing.xs)
-            ForEach(group.foods) { food in
-                FoodRow(name: food.name,
-                        detail: "\(food.grams) g · P \(food.protein) G \(food.carbs) L \(food.fat)",
-                        kcal: food.kcal,
-                        trailing: .forward) { routeEntry = food }
-                    .onTapGesture { routeEntry = food }
+        if group.isScannedMeal {
+            scannedMealCard(group)
+        } else {
+            // Créneau d'ajouts isolés : en-tête léger + lignes (toujours visibles).
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                groupHeaderLabel(group)
+                ForEach(group.foods) { food in foodLine(food) }
             }
         }
+    }
+
+    /// Carte synthétique d'un repas scanné : nom + total + chips P/G/L, repliable au tap.
+    private func scannedMealCard(_ group: DayGroup) -> some View {
+        let isOpen = expanded.contains(group.id)
+        return VStack(spacing: 0) {
+            Button {
+                withAnimation(LumeMotion.snappy) {
+                    if isOpen { expanded.remove(group.id) } else { expanded.insert(group.id) }
+                }
+            } label: {
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    HStack(spacing: Spacing.sm) {
+                        Image(appIcon: group.icon).lumeIcon(16, weight: .semibold).foregroundStyle(group.tint)
+                        Text(group.title).font(.lumeHeadline).foregroundStyle(LumeColor.ink).lineLimit(1)
+                        Spacer()
+                        Text("\(group.kcal) kcal").font(.lumeCallout.weight(.bold))
+                            .foregroundStyle(LumeColor.ink).monospacedDigit()
+                        Image(appIcon: isOpen ? .back : .forward)
+                            .lumeIcon(13, weight: .bold).foregroundStyle(LumeColor.muted)
+                            .rotationEffect(.degrees(isOpen ? 90 : 0))
+                    }
+                    HStack(spacing: Spacing.sm) {
+                        Chip(color: LumeColor.protein, text: "P \(group.macros.protein) g")
+                        Chip(color: LumeColor.carbs, text: "G \(group.macros.carbs) g")
+                        Chip(color: LumeColor.fat, text: "L \(group.macros.fat) g")
+                    }
+                }
+            }
+            .buttonStyle(.lumePress)
+            if isOpen {
+                VStack(spacing: Spacing.sm) {
+                    ForEach(group.foods) { food in foodLine(food) }
+                }
+                .padding(.top, Spacing.md)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .padding(Spacing.lg)
+        .background(LumeColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .lumeShadow(.soft)
+    }
+
+    private func groupHeaderLabel(_ group: DayGroup) -> some View {
+        HStack(spacing: Spacing.sm) {
+            Image(appIcon: group.icon).lumeIcon(15, weight: .semibold).foregroundStyle(group.tint)
+            Text(group.title).font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink).lineLimit(1)
+            Spacer()
+            Text("\(group.kcal) kcal")
+                .font(.lumeFootnote.weight(.semibold)).foregroundStyle(LumeColor.muted).monospacedDigit()
+        }
+        .padding(.horizontal, Spacing.xs)
+    }
+
+    private func foodLine(_ food: LoggedFood) -> some View {
+        FoodRow(name: food.name,
+                detail: "\(food.grams) g · P \(food.protein) G \(food.carbs) L \(food.fat)",
+                kcal: food.kcal, trailing: .forward) { routeEntry = food }
+            .onTapGesture { routeEntry = food }
     }
 
     private var header: some View {
