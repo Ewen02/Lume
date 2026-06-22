@@ -55,6 +55,8 @@ enum AppIcon: String {
     case close = "xmark"
     case validate = "checkmark.circle.fill"
     case edit = "pencil"
+    case more = "ellipsis"
+    case trash
     case favorite = "star.fill"
     case recents = "clock.arrow.circlepath"
     case settings = "gearshape.fill"

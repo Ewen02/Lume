@@ -245,30 +245,43 @@ struct TodayView: View {
     private func scannedMealCard(_ group: DayGroup) -> some View {
         let isOpen = expanded.contains(group.id)
         return VStack(spacing: 0) {
-            Button {
-                withAnimation(LumeMotion.bouncy) {
-                    if isOpen { expanded.remove(group.id) } else { expanded.insert(group.id) }
+            HStack(alignment: .top, spacing: Spacing.sm) {
+                Button {
+                    withAnimation(LumeMotion.bouncy) {
+                        if isOpen { expanded.remove(group.id) } else { expanded.insert(group.id) }
+                    }
+                } label: {
+                    VStack(alignment: .leading, spacing: Spacing.sm) {
+                        HStack(spacing: Spacing.sm) {
+                            Image(appIcon: group.icon).lumeIcon(16, weight: .semibold).foregroundStyle(group.tint)
+                            Text(group.title).font(.lumeHeadline).foregroundStyle(LumeColor.ink).lineLimit(1)
+                            Spacer()
+                            Text("\(group.kcal) kcal").font(.lumeCallout.weight(.bold))
+                                .foregroundStyle(LumeColor.ink).monospacedDigit()
+                            Image(appIcon: .forward)
+                                .lumeIcon(13, weight: .bold).foregroundStyle(LumeColor.muted)
+                                .rotationEffect(.degrees(isOpen ? 90 : 0)) // chevron qui pivote en douceur
+                        }
+                        HStack(spacing: Spacing.sm) {
+                            Chip(color: LumeColor.protein, text: "P \(group.macros.protein) g")
+                            Chip(color: LumeColor.carbs, text: "G \(group.macros.carbs) g")
+                            Chip(color: LumeColor.fat, text: "L \(group.macros.fat) g")
+                        }
+                    }
                 }
-            } label: {
-                VStack(alignment: .leading, spacing: Spacing.sm) {
-                    HStack(spacing: Spacing.sm) {
-                        Image(appIcon: group.icon).lumeIcon(16, weight: .semibold).foregroundStyle(group.tint)
-                        Text(group.title).font(.lumeHeadline).foregroundStyle(LumeColor.ink).lineLimit(1)
-                        Spacer()
-                        Text("\(group.kcal) kcal").font(.lumeCallout.weight(.bold))
-                            .foregroundStyle(LumeColor.ink).monospacedDigit()
-                        Image(appIcon: .forward)
-                            .lumeIcon(13, weight: .bold).foregroundStyle(LumeColor.muted)
-                            .rotationEffect(.degrees(isOpen ? 90 : 0)) // chevron qui pivote en douceur
+                .buttonStyle(.lumePress)
+
+                // Menu d'actions : accessible sans déplier la carte.
+                Menu {
+                    Button { requestRename(group) } label: { Label("Renommer", systemImage: "pencil") }
+                    Button(role: .destructive) { requestDelete(group) } label: {
+                        Label("Supprimer le repas", systemImage: "trash")
                     }
-                    HStack(spacing: Spacing.sm) {
-                        Chip(color: LumeColor.protein, text: "P \(group.macros.protein) g")
-                        Chip(color: LumeColor.carbs, text: "G \(group.macros.carbs) g")
-                        Chip(color: LumeColor.fat, text: "L \(group.macros.fat) g")
-                    }
+                } label: {
+                    Image(appIcon: .more).lumeIcon(16, weight: .bold).foregroundStyle(LumeColor.muted)
+                        .frame(width: 30, height: 30).contentShape(Rectangle())
                 }
             }
-            .buttonStyle(.lumePress)
 
             // Dépliement : les ingrédients se révèlent en cascade (stagger), avec un
             // masquage propre par hauteur (clipped) pour éviter tout chevauchement saccadé.
@@ -280,16 +293,6 @@ struct TodayView: View {
                         .offset(y: isOpen ? 0 : -8)
                         .animation(LumeMotion.smooth.delay(isOpen ? Double(idx) * 0.05 : 0), value: isOpen)
                 }
-                // Actions du repas : renommer + supprimer.
-                HStack(spacing: Spacing.sm) {
-                    Button { requestRename(group) } label: {
-                        actionLabel(icon: .edit, text: "Renommer", tint: LumeColor.ink)
-                    }.buttonStyle(.lumePress)
-                    Button(role: .destructive) { requestDelete(group) } label: {
-                        actionLabel(icon: .minusCircle, text: "Supprimer", tint: LumeColor.negative)
-                    }.buttonStyle(.lumePress)
-                }
-                .opacity(isOpen ? 1 : 0)
             }
             .padding(.top, Spacing.sm)
             .frame(maxHeight: isOpen ? .infinity : 0, alignment: .top)
@@ -302,6 +305,9 @@ struct TodayView: View {
         .lumeShadow(.soft)
         .animation(LumeMotion.bouncy, value: isOpen)
         .contextMenu {
+            Button { requestRename(group) } label: {
+                Label("Renommer", systemImage: "pencil")
+            }
             Button(role: .destructive) { requestDelete(group) } label: {
                 Label("Supprimer le repas", systemImage: "trash")
             }
@@ -315,17 +321,6 @@ struct TodayView: View {
 
     private func requestRename(_ group: DayGroup) {
         mealToRename = DeletableMeal(id: group.id, title: group.title, foods: group.foods)
-    }
-
-    private func actionLabel(icon: AppIcon, text: String, tint: Color) -> some View {
-        HStack(spacing: Spacing.xs) {
-            Image(appIcon: icon).lumeIcon(14, weight: .semibold)
-            Text(text).font(.lumeSubhead.weight(.semibold))
-        }
-        .foregroundStyle(tint)
-        .frame(maxWidth: .infinity).padding(.vertical, Spacing.sm + 2)
-        .background(tint.opacity(0.08))
-        .clipShape(Capsule())
     }
 
     private func groupHeaderLabel(_ group: DayGroup) -> some View {
