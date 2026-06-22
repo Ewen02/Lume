@@ -12,15 +12,11 @@ struct TodayView: View {
     @State private var showWater = false
     @State private var showSearch = false
     @State private var routeEntry: LoggedFood?
-    @State private var routeDay: DayRef?
+    @State private var selectedDay = Calendar.current.startOfDay(for: Date())
     @State private var highlight = false
 
-    /// Référence de jour passée à la sheet d'historique (Date n'est pas Identifiable).
-    private struct DayRef: Identifiable {
-        let date: Date
-        var id: TimeInterval {
-            date.timeIntervalSince1970
-        }
+    private var isToday: Bool {
+        cal.isDateInToday(selectedDay)
     }
 
     /// Change de valeur quand un repas vient d'être ajouté → déclenche l'animation de mise en valeur.
@@ -44,17 +40,19 @@ struct TodayView: View {
         StreakCalculator.currentStreak(from: streakFoods.map(\.date))
     }
 
-    private var todayFoods: [LoggedFood] {
-        let start = cal.startOfDay(for: Date())
-        return allFoods.filter { $0.date >= start }
+    /// Repas du jour SÉLECTIONNÉ (aujourd'hui par défaut, ou un jour passé de la semaine).
+    private var dayFoods: [LoggedFood] {
+        allFoods.filter { cal.isDate($0.date, inSameDayAs: selectedDay) }
     }
 
     private var consumed: Macros {
-        todayFoods.reduce(.zero) { $0 + $1.macros }
+        dayFoods.reduce(.zero) { $0 + $1.macros }
     }
 
+    /// L'eau n'est chargée que pour aujourd'hui (la query est bornée au jour courant).
     private var water: Int {
-        waterLogs.first { cal.isDate($0.day, inSameDayAs: Date()) }?.glasses ?? 0
+        guard isToday else { return 0 }
+        return waterLogs.first { cal.isDate($0.day, inSameDayAs: Date()) }?.glasses ?? 0
     }
 
     private struct WeekDay: Identifiable {
@@ -64,6 +62,7 @@ struct TodayView: View {
         let dayNumber: Int
         let progress: Double
         let isToday: Bool
+        let isSelected: Bool
     }
 
     private var week: [WeekDay] {
@@ -74,7 +73,8 @@ struct TodayView: View {
             let kcal = allFoods.filter { cal.isDate($0.date, inSameDayAs: day) }.reduce(0) { $0 + $1.kcal }
             let wd = cal.component(.weekday, from: day)
             return WeekDay(date: day, letter: letters[wd - 1], dayNumber: cal.component(.day, from: day),
-                           progress: min(1.0, Double(kcal) / Double(max(target.kcal, 1))), isToday: offset == 0)
+                           progress: min(1.0, Double(kcal) / Double(max(target.kcal, 1))),
+                           isToday: offset == 0, isSelected: cal.isDate(day, inSameDayAs: selectedDay))
         }
     }
 
@@ -95,10 +95,10 @@ struct TodayView: View {
         var groups: [DayGroup] = []
         // 1) Repas scannés : un bloc par mealGroupID (ordre d'apparition).
         var seenGroups = Set<UUID>()
-        for food in todayFoods {
+        for food in dayFoods {
             guard let gid = food.mealGroupID, !seenGroups.contains(gid) else { continue }
             seenGroups.insert(gid)
-            let foods = todayFoods.filter { $0.mealGroupID == gid }
+            let foods = dayFoods.filter { $0.mealGroupID == gid }
             let type = foods.first?.meal ?? .snack
             let title = foods.first?.mealTitle ?? "Repas scanné · \(type.title)"
             groups.append(DayGroup(id: gid.uuidString, title: title,
@@ -106,7 +106,7 @@ struct TodayView: View {
         }
         // 2) Aliments isolés (sans groupe) : regroupés par créneau.
         for type in MealType.allCases {
-            let foods = todayFoods.filter { $0.meal == type && $0.mealGroupID == nil }
+            let foods = dayFoods.filter { $0.meal == type && $0.mealGroupID == nil }
             if !foods.isEmpty {
                 groups.append(DayGroup(id: "meal-\(type.rawValue)", title: type.title,
                                        icon: type.icon, tint: type.tint, foods: foods))
@@ -121,14 +121,16 @@ struct TodayView: View {
                 header.lumeEntrance(0)
                 HStack { ForEach(Array(week.enumerated()), id: \.element.id) { i, d in
                     Button {
-                        if !d.isToday { routeDay = DayRef(date: d.date) } // aujourd'hui = vue courante
+                        withAnimation(LumeMotion.smooth) { selectedDay = d.date }
                     } label: {
-                        DayRing(letter: d.letter, day: d.dayNumber, progress: d.progress, isToday: d.isToday)
+                        DayRing(letter: d.letter, day: d.dayNumber, progress: d.progress,
+                                isToday: d.isToday, isSelected: d.isSelected)
                     }
                     .buttonStyle(.lumePress)
                     if i < week.count - 1 { Spacer() }
                 } }
                 .lumeEntrance(1)
+                .sensoryFeedback(.selection, trigger: selectedDay)
                 CalorieCard(consumed: consumed.kcal, goal: target.kcal)
                     .scaleEffect(highlight ? 1.04 : 1)
                     .shadow(color: LumeColor.protein.opacity(highlight ? 0.45 : 0), radius: highlight ? 18 : 0)
@@ -153,7 +155,7 @@ struct TodayView: View {
                 }
             }
             .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 130)
-            .animation(LumeMotion.snappy, value: todayFoods.count)
+            .animation(LumeMotion.snappy, value: dayFoods.count)
         }
         .background(LumeColor.cream)
         .onChange(of: highlightTrigger) { _, _ in
@@ -165,7 +167,6 @@ struct TodayView: View {
         .sheet(isPresented: $showWater) { WaterDetailView() }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $routeEntry) { FoodDetailView(entry: $0) }
-        .sheet(item: $routeDay) { DayHistoryView(day: $0.date) }
     }
 
     /// Un bloc « Repas du jour » : en-tête (titre + total) puis une ligne par aliment.
@@ -191,27 +192,39 @@ struct TodayView: View {
     }
 
     private var header: some View {
-        HStack {
+        HStack(spacing: Spacing.sm) {
+            // Sur un jour passé : flèche pour revenir à aujourd'hui.
+            if !isToday {
+                Button { withAnimation(LumeMotion.smooth) { selectedDay = cal.startOfDay(for: Date()) } } label: {
+                    Image(appIcon: .back).lumeIcon(18, weight: .semibold).foregroundStyle(LumeColor.ink)
+                        .frame(width: 40, height: 40).background(LumeColor.surface).clipShape(Circle()).lumeShadow(.soft)
+                }
+                .buttonStyle(.lumePress)
+                .accessibilityLabel("Revenir à aujourd'hui")
+                .transition(.move(edge: .leading).combined(with: .opacity))
+            }
             VStack(alignment: .leading, spacing: 2) {
-                Text(Self.dateString).font(.lumeSubhead).foregroundStyle(LumeColor.muted)
-                Text("Aujourd'hui").font(.lumeDisplay).foregroundStyle(LumeColor.ink)
+                Text(Formatters.dayMonthFR.string(from: selectedDay).capitalized)
+                    .font(.lumeSubhead).foregroundStyle(LumeColor.muted)
+                Text(isToday ? "Aujourd'hui" : "Historique")
+                    .font(.lumeDisplay).foregroundStyle(LumeColor.ink)
+                    .contentTransition(.opacity)
             }
             Spacer()
-            if streak > 0 { StreakPill(days: streak) }
+            if isToday, streak > 0 { StreakPill(days: streak) }
             Button { showSearch = true } label: {
                 Image(appIcon: .search).lumeIcon(20, weight: .semibold).foregroundStyle(LumeColor.ink)
                     .frame(width: 40, height: 40).background(LumeColor.surface).clipShape(Circle()).lumeShadow(.soft)
-            }.buttonStyle(.lumePress)
+            }
+            .buttonStyle(.lumePress)
+            .accessibilityLabel("Rechercher un aliment")
         }
     }
 
     private var emptyState: some View {
-        LumeEmptyState(icon: .camera, title: "Aucun repas aujourd'hui",
-                       message: "Touche + pour scanner ton premier plat")
-    }
-
-    static var dateString: String {
-        Formatters.dayMonthFR.string(from: Date()).capitalized
+        LumeEmptyState(icon: .camera,
+                       title: isToday ? "Aucun repas aujourd'hui" : "Aucun repas ce jour-là",
+                       message: isToday ? "Touche + pour scanner ton premier plat" : nil)
     }
 }
 
