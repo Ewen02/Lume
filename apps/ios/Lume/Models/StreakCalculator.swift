@@ -43,4 +43,21 @@ enum StreakCalculator {
         }
         return streak
     }
+
+    /// Plus longue série historique (record), tous jours confondus.
+    static func longestStreak(from dates: [Date], calendar: Calendar = .current) -> Int {
+        guard !dates.isEmpty else { return 0 }
+        let days = Set(dates.map { calendar.startOfDay(for: $0) }).sorted()
+        var best = 1, run = 1
+        for i in 1 ..< days.count {
+            if let prev = calendar.date(byAdding: .day, value: 1, to: days[i - 1]),
+               calendar.isDate(prev, inSameDayAs: days[i]) {
+                run += 1
+            } else {
+                run = 1
+            }
+            best = max(best, run)
+        }
+        return best
+    }
 }

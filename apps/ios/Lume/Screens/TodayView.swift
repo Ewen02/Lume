@@ -18,6 +18,7 @@ struct TodayView: View {
     @State private var mealToDelete: DeletableMeal?
     @State private var mealToRename: DeletableMeal?
     @State private var didDelete = false
+    @State private var showStreak = false
     @State private var highlight = false
 
     /// Repas en attente de confirmation de suppression.
@@ -50,6 +51,10 @@ struct TodayView: View {
 
     private var streak: Int {
         StreakCalculator.currentStreak(from: streakFoods.map(\.date))
+    }
+
+    private var streakRecord: Int {
+        StreakCalculator.longestStreak(from: streakFoods.map(\.date))
     }
 
     /// Repas du jour SÉLECTIONNÉ (aujourd'hui par défaut, ou un jour passé de la semaine).
@@ -198,6 +203,9 @@ struct TodayView: View {
                              confirmTitle: "Supprimer le repas") { confirmDelete(meal) }
         }
         .sensoryFeedback(.success, trigger: didDelete)
+        .sheet(isPresented: $showStreak) {
+            StreakDetailView(streak: streak, record: streakRecord)
+        }
         .sheet(item: $mealToRename) { meal in
             MealRenameSheet(currentName: meal.title) { newName in
                 rename(meal, to: newName)
@@ -361,7 +369,11 @@ struct TodayView: View {
                     .contentTransition(.opacity)
             }
             Spacer()
-            if isToday, streak > 0 { StreakPill(days: streak) }
+            if isToday, streak > 0 {
+                Button { showStreak = true } label: { StreakPill(days: streak) }
+                    .buttonStyle(.lumePress)
+                    .accessibilityLabel("Série de \(streak) jours")
+            }
             Button { showSearch = true } label: {
                 Image(appIcon: .search).lumeIcon(20, weight: .semibold).foregroundStyle(LumeColor.ink)
                     .frame(width: 40, height: 40).background(LumeColor.surface).clipShape(Circle()).lumeShadow(.soft)

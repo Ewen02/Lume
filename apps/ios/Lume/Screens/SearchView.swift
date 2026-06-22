@@ -1,30 +1,52 @@
+import SwiftData
 import SwiftUI
 
 struct SearchView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.foodAPI) private var api
+    @Environment(\.modelContext) private var ctx
+    @Query(sort: \LoggedFood.date, order: .reverse) private var logged: [LoggedFood]
+    @Query(sort: \FavoriteFood.addedAt, order: .reverse) private var favorites: [FavoriteFood]
+
     @State private var query = ""
     @State private var tab = 0
-    private var results: [FoodItem] {
-        query.isEmpty ? Mock.foods : Mock.foods.filter { $0.name.localizedCaseInsensitiveContains(query) }
+    @State private var results: [ScannedProduct] = []
+    @State private var loading = false
+    @State private var routeFood: FoodItem?
+
+    /// Récents : derniers aliments distincts du journal (par nom).
+    private var recents: [ScannedProduct] {
+        var seen = Set<String>()
+        var out: [ScannedProduct] = []
+        for f in logged where !seen.contains(f.name.lowercased()) {
+            seen.insert(f.name.lowercased())
+            // Ramène les macros à 100 g comme base de recherche.
+            let factor = 100.0 / Double(max(f.grams, 1))
+            out.append(ScannedProduct(name: f.name, code: "", source: "Journal",
+                                      per100g: f.macros.scaled(factor)))
+            if out.count >= 20 { break }
+        }
+        return out
+    }
+
+    private var favProducts: [ScannedProduct] {
+        favorites.map { ScannedProduct(name: $0.name, code: "", source: "Favori", per100g: $0.per100g) }
     }
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
-            SearchBar(text: $query)
-            SegmentedPicker(options: ["Résultats", "Favoris", "Récents"], selection: $tab)
+            SearchBar(text: $query, placeholder: "Rechercher un aliment")
+                .onSubmit { Task { await runSearch() } }
+                .onChange(of: query) { _, v in if v.isEmpty { results = [] } }
+            SegmentedPicker(options: ["Recherche", "Récents", "Favoris"], selection: $tab)
+
             ScrollView {
-                VStack(spacing: Spacing.sm) {
-                    if results.isEmpty {
-                        LumeEmptyState(icon: .search, title: "Aucun résultat",
-                                       message: "Essaie un autre nom d'aliment.")
-                    } else {
-                        ForEach(results) { f in
-                            FoodRow(name: f.name,
-                                    detail: "\(f.grams) g · P \(f.macros.protein) G \(f.macros.carbs) L \(f.macros.fat)",
-                                    kcal: f.macros.kcal)
-                        }
-                    }
-                }.padding(.bottom, Spacing.xxl)
+                LazyVStack(spacing: Spacing.sm) {
+                    content
+                }
+                .padding(.bottom, Spacing.xxl)
+                .animation(LumeMotion.smooth, value: tab)
+                .animation(LumeMotion.smooth, value: loading)
             }
             Spacer(minLength: 0)
         }
@@ -34,7 +56,96 @@ struct SearchView: View {
             TopBar(title: "Rechercher", leading: .back, onLeading: { dismiss() })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
+        .sheet(item: $routeFood) { FoodDetailView(food: $0, meal: .snack, canAddToJournal: true) }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch tab {
+        case 0: searchTab
+        case 1: list(recents, icon: .recents, emptyTitle: "Aucun aliment récent",
+                     emptyMsg: "Les aliments que tu logues apparaîtront ici.")
+        default: favoritesTab
+        }
+    }
+
+    @ViewBuilder
+    private var searchTab: some View {
+        if loading {
+            LumeSkeletonList(count: 6)
+        } else if query.isEmpty {
+            LumeEmptyState(icon: .search, title: "Recherche un aliment",
+                           message: "Tape un nom (français ou anglais) puis valide.")
+        } else if results.isEmpty {
+            LumeEmptyState(icon: .search, title: "Aucun résultat",
+                           message: "Essaie un autre nom.")
+        } else {
+            ForEach(results) { row($0, favoritable: true) }
+        }
+    }
+
+    @ViewBuilder
+    private var favoritesTab: some View {
+        if favProducts.isEmpty {
+            LumeEmptyState(icon: .favorite, title: "Aucun favori",
+                           message: "Épingle un aliment (appui long) pour le retrouver vite.")
+        } else {
+            ForEach(favProducts) { row($0, favoritable: false) }
+        }
+    }
+
+    @ViewBuilder
+    private func list(_ items: [ScannedProduct], icon: AppIcon, emptyTitle: String, emptyMsg: String) -> some View {
+        if items.isEmpty {
+            LumeEmptyState(icon: icon, title: emptyTitle, message: emptyMsg)
+        } else {
+            ForEach(items) { row($0, favoritable: true) }
+        }
+    }
+
+    private func row(_ product: ScannedProduct, favoritable: Bool) -> some View {
+        Button { routeFood = item(from: product) } label: {
+            FoodRow(name: product.name,
+                    detail: "\(product.per100g.kcal) kcal / 100 g · \(product.source)",
+                    kcal: product.per100g.kcal, trailing: .add)
+        }
+        .buttonStyle(.lumePress)
+        .contextMenu {
+            if favoritable, !isFavorite(product) {
+                Button { addFavorite(product) } label: { Label("Ajouter aux favoris", systemImage: "star") }
+            }
+            if isFavorite(product) {
+                Button(role: .destructive) { removeFavorite(product) } label: {
+                    Label("Retirer des favoris", systemImage: "star.slash")
+                }
+            }
+        }
+    }
+
+    private func item(from p: ScannedProduct) -> FoodItem {
+        FoodItem(name: p.name, grams: 100, macros: p.per100g)
+    }
+
+    private func isFavorite(_ p: ScannedProduct) -> Bool {
+        favorites.contains { $0.name.lowercased() == p.name.lowercased() }
+    }
+
+    private func addFavorite(_ p: ScannedProduct) {
+        guard !isFavorite(p) else { return }
+        ctx.insert(FavoriteFood(name: p.name, per100g: p.per100g))
+    }
+
+    private func removeFavorite(_ p: ScannedProduct) {
+        for f in favorites where f.name.lowercased() == p.name.lowercased() { ctx.delete(f) }
+    }
+
+    private func runSearch() async {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { results = []; return }
+        loading = true
+        defer { loading = false }
+        results = (try? await api.search(q)) ?? []
     }
 }
 
-#Preview { SearchView() }
+#Preview { SearchView().modelContainer(LumeStore.preview) }
