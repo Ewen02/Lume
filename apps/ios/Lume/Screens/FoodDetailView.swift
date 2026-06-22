@@ -4,8 +4,10 @@ import SwiftUI
 struct FoodDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
+    @Query private var favorites: [FavoriteFood]
     @State private var grams: Int
     @State private var added = false
+    @State private var favToggled = false
     private let base: FoodItem
     private let meal: MealType
     /// `true` quand l'aliment n'est pas encore au journal (recherche/favoris) → bouton d'ajout.
@@ -109,10 +111,30 @@ struct FoodDetailView: View {
         }
         .background(LumeColor.cream.ignoresSafeArea())
         .sensoryFeedback(.success, trigger: added)
+        .sensoryFeedback(.impact(weight: .light), trigger: favToggled)
         .safeAreaInset(edge: .top) {
-            // Favoris pas encore implémentés → on n'affiche pas un bouton trompeur (cf. audit).
-            TopBar(title: "Aliment", leading: .back, onLeading: { dismiss() })
+            TopBar(title: "Aliment", leading: .back,
+                   trailing: isFavorite ? .favorite : .favoriteOutline,
+                   onLeading: { dismiss() }, onTrailing: { toggleFavorite() })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
+        }
+    }
+
+    /// Macros ramenées à 100 g (base de référence d'un favori).
+    private var per100g: Macros {
+        base.macros.scaled(100.0 / Double(max(base.grams, 1)))
+    }
+
+    private var isFavorite: Bool {
+        favorites.contains { $0.name.lowercased() == base.name.lowercased() }
+    }
+
+    private func toggleFavorite() {
+        favToggled.toggle()
+        if let existing = favorites.first(where: { $0.name.lowercased() == base.name.lowercased() }) {
+            ctx.delete(existing)
+        } else {
+            ctx.insert(FavoriteFood(name: base.name, per100g: per100g))
         }
     }
 

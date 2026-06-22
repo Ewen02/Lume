@@ -51,7 +51,8 @@ enum StreakCalculator {
         var best = 1, run = 1
         for i in 1 ..< days.count {
             if let prev = calendar.date(byAdding: .day, value: 1, to: days[i - 1]),
-               calendar.isDate(prev, inSameDayAs: days[i]) {
+               calendar.isDate(prev, inSameDayAs: days[i])
+            {
                 run += 1
             } else {
                 run = 1

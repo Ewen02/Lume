@@ -136,7 +136,9 @@ struct SearchView: View {
     }
 
     private func removeFavorite(_ p: ScannedProduct) {
-        for f in favorites where f.name.lowercased() == p.name.lowercased() { ctx.delete(f) }
+        for f in favorites where f.name.lowercased() == p.name.lowercased() {
+            ctx.delete(f)
+        }
     }
 
     private func runSearch() async {

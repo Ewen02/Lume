@@ -25,8 +25,13 @@ struct StreakFlame: View {
         }
     }
 
-    private var glowRadius: CGFloat { 4 + intensity * 16 }
-    private var scale: CGFloat { 1 + intensity * 0.5 }
+    private var glowRadius: CGFloat {
+        4 + intensity * 16
+    }
+
+    private var scale: CGFloat {
+        1 + intensity * 0.5
+    }
 
     var body: some View {
         Image(appIcon: .streak)

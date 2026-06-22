@@ -6,6 +6,7 @@ struct ProgressDashboardView: View {
     @Environment(HealthManager.self) private var health
     @Query private var weekFoods: [LoggedFood] // borné aux 7 derniers jours
     @Query(sort: \LoggedFood.date, order: .reverse) private var allFoods: [LoggedFood]
+    @State private var showStreak = false
 
     init() {
         let weekStart = Calendar.current.date(byAdding: .day, value: -6,
@@ -25,6 +26,10 @@ struct ProgressDashboardView: View {
 
     private var streak: Int {
         StreakCalculator.currentStreak(from: allFoods.map(\.date))
+    }
+
+    private var streakRecord: Int {
+        StreakCalculator.longestStreak(from: allFoods.map(\.date))
     }
 
     private var current: Double {
@@ -50,7 +55,9 @@ struct ProgressDashboardView: View {
                 .lumeEntrance(0)
                 HStack(spacing: Spacing.md) {
                     StatTile(icon: .calories, tint: LumeColor.carbs, value: "\(avgKcal)", label: "Moy. kcal / jour")
-                    StatTile(icon: .streak, tint: LumeColor.protein, value: streak > 0 ? "\(streak) j" : "—", label: "Série en cours")
+                    Button { if streak > 0 { showStreak = true } } label: {
+                        StatTile(icon: .streak, tint: LumeColor.protein, value: streak > 0 ? "\(streak) j" : "—", label: "Série en cours")
+                    }.buttonStyle(.lumePress)
                 }
                 .lumeEntrance(1)
                 weightCard.lumeEntrance(2)
@@ -66,6 +73,9 @@ struct ProgressDashboardView: View {
                 .background(LumeColor.cream)
         }
         .task { await health.requestAuthorization() }
+        .sheet(isPresented: $showStreak) {
+            StreakDetailView(streak: streak, record: streakRecord)
+        }
     }
 
     private var weightCard: some View {
