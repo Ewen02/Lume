@@ -37,7 +37,9 @@ struct SearchView: View {
         VStack(spacing: Spacing.lg) {
             SearchBar(text: $query, placeholder: "Rechercher un aliment")
                 .onSubmit { Task { await runSearch() } }
-                .onChange(of: query) { _, v in if v.isEmpty { results = [] } }
+                .onChange(of: query) { _, v in
+                    if v.isEmpty { results = [] } else { Task { await debouncedSearch(v) } }
+                }
             SegmentedPicker(options: ["Recherche", "Récents", "Favoris"], selection: $tab)
 
             ScrollView {
@@ -69,18 +71,42 @@ struct SearchView: View {
         }
     }
 
+    /// Correspondances dans tes données françaises (journal + favoris), filtrées par la requête.
+    private var localMatches: [ScannedProduct] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return [] }
+        var seen = Set<String>()
+        var out: [ScannedProduct] = []
+        for p in favProducts + recents where p.name.lowercased().contains(q) {
+            let key = p.name.lowercased()
+            if !seen.contains(key) { seen.insert(key); out.append(p) }
+        }
+        return out
+    }
+
+    /// Résultats affichés : tes aliments (français) d'abord, puis l'API (anglais), dédupliqués.
+    private var combinedResults: [ScannedProduct] {
+        var seen = Set(localMatches.map { $0.name.lowercased() })
+        var out = localMatches
+        for r in results where !seen.contains(r.name.lowercased()) {
+            seen.insert(r.name.lowercased()); out.append(r)
+        }
+        return out
+    }
+
     @ViewBuilder
     private var searchTab: some View {
-        if loading {
-            LumeSkeletonList(count: 6)
-        } else if query.isEmpty {
+        let items = combinedResults
+        if query.isEmpty {
             LumeEmptyState(icon: .search, title: "Recherche un aliment",
-                           message: "Tape un nom (français ou anglais) puis valide.")
-        } else if results.isEmpty {
+                           message: "Tape un nom puis valide. Astuce : pour la base mondiale, l'anglais marche mieux (ex. « chicken »).")
+        } else if loading, items.isEmpty {
+            LumeSkeletonList(count: 6)
+        } else if items.isEmpty {
             LumeEmptyState(icon: .search, title: "Aucun résultat",
-                           message: "Essaie un autre nom.")
+                           message: "Essaie en anglais (ex. « lettuce » pour laitue).")
         } else {
-            ForEach(results) { row($0, favoritable: true) }
+            ForEach(items) { row($0, favoritable: true) }
         }
     }
 
@@ -139,6 +165,14 @@ struct SearchView: View {
         for f in favorites where f.name.lowercased() == p.name.lowercased() {
             ctx.delete(f)
         }
+    }
+
+    /// Recherche API automatique après une pause de frappe (debounce), pour ≥ 3 lettres.
+    private func debouncedSearch(_ typed: String) async {
+        try? await Task.sleep(nanoseconds: 500_000_000)
+        // Annule si le texte a changé entre-temps.
+        guard typed == query, typed.trimmingCharacters(in: .whitespaces).count >= 3 else { return }
+        await runSearch()
     }
 
     private func runSearch() async {
