@@ -17,10 +17,11 @@ class FakeDb implements NutritionDbPort {
 
 describe('NutritionResolver', () => {
   const resolver = new NutritionResolver(new FakeDb());
+  const meal = (...items: RecognizedItem[]) => ({ dish: null, items });
 
   it('recalcule les macros depuis la base (jamais depuis l’entrée)', async () => {
-    const meal = await resolver.resolve([new RecognizedItem('riz', 200, 0.9)]);
-    const it = meal.items[0];
+    const result = await resolver.resolve(meal(new RecognizedItem('riz', 200, 0.9)));
+    const it = result.items[0];
     expect(it.matched).toBe(true);
     expect(it.source).toBe('USDA');
     // 130/100 * 200 = 260 kcal, etc. (déterministe)
@@ -28,18 +29,23 @@ describe('NutritionResolver', () => {
   });
 
   it('aliment non trouvé → macros à zéro + matched:false', async () => {
-    const meal = await resolver.resolve([new RecognizedItem('licorne', 100, 0.4)]);
-    const it = meal.items[0];
+    const result = await resolver.resolve(meal(new RecognizedItem('licorne', 100, 0.4)));
+    const it = result.items[0];
     expect(it.matched).toBe(false);
     expect([it.macros.kcal, it.macros.protein, it.macros.carbs, it.macros.fat]).toEqual([0, 0, 0, 0]);
   });
 
   it('total ne plante pas avec un item non reconnu (régression du bug as any)', async () => {
-    const meal = await resolver.resolve([
+    const result = await resolver.resolve(meal(
       new RecognizedItem('riz', 200, 0.9),
       new RecognizedItem('licorne', 100, 0.4),
-    ]);
-    expect(() => meal.total).not.toThrow();
-    expect(meal.total.kcal).toBe(260); // 260 + 0
+    ));
+    expect(() => result.total).not.toThrow();
+    expect(result.total.kcal).toBe(260); // 260 + 0
+  });
+
+  it('propage le nom du plat (dish)', async () => {
+    const result = await resolver.resolve({ dish: 'Burger', items: [new RecognizedItem('riz', 100, 0.9)] });
+    expect(result.dish).toBe('Burger');
   });
 });

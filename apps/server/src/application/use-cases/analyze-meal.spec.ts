@@ -1,15 +1,15 @@
 import { AnalyzeMealUseCase } from './analyze-meal.usecase';
 import { NutritionResolver } from '../../domain/services/nutrition-resolver.service';
 import { NutritionDbPort } from '../../domain/ports/nutrition-db.port';
-import { VisionPort } from '../../domain/ports/vision.port';
+import { VisionPort, RecognizedMeal } from '../../domain/ports/vision.port';
 import { Food } from '../../domain/value-objects/food.vo';
 import { Macros } from '../../domain/value-objects/macros.vo';
 import { RecognizedItem } from '../../domain/value-objects/recognized-item.vo';
 
 class FakeVision implements VisionPort {
-  async recognize(): Promise<RecognizedItem[]> {
-    // Nom affiché en français, nom de recherche en anglais.
-    return [new RecognizedItem('Poulet grillé', 150, 0.95, 'grilled chicken')];
+  async recognize(): Promise<RecognizedMeal> {
+    // Nom du plat + aliment (FR affiché, EN pour la recherche).
+    return { dish: 'Poulet rôti', items: [new RecognizedItem('Poulet grillé', 150, 0.95, 'grilled chicken')] };
   }
 }
 class FakeDb implements NutritionDbPort {

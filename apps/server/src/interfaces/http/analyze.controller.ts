@@ -11,6 +11,6 @@ export class AnalyzeController {
   @Post('analyze')
   async run(@Body() dto: AnalyzeDto) {
     const meal = await this.analyze.execute(dto.image);
-    return { items: meal.items, total: meal.total };
+    return { dish: meal.dish, items: meal.items, total: meal.total };
   }
 }

@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { VisionPort } from '../../domain/ports/vision.port';
+import { VisionPort, RecognizedMeal } from '../../domain/ports/vision.port';
 import { RecognizedItem } from '../../domain/value-objects/recognized-item.vo';
 
 /** Données de démonstration utilisées tant qu'aucune clé Anthropic n'est configurée. */
-const MOCK: RecognizedItem[] = [
-  new RecognizedItem('Poulet grillé', 150, 0.96, 'grilled chicken breast'),
-  new RecognizedItem('Riz basmati', 200, 0.91, 'white rice cooked'),
-  new RecognizedItem('Brocoli', 80, 0.82, 'broccoli'),
-];
+const MOCK: RecognizedMeal = {
+  dish: 'Poulet riz brocoli',
+  items: [
+    new RecognizedItem('Poulet grillé', 150, 0.96, 'grilled chicken breast'),
+    new RecognizedItem('Riz basmati', 200, 0.91, 'white rice cooked'),
+    new RecognizedItem('Brocoli', 80, 0.82, 'broccoli'),
+  ],
+};
 
 const PROMPT = `Tu es un expert en nutrition qui analyse la photo d'un repas pour un journal alimentaire.
 
@@ -36,7 +39,7 @@ Ne renvoie JAMAIS de calories ni de macronutriments : seulement le plat, les ali
 export class ClaudeVisionAdapter implements VisionPort {
   constructor(private readonly config: ConfigService) {}
 
-  async recognize(imageBase64: string): Promise<RecognizedItem[]> {
+  async recognize(imageBase64: string): Promise<RecognizedMeal> {
     const apiKey = this.config.get<string>('anthropicApiKey') ?? '';
     if (!apiKey) return MOCK;
 
@@ -72,7 +75,7 @@ export class ClaudeVisionAdapter implements VisionPort {
         .map((b: any) => b.text)
         .join('\n');
       const parsed = this.parse(text);
-      return parsed.length ? parsed : MOCK;
+      return parsed.items.length ? parsed : MOCK;
     } catch {
       return MOCK;
     }
@@ -85,14 +88,15 @@ export class ClaudeVisionAdapter implements VisionPort {
     return { mediaType: 'image/jpeg', data: input.trim() };
   }
 
-  private parse(text: string): RecognizedItem[] {
+  private parse(text: string): RecognizedMeal {
     const cleaned = text.replace(/```json|```/g, '').trim();
     try {
       const parsed = JSON.parse(cleaned);
       // Nouveau format {dish, items:[...]} ou ancien format [...] : on accepte les deux.
       const arr: any[] = Array.isArray(parsed) ? parsed : (parsed?.items ?? []);
-      if (!Array.isArray(arr)) return [];
-      return arr
+      const dish = typeof parsed?.dish === 'string' && parsed.dish.trim() ? String(parsed.dish).trim() : null;
+      if (!Array.isArray(arr)) return { dish, items: [] };
+      const items = arr
         .filter((x: any) => x && typeof x.food === 'string')
         .map((x: any) => {
           const fr = String(x.food);
@@ -105,8 +109,9 @@ export class ClaudeVisionAdapter implements VisionPort {
             en,
           );
         });
+      return { dish, items };
     } catch {
-      return [];
+      return { dish: null, items: [] };
     }
   }
 }

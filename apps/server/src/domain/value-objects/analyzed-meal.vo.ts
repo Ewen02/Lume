@@ -12,7 +12,11 @@ export interface AnalyzedItem {
 }
 
 export class AnalyzedMeal {
-  constructor(readonly items: AnalyzedItem[]) {}
+  constructor(
+    readonly items: AnalyzedItem[],
+    /** Nom du plat global (ex. "Burger"), ou null. */
+    readonly dish: string | null = null,
+  ) {}
   get total(): Macros {
     return this.items.reduce((acc, it) => acc.add(it.macros), Macros.zero());
   }

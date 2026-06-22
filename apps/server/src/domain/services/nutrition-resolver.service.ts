@@ -1,18 +1,18 @@
 import { AnalyzedItem, AnalyzedMeal } from '../value-objects/analyzed-meal.vo';
-import { RecognizedItem } from '../value-objects/recognized-item.vo';
+import { RecognizedMeal } from '../ports/vision.port';
 import { NutritionDbPort } from '../ports/nutrition-db.port';
 import { Macros } from '../value-objects/macros.vo';
 
 /**
- * Cœur métier : transforme des items reconnus en repas chiffré.
+ * Cœur métier : transforme un repas reconnu en repas chiffré.
  * Les macros sont TOUJOURS recalculées depuis la base (jamais issues du LLM).
  */
 export class NutritionResolver {
   constructor(private readonly db: NutritionDbPort) {}
 
-  async resolve(items: RecognizedItem[]): Promise<AnalyzedMeal> {
+  async resolve(meal: RecognizedMeal): Promise<AnalyzedMeal> {
     const analyzed: AnalyzedItem[] = [];
-    for (const item of items) {
+    for (const item of meal.items) {
       // On cherche avec le nom anglais (queryName), mais on AFFICHE le nom français (item.name).
       const food = await this.db.resolve(item.queryName);
       if (food) {
@@ -35,6 +35,6 @@ export class NutritionResolver {
         });
       }
     }
-    return new AnalyzedMeal(analyzed);
+    return new AnalyzedMeal(analyzed, meal.dish);
   }
 }
