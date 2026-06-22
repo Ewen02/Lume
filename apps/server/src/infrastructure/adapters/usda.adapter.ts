@@ -23,32 +23,23 @@ export class UsdaAdapter implements NutritionDbPort {
   }
 
   async resolve(name: string): Promise<Food | null> {
+    // `search` renvoie déjà la liste triée par pertinence + fiabilité de source.
     const list = await this.search(name);
-    return this.bestMatch(name, list);
+    if (list.length === 0) return null;
+    // Garde-fou : au moins un mot de la requête doit apparaître dans le meilleur candidat.
+    const words = name.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+    if (words.length === 0) return list[0];
+    const top = list[0].name.toLowerCase();
+    return words.some((w) => top.includes(w)) ? list[0] : null;
   }
 
-  /**
-   * Choisit le résultat le plus pertinent pour la requête plutôt que le 1er brut.
-   * Score = nombre de mots de la requête présents dans le nom du candidat ;
-   * sans aucun recouvrement, on considère qu'il n'y a pas de match (évite "dragon fruit" → "wine").
-   */
-  private bestMatch(query: string, list: Food[]): Food | null {
-    if (list.length === 0) return null;
-    const words = query.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
-    if (words.length === 0) return list[0];
-    let best: Food | null = null;
-    let bestScore = 0;
-    for (const food of list) {
-      const name = food.name.toLowerCase();
-      const score = words.filter((w) => name.includes(w)).length;
-      if (score > bestScore) {
-        bestScore = score;
-        best = food;
-      }
-    }
-    // Aucun mot de la requête retrouvé dans aucun candidat → pas de match fiable.
-    return bestScore > 0 ? best : null;
-  }
+  /** Fiabilité d'une source USDA pour des aliments génériques (plus haut = mieux). */
+  private static readonly DATATYPE_RANK: Record<string, number> = {
+    Foundation: 4,
+    'SR Legacy': 3,
+    'Survey (FNDDS)': 2,
+    Branded: 1,
+  };
 
   async search(query: string): Promise<Food[]> {
     const q = query.trim();
@@ -58,18 +49,40 @@ export class UsdaAdapter implements NutritionDbPort {
       const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
       url.searchParams.set('api_key', this.key);
       url.searchParams.set('query', q);
-      url.searchParams.set('pageSize', '10');
-      // Foundation/SR Legacy = aliments génériques ; Survey = plats composés ; Branded = produits.
+      url.searchParams.set('pageSize', '25');
+      // Génériques d'abord (Foundation/SR Legacy/Survey), Branded en dernier recours.
       url.searchParams.set('dataType', 'Foundation,SR Legacy,Survey (FNDDS),Branded');
       const res = await fetch(url.toString());
       if (!res.ok) return this.localSearch(q);
       const json: any = await res.json();
       const foods: any[] = json?.foods ?? [];
-      const mapped = foods.map((f) => this.toFood(f)).filter((f): f is Food => f !== null);
-      return mapped.length ? mapped : this.localSearch(q);
+      // On garde le dataType pour prioriser les sources fiables au moment du tri.
+      const mapped = foods
+        .map((f) => {
+          const food = this.toFood(f);
+          return food ? { food, dataType: String(f?.dataType ?? '') } : null;
+        })
+        .filter((x): x is { food: Food; dataType: string } => x !== null);
+      if (mapped.length === 0) return this.localSearch(q);
+      // Tri : pertinence du nom d'abord, puis fiabilité de la source.
+      const words = q.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
+      const ranked = mapped
+        .map((m) => ({ ...m, score: this.relevance(words, m.food.name, m.dataType) }))
+        .sort((a, b) => b.score - a.score);
+      return ranked.map((r) => r.food);
     } catch {
       return this.localSearch(q);
     }
+  }
+
+  /** Score de pertinence : recouvrement des mots + bonus correspondance exacte + fiabilité source. */
+  private relevance(words: string[], name: string, dataType: string): number {
+    const n = name.toLowerCase();
+    const overlap = words.filter((w) => n.includes(w)).length;
+    // Bonus si tous les mots de la requête sont présents (correspondance forte).
+    const allWords = words.length > 0 && overlap === words.length ? 3 : 0;
+    const sourceRank = UsdaAdapter.DATATYPE_RANK[dataType] ?? 0;
+    return overlap * 4 + allWords + sourceRank;
   }
 
   private localSearch(q: string): Food[] {
@@ -84,17 +97,21 @@ export class UsdaAdapter implements NutritionDbPort {
     const name: string | undefined = f?.description;
     if (!name) return null;
     const nutrients: any[] = f?.foodNutrients ?? [];
-    const byNumber = (num: string): number => {
-      const hit = nutrients.find(
-        (x) => String(x?.nutrientNumber ?? x?.number) === num,
-      );
+    // Les nutriments USDA portent soit `nutrientNumber`/`number` (ex. "208"),
+    // soit `nutrientId` (ex. 1008 = énergie). On accepte les deux conventions.
+    const pick = (...nums: string[]): number => {
+      const hit = nutrients.find((x) => {
+        const id = String(x?.nutrientNumber ?? x?.number ?? x?.nutrientId ?? '');
+        return nums.includes(id);
+      });
       return hit ? Number(hit.value ?? hit.amount ?? 0) || 0 : 0;
     };
-    const kcal = byNumber('208'); // Energy (kcal)
-    const protein = byNumber('203'); // Protein
-    const carbs = byNumber('205'); // Carbohydrate, by difference
-    const fat = byNumber('204'); // Total lipid (fat)
-    if (!kcal && !protein && !carbs && !fat) return null;
+    const kcal = pick('208', '1008'); // Energy (kcal)
+    const protein = pick('203', '1003'); // Protein
+    const carbs = pick('205', '1005'); // Carbohydrate, by difference
+    const fat = pick('204', '1004'); // Total lipid (fat)
+    // Une entrée sans énergie n'est pas exploitable pour un journal calorique.
+    if (!kcal) return null;
     return new Food(
       name,
       new Macros(Math.round(kcal), Math.round(protein), Math.round(carbs), Math.round(fat)),
