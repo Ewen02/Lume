@@ -16,6 +16,7 @@ struct TodayView: View {
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
     @State private var expanded: Set<String> = []
     @State private var mealToDelete: DeletableMeal?
+    @State private var mealToRename: DeletableMeal?
     @State private var didDelete = false
     @State private var highlight = false
 
@@ -166,12 +167,22 @@ struct TodayView: View {
                     emptyState.lumeEntrance(6)
                 } else {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.id) { idx, group in
-                        mealGroup(group).lumeEntrance(6 + idx)
-                            // Suppression : la carte rétrécit et s'efface (collapse).
-                            .transition(.asymmetric(
-                                insertion: .opacity.combined(with: .move(edge: .top)),
-                                removal: .scale(scale: 0.8).combined(with: .opacity)
-                            ))
+                        Group {
+                            if group.isScannedMeal {
+                                // Glissement vers la gauche → suppression rapide (avec confirmation).
+                                SwipeToDelete(onDelete: { requestDelete(group) }) {
+                                    mealGroup(group)
+                                }
+                            } else {
+                                mealGroup(group)
+                            }
+                        }
+                        .lumeEntrance(6 + idx)
+                        // Suppression : la carte rétrécit et s'efface (collapse).
+                        .transition(.asymmetric(
+                            insertion: .opacity.combined(with: .move(edge: .top)),
+                            removal: .scale(scale: 0.8).combined(with: .opacity)
+                        ))
                     }
                 }
             }
@@ -196,6 +207,21 @@ struct TodayView: View {
                              confirmTitle: "Supprimer le repas") { confirmDelete(meal) }
         }
         .sensoryFeedback(.success, trigger: didDelete)
+        .sheet(item: $mealToRename) { meal in
+            MealRenameSheet(currentName: meal.title) { newName in
+                rename(meal, to: newName)
+            }
+        }
+    }
+
+    private func rename(_ meal: DeletableMeal, to newName: String) {
+        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        withAnimation(LumeMotion.snappy) {
+            for food in meal.foods {
+                food.mealTitle = trimmed
+            }
+        }
     }
 
     private func confirmDelete(_ meal: DeletableMeal) {
@@ -263,16 +289,15 @@ struct TodayView: View {
                         .offset(y: isOpen ? 0 : -8)
                         .animation(LumeMotion.smooth.delay(isOpen ? Double(idx) * 0.05 : 0), value: isOpen)
                 }
-                // Suppression du repas entier.
-                Button(role: .destructive) { requestDelete(group) } label: {
-                    HStack(spacing: Spacing.xs) {
-                        Image(appIcon: .minusCircle).lumeIcon(14, weight: .semibold)
-                        Text("Supprimer ce repas").font(.lumeSubhead.weight(.semibold))
-                    }
-                    .foregroundStyle(LumeColor.negative)
-                    .frame(maxWidth: .infinity).padding(.vertical, Spacing.sm)
+                // Actions du repas : renommer + supprimer.
+                HStack(spacing: Spacing.sm) {
+                    Button { requestRename(group) } label: {
+                        actionLabel(icon: .edit, text: "Renommer", tint: LumeColor.ink)
+                    }.buttonStyle(.lumePress)
+                    Button(role: .destructive) { requestDelete(group) } label: {
+                        actionLabel(icon: .minusCircle, text: "Supprimer", tint: LumeColor.negative)
+                    }.buttonStyle(.lumePress)
                 }
-                .buttonStyle(.lumePress)
                 .opacity(isOpen ? 1 : 0)
             }
             .padding(.top, Spacing.sm)
@@ -295,6 +320,21 @@ struct TodayView: View {
     /// Prépare la confirmation de suppression d'un repas (groupe d'aliments).
     private func requestDelete(_ group: DayGroup) {
         mealToDelete = DeletableMeal(id: group.id, title: group.title, foods: group.foods)
+    }
+
+    private func requestRename(_ group: DayGroup) {
+        mealToRename = DeletableMeal(id: group.id, title: group.title, foods: group.foods)
+    }
+
+    private func actionLabel(icon: AppIcon, text: String, tint: Color) -> some View {
+        HStack(spacing: Spacing.xs) {
+            Image(appIcon: icon).lumeIcon(14, weight: .semibold)
+            Text(text).font(.lumeSubhead.weight(.semibold))
+        }
+        .foregroundStyle(tint)
+        .frame(maxWidth: .infinity).padding(.vertical, Spacing.sm + 2)
+        .background(tint.opacity(0.08))
+        .clipShape(Capsule())
     }
 
     private func groupHeaderLabel(_ group: DayGroup) -> some View {
