@@ -167,22 +167,13 @@ struct TodayView: View {
                     emptyState.lumeEntrance(6)
                 } else {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.id) { idx, group in
-                        Group {
-                            if group.isScannedMeal {
-                                // Glissement vers la gauche → suppression rapide (avec confirmation).
-                                SwipeToDelete(onDelete: { requestDelete(group) }) {
-                                    mealGroup(group)
-                                }
-                            } else {
-                                mealGroup(group)
-                            }
-                        }
-                        .lumeEntrance(6 + idx)
-                        // Suppression : la carte rétrécit et s'efface (collapse).
-                        .transition(.asymmetric(
-                            insertion: .opacity.combined(with: .move(edge: .top)),
-                            removal: .scale(scale: 0.8).combined(with: .opacity)
-                        ))
+                        mealGroup(group)
+                            .lumeEntrance(6 + idx)
+                            // Suppression : la carte rétrécit et s'efface (collapse).
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .move(edge: .top)),
+                                removal: .scale(scale: 0.8).combined(with: .opacity)
+                            ))
                     }
                 }
             }
