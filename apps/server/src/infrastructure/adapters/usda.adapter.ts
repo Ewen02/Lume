@@ -58,8 +58,9 @@ export class UsdaAdapter implements NutritionDbPort {
       const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
       url.searchParams.set('api_key', this.key);
       url.searchParams.set('query', q);
-      url.searchParams.set('pageSize', '5');
-      url.searchParams.set('dataType', 'Foundation,SR Legacy');
+      url.searchParams.set('pageSize', '10');
+      // Foundation/SR Legacy = aliments génériques ; Survey = plats composés ; Branded = produits.
+      url.searchParams.set('dataType', 'Foundation,SR Legacy,Survey (FNDDS),Branded');
       const res = await fetch(url.toString());
       if (!res.ok) return this.localSearch(q);
       const json: any = await res.json();

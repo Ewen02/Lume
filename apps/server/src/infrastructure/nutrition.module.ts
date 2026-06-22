@@ -6,14 +6,23 @@ import { NutritionResolver } from '../domain/services/nutrition-resolver.service
 import { ClaudeVisionAdapter } from './adapters/claude-vision.adapter';
 import { UsdaAdapter } from './adapters/usda.adapter';
 import { OpenFoodFactsAdapter } from './adapters/openfoodfacts.adapter';
+import { CompositeNutritionAdapter } from './adapters/composite-nutrition.adapter';
 import { AnalyzeMealUseCase } from '../application/use-cases/analyze-meal.usecase';
 import { SearchFoodsUseCase } from '../application/use-cases/search-foods.usecase';
 import { LookupBarcodeUseCase } from '../application/use-cases/lookup-barcode.usecase';
 
 @Module({
   providers: [
+    UsdaAdapter,
+    OpenFoodFactsAdapter,
     { provide: VISION_PORT, useClass: ClaudeVisionAdapter },
-    { provide: NUTRITION_DB_PORT, useClass: UsdaAdapter },
+    // Base composite : USDA en premier, Open Food Facts en repli.
+    {
+      provide: NUTRITION_DB_PORT,
+      useFactory: (usda: UsdaAdapter, off: OpenFoodFactsAdapter) =>
+        new CompositeNutritionAdapter(usda, off),
+      inject: [UsdaAdapter, OpenFoodFactsAdapter],
+    },
     { provide: BARCODE_PORT, useClass: OpenFoodFactsAdapter },
     {
       provide: NutritionResolver,

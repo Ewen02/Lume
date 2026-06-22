@@ -10,14 +10,22 @@ const MOCK: RecognizedItem[] = [
   new RecognizedItem('Brocoli', 80, 0.82, 'broccoli'),
 ];
 
-const PROMPT = `Tu es un assistant de reconnaissance alimentaire. Analyse la photo d'un repas et identifie chaque aliment distinct.
-Réponds UNIQUEMENT avec un tableau JSON valide, sans aucun texte ni balise de code, au format exact :
-[{"food": "nom court en français", "food_en": "short English name", "grams": 123, "confidence": 0.0}]
-- "food" : nom court en français, pour l'affichage (ex. "Fruit du dragon").
-- "food_en" : nom générique en anglais pour une base nutritionnelle USDA (ex. "dragon fruit", "grilled chicken breast", "white rice cooked"). Utilise le terme le plus standard.
-- "grams" : portion estimée en grammes (entier).
+const PROMPT = `Tu es un expert en nutrition qui analyse la photo d'un repas pour un journal alimentaire.
+
+Identifie CHAQUE aliment distinct visible dans l'assiette, séparément (ex. riz, viande, sauce, légumes, garnitures sont des items distincts). Sois exhaustif mais ne devine pas d'aliment invisible.
+
+Pour estimer les portions en grammes, sers-toi des repères visuels (taille de l'assiette ≈ 26 cm, couverts, main, verre) et des densités usuelles. Distingue les états : "cuit" vs "cru", "grillé" vs "frit" (la cuisson change beaucoup les calories).
+
+Réponds UNIQUEMENT avec un objet JSON valide, sans texte ni balise de code, au format exact :
+{"dish": "nom du plat en français ou null", "items": [{"food": "nom court en français", "food_en": "specific English name for a nutrition database", "grams": 123, "confidence": 0.0}]}
+
+- "dish" : nom du plat global s'il est identifiable (ex. "Nasi lemak", "Poke bowl saumon"), sinon null.
+- "food" : nom court en français pour l'affichage (ex. "Poulet frit épicé").
+- "food_en" : nom anglais le plus SPÉCIFIQUE pour USDA/Open Food Facts, en précisant cuisson et type (ex. "fried chicken thigh", "cooked white rice", "dragon fruit raw", "fried shrimp"). Évite les termes trop génériques.
+- "grams" : portion estimée en grammes (entier, réaliste pour ce qui est visible).
 - "confidence" : ta confiance entre 0 et 1.
-Ne renvoie JAMAIS de calories ni de macronutriments : seulement l'aliment, la portion et la confiance.`;
+
+Ne renvoie JAMAIS de calories ni de macronutriments : seulement le plat, les aliments, les portions et la confiance.`;
 
 /**
  * Adaptateur de vision. Avec une clé Anthropic : appelle Claude (vision) et n'extrait
@@ -80,7 +88,9 @@ export class ClaudeVisionAdapter implements VisionPort {
   private parse(text: string): RecognizedItem[] {
     const cleaned = text.replace(/```json|```/g, '').trim();
     try {
-      const arr = JSON.parse(cleaned);
+      const parsed = JSON.parse(cleaned);
+      // Nouveau format {dish, items:[...]} ou ancien format [...] : on accepte les deux.
+      const arr: any[] = Array.isArray(parsed) ? parsed : (parsed?.items ?? []);
       if (!Array.isArray(arr)) return [];
       return arr
         .filter((x: any) => x && typeof x.food === 'string')
