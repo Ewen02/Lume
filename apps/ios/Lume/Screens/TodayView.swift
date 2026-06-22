@@ -183,22 +183,20 @@ struct TodayView: View {
         .sheet(isPresented: $showWater) { WaterDetailView() }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $routeEntry) { FoodDetailView(entry: $0) }
-        .confirmationDialog("Supprimer ce repas ?", isPresented: deleteDialogBinding,
-                            titleVisibility: .visible, presenting: mealToDelete) { meal in
-            Button("Supprimer « \(meal.title) »", role: .destructive) { confirmDelete(meal) }
-            Button("Annuler", role: .cancel) {}
-        } message: { meal in
-            Text("\(meal.foods.count) aliment\(meal.foods.count > 1 ? "s" : "") seront retirés du journal.")
+        .sheet(item: $mealToDelete) { meal in
+            let n = meal.foods.count
+            LumeConfirmSheet(icon: .minusCircle, tint: LumeColor.negative,
+                             title: "Supprimer ce repas ?",
+                             message: "« \(meal.title) » et ses \(n) aliment\(n > 1 ? "s" : "") seront retirés du journal.",
+                             confirmTitle: "Supprimer le repas") { confirmDelete(meal) }
         }
-    }
-
-    private var deleteDialogBinding: Binding<Bool> {
-        Binding(get: { mealToDelete != nil }, set: { if !$0 { mealToDelete = nil } })
     }
 
     private func confirmDelete(_ meal: DeletableMeal) {
         withAnimation(LumeMotion.snappy) {
-            for food in meal.foods { ctx.delete(food) }
+            for food in meal.foods {
+                ctx.delete(food)
+            }
         }
         mealToDelete = nil
     }
