@@ -16,6 +16,7 @@ struct TodayView: View {
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
     @State private var expanded: Set<String> = []
     @State private var mealToDelete: DeletableMeal?
+    @State private var didDelete = false
     @State private var highlight = false
 
     /// Repas en attente de confirmation de suppression.
@@ -166,7 +167,11 @@ struct TodayView: View {
                 } else {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.id) { idx, group in
                         mealGroup(group).lumeEntrance(6 + idx)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
+                            // Suppression : la carte rétrécit et s'efface (collapse).
+                            .transition(.asymmetric(
+                                insertion: .opacity.combined(with: .move(edge: .top)),
+                                removal: .scale(scale: 0.8).combined(with: .opacity)
+                            ))
                     }
                 }
             }
@@ -190,15 +195,20 @@ struct TodayView: View {
                              message: "« \(meal.title) » et ses \(n) aliment\(n > 1 ? "s" : "") seront retirés du journal.",
                              confirmTitle: "Supprimer le repas") { confirmDelete(meal) }
         }
+        .sensoryFeedback(.success, trigger: didDelete)
     }
 
     private func confirmDelete(_ meal: DeletableMeal) {
-        withAnimation(LumeMotion.snappy) {
-            for food in meal.foods {
-                ctx.delete(food)
-            }
-        }
         mealToDelete = nil
+        // Laisse la feuille se fermer, puis anime la disparition de la carte.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            withAnimation(LumeMotion.bouncy) {
+                for food in meal.foods {
+                    ctx.delete(food)
+                }
+            }
+            didDelete.toggle()
+        }
     }
 
     @ViewBuilder
