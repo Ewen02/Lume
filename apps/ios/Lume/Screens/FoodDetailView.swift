@@ -5,7 +5,6 @@ struct FoodDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     @State private var grams: Int
-    @State private var favorite = false
     @State private var added = false
     private let base: FoodItem
     private let meal: MealType
@@ -111,8 +110,8 @@ struct FoodDetailView: View {
         .background(LumeColor.cream.ignoresSafeArea())
         .sensoryFeedback(.success, trigger: added)
         .safeAreaInset(edge: .top) {
-            TopBar(title: "Aliment", leading: .back, trailing: favorite ? .favorite : .favorite,
-                   onLeading: { dismiss() }, onTrailing: { favorite.toggle() })
+            // Favoris pas encore implémentés → on n'affiche pas un bouton trompeur (cf. audit).
+            TopBar(title: "Aliment", leading: .back, onLeading: { dismiss() })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
     }

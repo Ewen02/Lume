@@ -16,6 +16,7 @@ struct AnalyzeView: View {
     @State private var added = false
     @State private var per100g: [UUID: Macros] = [:]
     @State private var correcting: FoodItem?
+    @State private var showFullImage = false
     private let onLogged: () -> Void
 
     /// Mode démo / preview : aliments fournis directement.
@@ -60,13 +61,21 @@ struct AnalyzeView: View {
     private func runAnalyze() async {
         guard let data = imageData else { return }
         phase = .loading
-        do {
-            let result = try await api.analyze(imageData: data)
-            items = result
-            per100g = Dictionary(uniqueKeysWithValues: result.map { ($0.id, basis($0)) })
-            phase = result.isEmpty ? .failed : .loaded
-        } catch {
-            phase = .failed
+        // Jusqu'à 2 tentatives : le backend Railway peut être en cold start au 1er appel.
+        for attempt in 0 ..< 2 {
+            do {
+                let result = try await api.analyze(imageData: data)
+                items = result
+                per100g = Dictionary(uniqueKeysWithValues: result.map { ($0.id, basis($0)) })
+                phase = result.isEmpty ? .failed : .loaded
+                return
+            } catch {
+                if attempt == 0 {
+                    try? await Task.sleep(nanoseconds: 1_500_000_000) // laisse le serveur se réveiller
+                    continue
+                }
+                phase = .failed
+            }
         }
     }
 
@@ -98,9 +107,12 @@ struct AnalyzeView: View {
                 case .loading: loadingCard
                 case .failed: failedCard
                 case .loaded:
-                    totalCard
+                    totalCard.lumeEntrance(0)
                     SectionHeader(title: "Aliments détectés", actionTitle: "Ajouter", actionIcon: .add)
-                    ForEach($items) { $item in itemRow($item) }
+                        .lumeEntrance(1)
+                    ForEach(Array($items.enumerated()), id: \.element.id) { idx, $item in
+                        itemRow($item).lumeEntrance(2 + idx)
+                    }
                 }
             }
             .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.lg)
@@ -128,21 +140,43 @@ struct AnalyzeView: View {
                 correcting = nil
             }
         }
+        .fullScreenCover(isPresented: $showFullImage) {
+            if let ui = uiImage { ZoomableImageView(image: ui) }
+        }
+    }
+
+    private var uiImage: UIImage? {
+        guard let imageData else { return nil }
+        return UIImage(data: imageData)
     }
 
     private var photo: some View {
-        ZStack {
+        // La photo se réduit quand l'analyse charge ou échoue : elle ne doit pas dominer l'écran.
+        let height: CGFloat = phase == .loaded ? 200 : 130
+        return ZStack {
             RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous).fill(LumeColor.placeholder)
-            if let imageData, let ui = UIImage(data: imageData) {
-                Image(uiImage: ui).resizable().scaledToFill()
+            if let ui = uiImage {
+                Image(uiImage: ui)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(maxWidth: .infinity, maxHeight: height)
+                    .clipped()
+                // Indice « agrandir » en bas à droite.
+                Image(appIcon: .search)
+                    .lumeIcon(14, weight: .bold).foregroundStyle(.white)
+                    .padding(Spacing.sm)
+                    .background(.black.opacity(0.35), in: Circle())
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
+                    .padding(Spacing.sm)
             } else {
                 Image(appIcon: .lunch).lumeIcon(44, weight: .semibold).foregroundStyle(LumeColor.placeholderTint)
             }
         }
-        // La photo se réduit quand l'analyse charge ou échoue : elle ne doit pas dominer l'écran.
-        .frame(height: phase == .loaded ? 190 : 130)
+        .frame(height: height)
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous))
+        .contentShape(Rectangle())
+        .onTapGesture { if uiImage != nil { showFullImage = true } }
         .animation(.snappy, value: phase)
     }
 
@@ -232,6 +266,40 @@ struct AnalyzeView: View {
 }
 
 #Preview { AnalyzeView().modelContainer(LumeStore.preview).environment(HealthManager.shared) }
+
+// MARK: - Image plein écran (zoom)
+
+/// Affiche l'image du repas en plein écran avec pinch-to-zoom et fermeture.
+struct ZoomableImageView: View {
+    @Environment(\.dismiss) private var dismiss
+    let image: UIImage
+    @State private var scale: CGFloat = 1
+    @State private var lastScale: CGFloat = 1
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .scaleEffect(scale)
+                .gesture(
+                    MagnificationGesture()
+                        .onChanged { value in scale = min(max(lastScale * value, 1), 4) }
+                        .onEnded { _ in lastScale = scale }
+                )
+                .onTapGesture(count: 2) {
+                    withAnimation(.snappy) { scale = scale > 1 ? 1 : 2; lastScale = scale }
+                }
+            Button { dismiss() } label: {
+                Image(appIcon: .close).lumeIcon(18, weight: .semibold).foregroundStyle(.white)
+                    .frame(width: 40, height: 40).background(.black.opacity(0.4), in: Circle())
+            }
+            .padding(Spacing.lg)
+            .accessibilityLabel("Fermer")
+        }
+    }
+}
 
 // MARK: - Correction manuelle d'un aliment mal reconnu
 
