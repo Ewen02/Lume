@@ -15,6 +15,7 @@ struct AnalyzeView: View {
     @State private var phase: Phase
     @State private var added = false
     @State private var per100g: [UUID: Macros] = [:]
+    @State private var correcting: FoodItem?
     private let onLogged: () -> Void
 
     /// Mode démo / preview : aliments fournis directement.
@@ -121,6 +122,12 @@ struct AnalyzeView: View {
         .sensoryFeedback(.success, trigger: added)
         .task { if phase == .loading { await runAnalyze() } }
         .onAppear { captureBasisIfNeeded() }
+        .sheet(item: $correcting) { item in
+            FoodCorrectionView(query: item.name) { product in
+                replace(item, with: product)
+                correcting = nil
+            }
+        }
     }
 
     private var photo: some View {
@@ -177,24 +184,107 @@ struct AnalyzeView: View {
                 }
             }
         )
+        let it = item.wrappedValue
         return HStack(spacing: Spacing.md) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(item.wrappedValue.name).font(.lumeCallout).foregroundStyle(LumeColor.ink)
-                if item.wrappedValue.matched {
-                    Text("\(item.wrappedValue.macros.kcal) kcal · P \(item.wrappedValue.macros.protein) G \(item.wrappedValue.macros.carbs) L \(item.wrappedValue.macros.fat)")
-                        .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
-                } else {
-                    Text("Macros introuvables").font(.lumeFootnote).foregroundStyle(LumeColor.warning)
+            // Nom tappable → correction manuelle (remplacer l'aliment mal reconnu).
+            Button { correcting = it } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: Spacing.xs) {
+                        Text(it.name).font(.lumeCallout).foregroundStyle(LumeColor.ink)
+                        Image(appIcon: .edit).lumeIcon(11, weight: .semibold).foregroundStyle(LumeColor.muted)
+                    }
+                    if !it.matched {
+                        Text("Macros introuvables · touche pour corriger")
+                            .font(.lumeFootnote).foregroundStyle(LumeColor.warning)
+                    } else if it.isUncertain {
+                        Text("À vérifier · \(it.macros.kcal) kcal")
+                            .font(.lumeFootnote).foregroundStyle(LumeColor.warning)
+                    } else {
+                        Text("\(it.macros.kcal) kcal · P \(it.macros.protein) G \(it.macros.carbs) L \(it.macros.fat)")
+                            .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                    }
                 }
-            }
+            }.buttonStyle(.plain)
             Spacer()
             PortionStepper(grams: grams)
         }
         .padding(.horizontal, Spacing.lg - 2).padding(.vertical, Spacing.md)
         .background(LumeColor.surface)
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .stroke(LumeColor.warning.opacity(it.isUncertain || !it.matched ? 0.5 : 0), lineWidth: 1.5)
+        )
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
         .lumeShadow(.soft)
+    }
+
+    /// Remplace un aliment (ligne) par un produit choisi dans la recherche.
+    private func replace(_ original: FoodItem, with product: ScannedProduct) {
+        guard let idx = items.firstIndex(where: { $0.id == original.id }) else { return }
+        let grams = items[idx].grams
+        let scaled = product.per100g.scaled(Double(grams) / 100)
+        items[idx].name = product.name
+        items[idx].macros = scaled
+        items[idx].matched = true
+        items[idx].confidence = 1
+        per100g[items[idx].id] = product.per100g
     }
 }
 
 #Preview { AnalyzeView().modelContainer(LumeStore.preview).environment(HealthManager.shared) }
+
+// MARK: - Correction manuelle d'un aliment mal reconnu
+
+/// Recherche un aliment dans la base et le renvoie pour remplacer une ligne mal reconnue.
+struct FoodCorrectionView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.foodAPI) private var api
+    @State private var query: String
+    @State private var results: [ScannedProduct] = []
+    @State private var loading = false
+    let onPick: (ScannedProduct) -> Void
+
+    init(query: String, onPick: @escaping (ScannedProduct) -> Void) {
+        _query = State(initialValue: query)
+        self.onPick = onPick
+    }
+
+    var body: some View {
+        VStack(spacing: Spacing.md) {
+            SearchBar(text: $query, placeholder: "Rechercher le bon aliment")
+                .padding(.horizontal, Spacing.xl)
+                .onSubmit { Task { await search() } }
+            ScrollView {
+                VStack(spacing: Spacing.sm) {
+                    if loading {
+                        LumeLoadingState(label: "Recherche…")
+                    } else if results.isEmpty {
+                        LumeEmptyState(icon: .search, title: "Aucun résultat",
+                                       message: "Essaie un autre nom, en français ou en anglais.")
+                    } else {
+                        ForEach(results) { product in
+                            FoodRow(name: product.name,
+                                    detail: "\(product.per100g.kcal) kcal / 100 g",
+                                    kcal: product.per100g.kcal,
+                                    trailing: .validate) { onPick(product) }
+                        }
+                    }
+                }.padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.xxl)
+            }
+        }
+        .background(LumeColor.cream.ignoresSafeArea())
+        .safeAreaInset(edge: .top) {
+            TopBar(title: "Corriger l'aliment", leading: .close, onLeading: { dismiss() })
+                .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
+        }
+        .task { await search() }
+    }
+
+    private func search() async {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { results = []; return }
+        loading = true
+        defer { loading = false }
+        results = (try? await api.search(q)) ?? []
+    }
+}

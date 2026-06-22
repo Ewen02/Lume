@@ -7,4 +7,11 @@ struct FoodItem: Identifiable, Equatable {
     var macros: Macros // pour la portion `grams`
     /// `false` quand l'aliment a été reconnu mais introuvable en base (macros à 0, à signaler).
     var matched: Bool = true
+    /// Confiance de reconnaissance (0–1). En dessous de 0,5 → aliment à vérifier.
+    var confidence: Double = 1
+
+    /// Reconnaissance peu sûre : on invite l'utilisateur à vérifier.
+    var isUncertain: Bool {
+        matched && confidence < 0.5
+    }
 }

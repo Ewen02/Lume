@@ -22,6 +22,7 @@ export class NutritionResolver {
           macros: food.macrosFor(item.grams),
           source: food.source,
           matched: true,
+          confidence: item.confidence,
         });
       } else {
         analyzed.push({
@@ -30,6 +31,7 @@ export class NutritionResolver {
           macros: Macros.zero(),
           source: 'USDA',
           matched: false,
+          confidence: item.confidence,
         });
       }
     }

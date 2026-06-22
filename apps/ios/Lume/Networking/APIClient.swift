@@ -70,6 +70,7 @@ struct APIClient: FoodAPI {
     private struct AnalyzedItemDTO: Decodable {
         let name: String; let grams: Int; let macros: MacrosDTO
         let matched: Bool?
+        let confidence: Double?
     }
 
     private struct AnalyzeResponse: Decodable { let items: [AnalyzedItemDTO] }
@@ -109,7 +110,8 @@ struct APIClient: FoodAPI {
         let body = try JSONSerialization.data(withJSONObject: ["image": payload.base64EncodedString()])
         let req = try makeRequest("analyze", method: "POST", body: body)
         let res = try await send(req, as: AnalyzeResponse.self)
-        return res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model, matched: $0.matched ?? true) }
+        return res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model,
+                                        matched: $0.matched ?? true, confidence: $0.confidence ?? 1) }
     }
 
     /// Réduit l'image à ~1024 px de côté max et la recompresse en JPEG (≈ quelques centaines de Ko).

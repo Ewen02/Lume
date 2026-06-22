@@ -7,6 +7,8 @@ export interface AnalyzedItem {
   macros: Macros;
   source: Food['source'];
   matched: boolean;
+  /** Confiance de reconnaissance du modèle de vision (0–1). */
+  confidence: number;
 }
 
 export class AnalyzedMeal {
