@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import Translation
 
 struct SearchView: View {
     @Environment(\.dismiss) private var dismiss
@@ -13,6 +14,8 @@ struct SearchView: View {
     @State private var results: [ScannedProduct] = []
     @State private var loading = false
     @State private var routeFood: FoodItem?
+    /// Traduction native iOS 18+ : la session est fournie par .translationTask.
+    @State private var translationSession: TranslationSession?
 
     /// Récents : derniers aliments distincts du journal (par nom).
     private var recents: [ScannedProduct] {
@@ -59,6 +62,13 @@ struct SearchView: View {
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
         .sheet(item: $routeFood) { FoodDetailView(food: $0, meal: .snack, canAddToJournal: true) }
+        // Prépare la traduction FR→EN locale (télécharge le modèle au besoin) et garde la session.
+        .translationTask(
+            TranslationSession.Configuration(source: Locale.Language(identifier: "fr"),
+                                             target: Locale.Language(identifier: "en"))
+        ) { session in
+            translationSession = session
+        }
     }
 
     @ViewBuilder
@@ -181,11 +191,18 @@ struct SearchView: View {
         loading = true
         defer { loading = false }
         var found = (try? await api.search(q)) ?? []
-        // Si rien et que le terme est traduisible en anglais, on réessaie (USDA/OFF anglophones).
-        if found.isEmpty, let en = FoodTranslator.toEnglish(q), en.lowercased() != q.lowercased() {
+        // Rien trouvé en français → on traduit en anglais et on réessaie (USDA/OFF anglophones).
+        if found.isEmpty, let en = await englishTerm(for: q), en.lowercased() != q.lowercased() {
             found = (try? await api.search(en)) ?? []
         }
         results = found
+    }
+
+    /// Traduction FR→EN : dictionnaire embarqué d'abord (instantané), puis Translation iOS.
+    private func englishTerm(for term: String) async -> String? {
+        if let quick = FoodTranslator.toEnglish(term) { return quick }
+        guard let session = translationSession else { return nil }
+        return try? await session.translate(term).targetText
     }
 }
 
