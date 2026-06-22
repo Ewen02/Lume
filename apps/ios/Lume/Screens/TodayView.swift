@@ -2,6 +2,7 @@ import SwiftData
 import SwiftUI
 
 struct TodayView: View {
+    @Environment(\.modelContext) private var ctx
     @Query private var allFoods: [LoggedFood] // borné aux 7 derniers jours
     @Query private var waterLogs: [WaterLog] // borné au jour courant
     @Query private var profiles: [ProfileRecord]
@@ -14,7 +15,15 @@ struct TodayView: View {
     @State private var routeEntry: LoggedFood?
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
     @State private var expanded: Set<String> = []
+    @State private var mealToDelete: DeletableMeal?
     @State private var highlight = false
+
+    /// Repas en attente de confirmation de suppression.
+    private struct DeletableMeal: Identifiable {
+        let id: String
+        let title: String
+        let foods: [LoggedFood]
+    }
 
     private var isToday: Bool {
         cal.isDateInToday(selectedDay)
@@ -174,6 +183,24 @@ struct TodayView: View {
         .sheet(isPresented: $showWater) { WaterDetailView() }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $routeEntry) { FoodDetailView(entry: $0) }
+        .confirmationDialog("Supprimer ce repas ?", isPresented: deleteDialogBinding,
+                            titleVisibility: .visible, presenting: mealToDelete) { meal in
+            Button("Supprimer « \(meal.title) »", role: .destructive) { confirmDelete(meal) }
+            Button("Annuler", role: .cancel) {}
+        } message: { meal in
+            Text("\(meal.foods.count) aliment\(meal.foods.count > 1 ? "s" : "") seront retirés du journal.")
+        }
+    }
+
+    private var deleteDialogBinding: Binding<Bool> {
+        Binding(get: { mealToDelete != nil }, set: { if !$0 { mealToDelete = nil } })
+    }
+
+    private func confirmDelete(_ meal: DeletableMeal) {
+        withAnimation(LumeMotion.snappy) {
+            for food in meal.foods { ctx.delete(food) }
+        }
+        mealToDelete = nil
     }
 
     @ViewBuilder
@@ -194,7 +221,7 @@ struct TodayView: View {
         let isOpen = expanded.contains(group.id)
         return VStack(spacing: 0) {
             Button {
-                withAnimation(LumeMotion.snappy) {
+                withAnimation(LumeMotion.bouncy) {
                     if isOpen { expanded.remove(group.id) } else { expanded.insert(group.id) }
                 }
             } label: {
@@ -205,9 +232,9 @@ struct TodayView: View {
                         Spacer()
                         Text("\(group.kcal) kcal").font(.lumeCallout.weight(.bold))
                             .foregroundStyle(LumeColor.ink).monospacedDigit()
-                        Image(appIcon: isOpen ? .back : .forward)
+                        Image(appIcon: .forward)
                             .lumeIcon(13, weight: .bold).foregroundStyle(LumeColor.muted)
-                            .rotationEffect(.degrees(isOpen ? 90 : 0))
+                            .rotationEffect(.degrees(isOpen ? 90 : 0)) // chevron qui pivote en douceur
                     }
                     HStack(spacing: Spacing.sm) {
                         Chip(color: LumeColor.protein, text: "P \(group.macros.protein) g")
@@ -217,18 +244,49 @@ struct TodayView: View {
                 }
             }
             .buttonStyle(.lumePress)
-            if isOpen {
-                VStack(spacing: Spacing.sm) {
-                    ForEach(group.foods) { food in foodLine(food) }
+
+            // Dépliement : les ingrédients se révèlent en cascade (stagger), avec un
+            // masquage propre par hauteur (clipped) pour éviter tout chevauchement saccadé.
+            VStack(spacing: Spacing.sm) {
+                Divider().background(LumeColor.border).padding(.vertical, Spacing.xs)
+                ForEach(Array(group.foods.enumerated()), id: \.element.id) { idx, food in
+                    foodLine(food)
+                        .opacity(isOpen ? 1 : 0)
+                        .offset(y: isOpen ? 0 : -8)
+                        .animation(LumeMotion.smooth.delay(isOpen ? Double(idx) * 0.05 : 0), value: isOpen)
                 }
-                .padding(.top, Spacing.md)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                // Suppression du repas entier.
+                Button(role: .destructive) { requestDelete(group) } label: {
+                    HStack(spacing: Spacing.xs) {
+                        Image(appIcon: .minusCircle).lumeIcon(14, weight: .semibold)
+                        Text("Supprimer ce repas").font(.lumeSubhead.weight(.semibold))
+                    }
+                    .foregroundStyle(LumeColor.negative)
+                    .frame(maxWidth: .infinity).padding(.vertical, Spacing.sm)
+                }
+                .buttonStyle(.lumePress)
+                .opacity(isOpen ? 1 : 0)
             }
+            .padding(.top, Spacing.sm)
+            .frame(maxHeight: isOpen ? .infinity : 0, alignment: .top)
+            .opacity(isOpen ? 1 : 0)
+            .clipped()
         }
         .padding(Spacing.lg)
         .background(LumeColor.surface)
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
         .lumeShadow(.soft)
+        .animation(LumeMotion.bouncy, value: isOpen)
+        .contextMenu {
+            Button(role: .destructive) { requestDelete(group) } label: {
+                Label("Supprimer le repas", systemImage: "trash")
+            }
+        }
+    }
+
+    /// Prépare la confirmation de suppression d'un repas (groupe d'aliments).
+    private func requestDelete(_ group: DayGroup) {
+        mealToDelete = DeletableMeal(id: group.id, title: group.title, foods: group.foods)
     }
 
     private func groupHeaderLabel(_ group: DayGroup) -> some View {
