@@ -148,14 +148,14 @@ struct CaptureView: View {
                     Circle().fill(mode == 0 ? LumeColor.ink : LumeColor.muted).frame(width: 62, height: 62)
                 }
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.lumePress)
             .disabled(mode != 0)
             .accessibilityLabel("Prendre une photo du repas")
             Spacer()
             Button { mode = mode == 0 ? 1 : 0 } label: {
                 squareIcon(mode == 0 ? .barcode : .camera)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.lumePress)
             .accessibilityLabel(mode == 0 ? "Passer au scan de code-barres" : "Revenir à la photo")
         }
         .padding(.horizontal, 45)
@@ -165,9 +165,9 @@ struct CaptureView: View {
         guard mode == 0, CameraController.isAvailable else { return }
         // Effet d'obturateur : flash blanc bref + retour haptique.
         shutterTrigger += 1
-        withAnimation(.easeOut(duration: 0.08)) { flash = true }
+        withAnimation(LumeMotion.flashIn) { flash = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            withAnimation(.easeIn(duration: 0.18)) { flash = false }
+            withAnimation(LumeMotion.flashOut) { flash = false }
         }
         camera.capturePhoto { data in analyzePayload = AnalyzePayload(data: data) }
     }

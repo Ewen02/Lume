@@ -60,9 +60,11 @@ enum AppIcon: String {
     case settings = "gearshape.fill"
     case weight = "scalemass.fill"
     case search = "magnifyingglass"
+    case wifiError = "wifi.exclamationmark"
 
     // MARK: Muscu (v2)
 
+    case plates = "circle.grid.2x2"
     case restTimer = "timer"
     case pr = "trophy.fill"
     case addSet = "plus.circle.fill"

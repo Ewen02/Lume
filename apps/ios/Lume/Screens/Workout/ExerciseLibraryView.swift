@@ -58,7 +58,7 @@ struct ExerciseLibraryView: View {
             .padding(.vertical, Spacing.sm).padding(.horizontal, Spacing.lg)
             .background(active ? LumeColor.ink : LumeColor.surface)
             .clipShape(Capsule()).lumeShadow(.soft)
-            .onTapGesture { withAnimation(.snappy) { a() } }
+            .onTapGesture { withAnimation(LumeMotion.snappy) { a() } }
     }
 }
 

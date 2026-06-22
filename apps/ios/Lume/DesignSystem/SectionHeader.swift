@@ -15,7 +15,7 @@ struct SectionHeader: View {
                         if let actionIcon { Image(appIcon: actionIcon).lumeIcon(14, weight: .semibold) }
                         Text(actionTitle).font(.lumeSubhead.weight(.semibold))
                     }.foregroundStyle(LumeColor.ink)
-                }.buttonStyle(.plain)
+                }.buttonStyle(.lumePress)
             }
         }
     }

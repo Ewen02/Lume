@@ -16,8 +16,10 @@ struct WaterTracker: View {
                     RoundedRectangle(cornerRadius: 3)
                         .fill(i < filled ? LumeColor.fat : LumeColor.faint)
                         .frame(width: 8, height: 18)
+                        .scaleEffect(i == filled - 1 ? 1.15 : 1) // le dernier verre rempli "pop"
                 }
             }
+            .animation(LumeMotion.bouncy, value: filled)
         }
         .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.md + 2)
         .background(LumeColor.surface)

@@ -107,19 +107,25 @@ struct AnalyzeView: View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 photo
-                switch phase {
-                case .loading: loadingCard
-                case .failed: failedCard
-                case .loaded:
-                    totalCard.lumeEntrance(0)
-                    SectionHeader(title: "Aliments détectés", actionTitle: "Ajouter", actionIcon: .add)
-                        .lumeEntrance(1)
-                    ForEach(Array($items.enumerated()), id: \.element.id) { idx, $item in
-                        itemRow($item).lumeEntrance(2 + idx)
+                Group {
+                    switch phase {
+                    case .loading: loadingCard
+                    case .failed: failedCard
+                    case .loaded:
+                        VStack(spacing: Spacing.lg) {
+                            totalCard.lumeEntrance(0)
+                            SectionHeader(title: "Aliments détectés", actionTitle: "Ajouter", actionIcon: .add)
+                                .lumeEntrance(1)
+                            ForEach(Array($items.enumerated()), id: \.element.id) { idx, $item in
+                                itemRow($item).lumeEntrance(2 + idx)
+                            }
+                        }
                     }
                 }
+                .transition(.opacity)
             }
             .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.lg)
+            .animation(LumeMotion.smooth, value: phase)
         }
         .background(LumeColor.cream.ignoresSafeArea())
         .safeAreaInset(edge: .top) {
@@ -187,11 +193,19 @@ struct AnalyzeView: View {
         .clipShape(RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous))
         .contentShape(Rectangle())
         .onTapGesture { if uiImage != nil { showFullImage = true } }
-        .animation(.snappy, value: phase)
+        .animation(LumeMotion.snappy, value: phase)
     }
 
     private var loadingCard: some View {
-        LumeLoadingState(label: "Analyse du repas en cours…")
+        VStack(spacing: Spacing.md) {
+            HStack(spacing: Spacing.sm) {
+                ProgressView().controlSize(.small)
+                Text("Analyse du repas en cours…").font(.lumeSubhead).foregroundStyle(LumeColor.muted)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            // Squelettes à la forme des futures lignes d'aliments.
+            LumeSkeletonList(count: 4)
+        }
     }
 
     private var failedCard: some View {
@@ -206,6 +220,8 @@ struct AnalyzeView: View {
                 Text("Total du repas").font(.lumeSubhead).foregroundStyle(LumeColor.muted)
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
                     Text("\(total.kcal)").font(.lumeNumberL).foregroundStyle(LumeColor.ink).monospacedDigit()
+                        .contentTransition(.numericText(value: Double(total.kcal)))
+                        .animation(LumeMotion.snappy, value: total.kcal)
                     Text("kcal").font(.lumeHeadline).foregroundStyle(LumeColor.muted)
                 }
                 HStack(spacing: Spacing.sm) {
@@ -248,7 +264,7 @@ struct AnalyzeView: View {
                             .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
                     }
                 }
-            }.buttonStyle(.plain)
+            }.buttonStyle(.lumePress)
             Spacer()
             PortionStepper(grams: grams)
         }
@@ -299,7 +315,7 @@ struct ZoomableImageView: View {
                         .onEnded { _ in lastScale = scale }
                 )
                 .onTapGesture(count: 2) {
-                    withAnimation(.snappy) { scale = scale > 1 ? 1 : 2; lastScale = scale }
+                    withAnimation(LumeMotion.snappy) { scale = scale > 1 ? 1 : 2; lastScale = scale }
                 }
             Button { dismiss() } label: {
                 Image(appIcon: .close).lumeIcon(18, weight: .semibold).foregroundStyle(.white)
@@ -335,7 +351,7 @@ struct FoodCorrectionView: View {
             ScrollView {
                 VStack(spacing: Spacing.sm) {
                     if loading {
-                        LumeLoadingState(label: "Recherche…")
+                        LumeSkeletonList(count: 5)
                     } else if results.isEmpty {
                         LumeEmptyState(icon: .search, title: "Aucun résultat",
                                        message: "Essaie un autre nom, en français ou en anglais.")
@@ -347,7 +363,9 @@ struct FoodCorrectionView: View {
                                     trailing: .validate) { onPick(product) }
                         }
                     }
-                }.padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.xxl)
+                }
+                .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.xxl)
+                .animation(LumeMotion.smooth, value: loading)
             }
         }
         .background(LumeColor.cream.ignoresSafeArea())

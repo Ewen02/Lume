@@ -39,7 +39,7 @@ struct LumeErrorState: View {
     var body: some View {
         LumeCard(padding: Spacing.xxl, radius: Radius.xxl) {
             VStack(spacing: Spacing.md) {
-                Image(systemName: "wifi.exclamationmark").lumeIcon(28, weight: .regular).foregroundStyle(LumeColor.muted)
+                Image(appIcon: .wifiError).lumeIcon(28, weight: .regular).foregroundStyle(LumeColor.muted)
                 Text(title).font(.lumeCallout).foregroundStyle(LumeColor.ink)
                 if let message {
                     Text(message).font(.lumeFootnote).foregroundStyle(LumeColor.muted)
@@ -47,6 +47,71 @@ struct LumeErrorState: View {
                 }
                 if let retry { SecondaryButton(title: "Réessayer", action: retry) }
             }.frame(maxWidth: .infinity)
+        }
+    }
+}
+
+// MARK: - Skeleton (chargement à la forme du contenu)
+
+/// Effet de balayage lumineux (shimmer) appliqué à un placeholder.
+private struct ShimmerModifier: ViewModifier {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var phase: CGFloat = -1
+    func body(content: Content) -> some View {
+        content.overlay(
+            GeometryReader { geo in
+                if !reduceMotion {
+                    LinearGradient(colors: [.clear, .white.opacity(0.5), .clear],
+                                   startPoint: .leading, endPoint: .trailing)
+                        .frame(width: geo.size.width * 0.6)
+                        .offset(x: phase * geo.size.width * 1.6)
+                        .onAppear {
+                            withAnimation(.linear(duration: 1.1).repeatForever(autoreverses: false)) {
+                                phase = 1
+                            }
+                        }
+                }
+            }
+        )
+        .clipped()
+    }
+}
+
+private extension View {
+    func shimmer() -> some View { modifier(ShimmerModifier()) }
+}
+
+/// Ligne fantôme imitant une carte d'aliment, affichée pendant le chargement.
+struct LumeSkeletonRow: View {
+    var body: some View {
+        HStack(spacing: Spacing.md) {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                bar(width: 150, height: 14)
+                bar(width: 90, height: 10)
+            }
+            Spacer()
+            bar(width: 54, height: 14)
+        }
+        .padding(.horizontal, Spacing.lg - 2).padding(.vertical, Spacing.md + 2)
+        .background(LumeColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .lumeShadow(.soft)
+        .shimmer()
+    }
+
+    private func bar(width: CGFloat, height: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: height / 2, style: .continuous)
+            .fill(LumeColor.faint)
+            .frame(width: width, height: height)
+    }
+}
+
+/// Plusieurs lignes fantômes empilées (liste en cours de chargement).
+struct LumeSkeletonList: View {
+    var count: Int = 4
+    var body: some View {
+        VStack(spacing: Spacing.md) {
+            ForEach(0 ..< count, id: \.self) { _ in LumeSkeletonRow() }
         }
     }
 }

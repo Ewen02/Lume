@@ -23,6 +23,6 @@ struct TopBar: View {
         Button(action: action) {
             Image(appIcon: icon).lumeIcon(18, weight: .semibold).foregroundStyle(LumeColor.ink)
                 .frame(width: 40, height: 40).background(LumeColor.surface).clipShape(Circle()).lumeShadow(.soft)
-        }.buttonStyle(.plain)
+        }.buttonStyle(.lumePress)
     }
 }

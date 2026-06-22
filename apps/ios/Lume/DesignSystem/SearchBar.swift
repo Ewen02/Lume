@@ -11,7 +11,7 @@ struct SearchBar: View {
             if !text.isEmpty {
                 Button { text = "" } label: {
                     Image(appIcon: .close).lumeIcon(14, weight: .semibold).foregroundStyle(LumeColor.muted)
-                }.buttonStyle(.plain)
+                }.buttonStyle(.lumePress)
             }
         }
         .padding(.horizontal, Spacing.lg).frame(height: 48)

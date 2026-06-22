@@ -14,7 +14,7 @@ struct SegmentedPicker: View {
                     .padding(.vertical, 9).padding(.horizontal, Spacing.lg - 4)
                     .background(active ? LumeColor.ink : .clear)
                     .clipShape(Capsule())
-                    .onTapGesture { withAnimation(.snappy) { selection = i } }
+                    .onTapGesture { withAnimation(LumeMotion.snappy) { selection = i } }
             }
         }
         .padding(Spacing.xs)

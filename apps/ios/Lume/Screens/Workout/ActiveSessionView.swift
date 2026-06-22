@@ -13,6 +13,7 @@ struct ActiveSessionView: View {
     @State private var showAddExercise = false
     @State private var startedAt = Date()
     @State private var finished = false
+    @State private var summary: WorkoutSummary?
 
     init(title: String = "Séance libre", prefill: [ExerciseSession] = Mock.activeSession) {
         self.title = title
@@ -40,7 +41,8 @@ struct ActiveSessionView: View {
         let start = startedAt, end = Date()
         Task { await health.saveWorkout(start: start, end: end) }
         finished = true
-        dismiss()
+        // Récap gratifiant avant de fermer (volume, séries, meilleur 1RM).
+        summary = WorkoutSummary(from: sessions, durationSec: Int(end.timeIntervalSince(start)))
     }
 
     var body: some View {
@@ -59,7 +61,7 @@ struct ActiveSessionView: View {
                     }.buttonStyle(.lumePress)
                     Button { showPlate = true } label: {
                         HStack(spacing: Spacing.sm) {
-                            Image(systemName: "circle.grid.2x2").lumeIcon(16, weight: .semibold)
+                            Image(appIcon: .plates).lumeIcon(16, weight: .semibold)
                             Text("Calculateur de disques").font(.lumeCallout)
                         }.foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).padding(.vertical, Spacing.md)
                             .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(LumeColor.border, lineWidth: 1))
@@ -75,14 +77,14 @@ struct ActiveSessionView: View {
                 Button { dismiss() } label: {
                     Image(appIcon: .close).lumeIcon(18, weight: .semibold).foregroundStyle(LumeColor.ink)
                         .frame(width: 40, height: 40).background(LumeColor.surface).clipShape(Circle()).lumeShadow(.soft)
-                }.buttonStyle(.plain)
+                }.buttonStyle(.lumePress)
                 Spacer()
                 VStack(spacing: 0) {
                     Text(title).font(.lumeCaption).foregroundStyle(LumeColor.muted)
                     Text(elapsed).font(.lumeHeadline).foregroundStyle(LumeColor.ink).monospacedDigit()
                 }
                 Spacer()
-                Button { showRest = true } label: { RestTimerPill(seconds: 84) }.buttonStyle(.plain)
+                Button { showRest = true } label: { RestTimerPill(seconds: 84) }.buttonStyle(.lumePress)
             }
             .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
@@ -94,6 +96,9 @@ struct ActiveSessionView: View {
                                                 sets: [SetEntry(reps: 10, weight: 20, rpe: nil)]))
                 showAddExercise = false
             }
+        }
+        .sheet(item: $summary) { s in
+            WorkoutSummaryView(summary: s) { dismiss() }
         }
         .sensoryFeedback(.success, trigger: finished)
     }

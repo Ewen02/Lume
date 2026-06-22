@@ -126,16 +126,18 @@ struct TodayView: View {
                 } else {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.id) { idx, group in
                         mealGroup(group).lumeEntrance(6 + idx)
+                            .transition(.opacity.combined(with: .move(edge: .top)))
                     }
                 }
             }
             .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 130)
+            .animation(LumeMotion.snappy, value: todayFoods.count)
         }
         .background(LumeColor.cream)
         .onChange(of: highlightTrigger) { _, _ in
-            withAnimation(.spring(response: 0.35, dampingFraction: 0.5)) { highlight = true }
+            withAnimation(LumeMotion.celebrate) { highlight = true }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                withAnimation(.smooth) { highlight = false }
+                withAnimation(LumeMotion.smooth) { highlight = false }
             }
         }
         .sheet(isPresented: $showWater) { WaterDetailView() }

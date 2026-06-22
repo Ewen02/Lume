@@ -26,11 +26,16 @@ struct SetRow: View {
             Text(set.weight.clean).font(.lumeCallout).foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).monospacedDigit()
             Text("\(set.reps)").font(.lumeCallout).foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).monospacedDigit()
             Text(set.rpe.map { "\($0)" } ?? "—").font(.lumeCallout).foregroundStyle(LumeColor.muted).frame(maxWidth: .infinity).monospacedDigit()
-            Button { set.done.toggle() } label: {
+            Button { withAnimation(LumeMotion.bouncy) { set.done.toggle() } } label: {
                 Image(appIcon: .validate)
                     .lumeIcon(22, weight: .bold)
                     .foregroundStyle(set.done ? LumeColor.success : LumeColor.faint)
-            }.buttonStyle(.plain).frame(width: 40)
+                    .scaleEffect(set.done ? 1.15 : 1)
+            }
+            .buttonStyle(.lumePress)
+            .frame(width: 40)
+            .sensoryFeedback(.success, trigger: set.done)
+            .accessibilityLabel(set.done ? "Série validée" : "Valider la série")
         }
         .padding(.vertical, Spacing.sm)
     }
@@ -82,7 +87,7 @@ struct ExerciseSessionCard: View {
                         Text("Ajouter une série").font(.lumeSubhead.weight(.semibold))
                     }.foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).padding(.vertical, Spacing.sm)
                         .background(LumeColor.cream).clipShape(Capsule())
-                }.buttonStyle(.plain)
+                }.buttonStyle(.lumePress)
             }
         }
     }
@@ -121,7 +126,7 @@ struct RoutineCard: View {
             .background(LumeColor.surface)
             .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
             .lumeShadow(.soft)
-        }.buttonStyle(.plain)
+        }.buttonStyle(.lumePress)
     }
 }
 

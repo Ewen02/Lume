@@ -73,7 +73,7 @@ struct ProfileView: View {
                             .frame(maxWidth: .infinity).padding(.vertical, Spacing.sm + 2)
                             .background(active ? LumeColor.ink : LumeColor.cream)
                             .clipShape(Capsule())
-                            .onTapGesture { withAnimation(.snappy) { user = name } }
+                            .onTapGesture { withAnimation(LumeMotion.snappy) { user = name } }
                     }
                 }
             }
@@ -106,25 +106,25 @@ struct ProfileView: View {
             VStack(spacing: 0) {
                 Button { showGoal = true } label: {
                     SettingsRow(icon: .progress, tint: LumeColor.protein, title: "Objectif & calories")
-                }.buttonStyle(.plain)
+                }.buttonStyle(.lumePress)
                 divider
                 Button { Task { await health.requestAuthorization() } } label: {
                     SettingsRow(icon: .weight, tint: LumeColor.success, title: "Apple Santé",
                                 value: health.isAuthorized ? "Connecté" : "Connecter", showsChevron: false)
-                }.buttonStyle(.plain)
+                }.buttonStyle(.lumePress)
                 divider
-                Button { withAnimation(.snappy) { useImperial.toggle() } } label: {
+                Button { withAnimation(LumeMotion.snappy) { useImperial.toggle() } } label: {
                     SettingsRow(icon: .settings, tint: LumeColor.fat, title: "Unités",
                                 value: useImperial ? "lb · kcal" : "kg · kcal", showsChevron: false)
-                }.buttonStyle(.plain)
+                }.buttonStyle(.lumePress)
                 divider
                 Button { openSystemSettings() } label: {
                     SettingsRow(icon: .recents, tint: LumeColor.carbs, title: "Rappels", value: "Réglages")
-                }.buttonStyle(.plain)
+                }.buttonStyle(.lumePress)
                 divider
                 Button { showAbout = true } label: {
                     SettingsRow(icon: .person, tint: LumeColor.muted, title: "À propos", showsChevron: true)
-                }.buttonStyle(.plain)
+                }.buttonStyle(.lumePress)
             }
         }
     }

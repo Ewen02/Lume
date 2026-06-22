@@ -33,13 +33,13 @@ struct OnboardingView: View {
                 permissions.tag(3)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
-            .animation(.snappy, value: step)
+            .animation(LumeMotion.snappy, value: step)
 
             HStack(spacing: Spacing.sm) {
                 ForEach(0 ... lastStep, id: \.self) { i in
                     Capsule().fill(i == step ? LumeColor.ink : LumeColor.border)
                         .frame(width: i == step ? 22 : 7, height: 7)
-                        .animation(.snappy, value: step)
+                        .animation(LumeMotion.snappy, value: step)
                 }
             }.padding(.bottom, Spacing.lg)
 

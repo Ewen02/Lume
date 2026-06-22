@@ -9,11 +9,13 @@ struct MacroCard: View {
     var body: some View {
         VStack(spacing: Spacing.sm) {
             HStack(alignment: .firstTextBaseline, spacing: 1) {
-                Text("\(value)").font(.system(size: 16, weight: .heavy)).foregroundStyle(LumeColor.ink)
+                Text("\(value)").font(.lumeCallout.weight(.heavy)).foregroundStyle(LumeColor.ink)
+                    .monospacedDigit().contentTransition(.numericText(value: Double(value)))
                 Text("/\(goal)").font(.lumeCaption).foregroundStyle(LumeColor.muted)
             }
+            .animation(LumeMotion.snappy, value: value)
             ProgressRing(progress: Double(value) / Double(max(goal, 1)), color: color, lineWidth: 5) {
-                Text(letter).font(.system(size: 15, weight: .bold)).foregroundStyle(color)
+                Text(letter).font(.lumeSubhead.weight(.bold)).foregroundStyle(color)
             }
             .frame(width: 46, height: 46)
             Text(label).font(.lumeCaption).foregroundStyle(LumeColor.muted)
@@ -37,9 +39,10 @@ struct CalorieCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(alignment: .firstTextBaseline, spacing: 5) {
                         Text("\(remaining)").font(.lumeNumberXL).foregroundStyle(LumeColor.ink)
-                            .monospacedDigit()
+                            .monospacedDigit().contentTransition(.numericText(value: Double(remaining)))
                         Text("/ \(goal)").font(.lumeHeadline).foregroundStyle(LumeColor.muted)
                     }
+                    .animation(LumeMotion.snappy, value: remaining)
                     Text("Calories restantes").font(.lumeSubhead).foregroundStyle(LumeColor.muted)
                 }
                 Spacer()

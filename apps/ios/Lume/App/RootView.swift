@@ -10,7 +10,7 @@ struct RootView: View {
         if hasOnboarded {
             mainContent
         } else {
-            OnboardingView { withAnimation(.smooth) { hasOnboarded = true } }
+            OnboardingView { withAnimation(LumeMotion.smooth) { hasOnboarded = true } }
                 .transition(.opacity)
         }
     }
@@ -19,12 +19,16 @@ struct RootView: View {
         ZStack(alignment: .bottom) {
             LumeColor.cream.ignoresSafeArea()
 
-            switch tab {
-            case .today: TodayView(highlightTrigger: justLoggedID)
-            case .workout: WorkoutHomeView()
-            case .progress: ProgressDashboardView()
-            case .profile: ProfileView()
+            Group {
+                switch tab {
+                case .today: TodayView(highlightTrigger: justLoggedID)
+                case .workout: WorkoutHomeView()
+                case .progress: ProgressDashboardView()
+                case .profile: ProfileView()
+                }
             }
+            .transition(.opacity)
+            .animation(LumeMotion.smooth, value: tab)
 
             LumeTabBar(selection: $tab)
                 .padding(.horizontal, Spacing.lg)
@@ -36,7 +40,7 @@ struct RootView: View {
         .sheet(isPresented: $showCapture) {
             CaptureView {
                 // Aliment ajouté : on revient sur le dashboard et on l'anime.
-                withAnimation(.smooth) { tab = .today }
+                withAnimation(LumeMotion.smooth) { tab = .today }
                 justLoggedID = UUID()
             }
         }

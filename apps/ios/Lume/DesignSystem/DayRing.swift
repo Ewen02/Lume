@@ -16,8 +16,9 @@ struct DayRing: View {
                          lineWidth: 2.5)
             {
                 Text("\(day)")
-                    .font(.system(size: 12, weight: isToday ? .heavy : .semibold))
+                    .font(.lumeCaption.weight(isToday ? .heavy : .semibold))
                     .foregroundStyle(LumeColor.ink)
+                    .monospacedDigit()
             }
             .frame(width: 32, height: 32)
         }

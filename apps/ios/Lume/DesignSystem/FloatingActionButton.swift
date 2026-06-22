@@ -3,6 +3,7 @@ import SwiftUI
 struct FloatingActionButton: View {
     var icon: AppIcon = .add
     var action: () -> Void = {}
+    @State private var appeared = false
     var body: some View {
         Button(action: action) {
             Image(appIcon: icon)
@@ -14,5 +15,9 @@ struct FloatingActionButton: View {
                 .lumeShadow(.fab)
         }
         .buttonStyle(.lumePress)
+        // Apparition au lancement : attire l'œil vers l'action principale.
+        .scaleEffect(appeared ? 1 : 0.8)
+        .opacity(appeared ? 1 : 0)
+        .onAppear { withAnimation(LumeMotion.bouncy.delay(0.15)) { appeared = true } }
     }
 }

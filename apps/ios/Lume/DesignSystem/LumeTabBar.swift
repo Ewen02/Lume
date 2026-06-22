@@ -32,9 +32,11 @@ struct LumeTabBar: View {
                     Text(tab.label).font(.lumeCaption)
                 }
                 .foregroundStyle(active ? LumeColor.ink : LumeColor.muted.opacity(0.7))
+                .scaleEffect(active ? 1.08 : 1)
+                .animation(LumeMotion.snappy, value: selection)
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
-                .onTapGesture { selection = tab }
+                .onTapGesture { withAnimation(LumeMotion.snappy) { selection = tab } }
             }
         }
         .padding(.top, Spacing.md + 2).padding(.horizontal, Spacing.xxl)

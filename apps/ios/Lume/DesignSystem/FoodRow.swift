@@ -18,7 +18,8 @@ struct FoodRow: View {
             Button(action: action) {
                 Image(appIcon: trailing).lumeIcon(16, weight: .bold).foregroundStyle(LumeColor.surface)
                     .frame(width: 30, height: 30).background(LumeColor.ink).clipShape(Circle())
-            }.buttonStyle(.plain)
+                    .contentShape(Rectangle()).frame(width: 44, height: 44) // hitbox ≥ 44pt
+            }.buttonStyle(.lumePress)
         }
         .padding(.horizontal, Spacing.lg - 2).padding(.vertical, Spacing.md)
         .background(LumeColor.surface)
