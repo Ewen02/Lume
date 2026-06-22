@@ -17,6 +17,7 @@ struct AnalyzeView: View {
     @State private var per100g: [UUID: Macros] = [:]
     @State private var correcting: FoodItem?
     @State private var showFullImage = false
+    @State private var didStart = false
     private let onLogged: () -> Void
 
     /// Mode démo / preview : aliments fournis directement.
@@ -61,8 +62,8 @@ struct AnalyzeView: View {
     private func runAnalyze() async {
         guard let data = imageData else { return }
         phase = .loading
-        // Jusqu'à 2 tentatives : le backend Railway peut être en cold start au 1er appel.
-        for attempt in 0 ..< 2 {
+        // Jusqu'à 3 tentatives : 1er appel parfois lent (cold start / grosse image).
+        for attempt in 0 ..< 3 {
             do {
                 let result = try await api.analyze(imageData: data)
                 items = result
@@ -70,8 +71,11 @@ struct AnalyzeView: View {
                 phase = result.isEmpty ? .failed : .loaded
                 return
             } catch {
-                if attempt == 0 {
-                    try? await Task.sleep(nanoseconds: 1_500_000_000) // laisse le serveur se réveiller
+                #if DEBUG
+                    print("Analyse échouée (essai \(attempt + 1)) : \(error)")
+                #endif
+                if attempt < 2 {
+                    try? await Task.sleep(nanoseconds: 1_500_000_000)
                     continue
                 }
                 phase = .failed
@@ -132,8 +136,14 @@ struct AnalyzeView: View {
             }
         }
         .sensoryFeedback(.success, trigger: added)
-        .task { if phase == .loading { await runAnalyze() } }
-        .onAppear { captureBasisIfNeeded() }
+        .onAppear {
+            captureBasisIfNeeded()
+            // Lance l'analyse une seule fois, dans une Task non liée au cycle de vie de la vue
+            // (un re-render qui annulerait `.task` ne doit pas faire échouer l'analyse).
+            guard imageData != nil, !didStart else { return }
+            didStart = true
+            Task { await runAnalyze() }
+        }
         .sheet(item: $correcting) { item in
             FoodCorrectionView(query: item.name) { product in
                 replace(item, with: product)

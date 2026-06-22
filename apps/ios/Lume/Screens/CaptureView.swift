@@ -58,10 +58,12 @@ struct CaptureView: View {
         .onChange(of: photoItem) { _, newValue in
             guard let newValue else { return }
             Task {
-                if let data = try? await newValue.loadTransferable(type: Data.self) {
-                    analyzePayload = AnalyzePayload(data: data)
-                }
+                let data = try? await newValue.loadTransferable(type: Data.self)
                 photoItem = nil
+                // On laisse le PhotosPicker se fermer AVANT d'ouvrir Analyse en plein écran,
+                // sinon la présentation s'empile et la safe area (TopBar) se calcule mal.
+                try? await Task.sleep(nanoseconds: 350_000_000)
+                if let data { analyzePayload = AnalyzePayload(data: data) }
             }
         }
         .alert("Oups", isPresented: Binding(get: { errorMessage != nil },

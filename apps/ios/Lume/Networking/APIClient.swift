@@ -107,7 +107,9 @@ struct APIClient: FoodAPI {
     func analyze(imageData: Data) async throws -> [FoodItem] {
         // Redimensionne avant envoi : upload + analyse Claude bien plus rapides, précision conservée.
         let payload = Self.downscaledJPEG(imageData) ?? imageData
-        let body = try JSONSerialization.data(withJSONObject: ["image": payload.base64EncodedString()])
+        // Data URL complète : le serveur (et Claude vision) attend le préfixe data:image/jpeg;base64,
+        let dataURL = "data:image/jpeg;base64,\(payload.base64EncodedString())"
+        let body = try JSONSerialization.data(withJSONObject: ["image": dataURL])
         let req = try makeRequest("analyze", method: "POST", body: body)
         let res = try await send(req, as: AnalyzeResponse.self)
         return res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model,
