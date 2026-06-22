@@ -7,6 +7,7 @@ import { OpenFoodFactsAdapter } from './openfoodfacts.adapter';
 /**
  * Base nutritionnelle composite : USDA d'abord (génériques fiables), puis Open Food Facts
  * en repli (couverture mondiale : fruits exotiques, plats ethniques, produits de marque).
+ * La traduction FR→EN est faite côté app (framework Translation iOS), pas ici.
  *
  * Conforme à l'archi : implémente `NutritionDbPort`, le domaine n'en sait rien.
  */

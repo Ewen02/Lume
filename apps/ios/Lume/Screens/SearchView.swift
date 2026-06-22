@@ -180,7 +180,12 @@ struct SearchView: View {
         guard !q.isEmpty else { results = []; return }
         loading = true
         defer { loading = false }
-        results = (try? await api.search(q)) ?? []
+        var found = (try? await api.search(q)) ?? []
+        // Si rien et que le terme est traduisible en anglais, on réessaie (USDA/OFF anglophones).
+        if found.isEmpty, let en = FoodTranslator.toEnglish(q), en.lowercased() != q.lowercased() {
+            found = (try? await api.search(en)) ?? []
+        }
+        results = found
     }
 }
 
