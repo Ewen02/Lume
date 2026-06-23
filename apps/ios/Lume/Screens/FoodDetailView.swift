@@ -6,10 +6,10 @@ struct FoodDetailView: View {
     @Environment(\.modelContext) private var ctx
     @Query private var favorites: [FavoriteFood]
     @State private var grams: Int
+    @State private var meal: MealType
     @State private var added = false
     @State private var favToggled = false
     private let base: FoodItem
-    private let meal: MealType
     /// `true` quand l'aliment n'est pas encore au journal (recherche/favoris) → bouton d'ajout.
     /// `false` en consultation d'une entrée déjà loggée (depuis Aujourd'hui) → modifier/supprimer.
     private let canAddToJournal: Bool
@@ -18,7 +18,7 @@ struct FoodDetailView: View {
 
     init(food: FoodItem = Mock.foods[0], meal: MealType = .snack, canAddToJournal: Bool = true) {
         base = food
-        self.meal = meal
+        _meal = State(initialValue: meal)
         self.canAddToJournal = canAddToJournal
         entry = nil
         _grams = State(initialValue: food.grams)
@@ -27,7 +27,7 @@ struct FoodDetailView: View {
     /// Ouvre une entrée déjà journalisée pour la modifier ou la supprimer.
     init(entry: LoggedFood) {
         base = FoodItem(name: entry.name, grams: entry.grams, macros: entry.macros)
-        meal = entry.meal
+        _meal = State(initialValue: entry.meal)
         canAddToJournal = false
         self.entry = entry
         _grams = State(initialValue: entry.grams)
@@ -55,11 +55,12 @@ struct FoodDetailView: View {
         dismiss()
     }
 
-    /// Enregistre la nouvelle portion sur l'entrée du journal existante.
+    /// Enregistre la nouvelle portion + le créneau sur l'entrée du journal existante.
     private func saveChanges() {
         guard let entry else { return }
         let m = scaledMacros
         entry.grams = grams
+        entry.mealRaw = meal.rawValue
         entry.kcal = m.kcal; entry.protein = m.protein; entry.carbs = m.carbs; entry.fat = m.fat
         added = true
         dismiss()
@@ -92,6 +93,7 @@ struct FoodDetailView: View {
                             macroLine("Lipides", sc(base.macros.fat), LumeColor.fat)
                         }
                     }
+                    mealPicker
                 }.padding(.horizontal, Spacing.xl).padding(.bottom, 100)
             }
             if canAddToJournal {
@@ -135,6 +137,30 @@ struct FoodDetailView: View {
             ctx.delete(existing)
         } else {
             ctx.insert(FavoriteFood(name: base.name, per100g: per100g))
+        }
+    }
+
+    /// Sélecteur de créneau (petit-déj / déj / dîner / collation).
+    private var mealPicker: some View {
+        LumeCard {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Text("Repas").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                HStack(spacing: Spacing.sm) {
+                    ForEach(MealType.allCases) { type in
+                        let active = type == meal
+                        Button { withAnimation(LumeMotion.snappy) { meal = type } } label: {
+                            VStack(spacing: 4) {
+                                Image(appIcon: type.icon).lumeIcon(16, weight: .semibold)
+                                    .foregroundStyle(active ? LumeColor.surface : type.tint)
+                                Text(type.title).font(.lumeCaption).lineLimit(1).minimumScaleFactor(0.7)
+                                    .foregroundStyle(active ? LumeColor.surface : LumeColor.textSecondary)
+                            }
+                            .frame(maxWidth: .infinity).padding(.vertical, Spacing.sm)
+                            .background(active ? type.tint : LumeColor.cream, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+                        }.buttonStyle(.lumePress)
+                    }
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 

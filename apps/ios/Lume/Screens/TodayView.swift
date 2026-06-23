@@ -12,6 +12,7 @@ struct TodayView: View {
     private let cal = Calendar.current
     @State private var showWater = false
     @State private var showSearch = false
+    @State private var showCalendar = false
     @State private var routeEntry: LoggedFood?
     @State private var selectedDay = Calendar.current.startOfDay(for: Date())
     @State private var expanded: Set<String> = []
@@ -201,6 +202,7 @@ struct TodayView: View {
         .task(id: todayConsumed) { WidgetUpdater.update(consumed: todayConsumed, target: target) }
         .sheet(isPresented: $showWater) { WaterDetailView() }
         .sheet(isPresented: $showSearch) { SearchView() }
+        .sheet(isPresented: $showCalendar) { MealCalendarView() }
         .sheet(item: $routeEntry) { FoodDetailView(entry: $0) }
         .sheet(item: $mealToDelete) { meal in
             let n = meal.foods.count
@@ -381,6 +383,12 @@ struct TodayView: View {
                     .buttonStyle(.lumePress)
                     .accessibilityLabel("Série de \(streak) jours")
             }
+            Button { showCalendar = true } label: {
+                Image(appIcon: .recents).lumeIcon(20, weight: .semibold).foregroundStyle(LumeColor.ink)
+                    .frame(width: 40, height: 40).background(LumeColor.surface).clipShape(Circle()).lumeShadow(.soft)
+            }
+            .buttonStyle(.lumePress)
+            .accessibilityLabel("Historique")
             Button { showSearch = true } label: {
                 Image(appIcon: .search).lumeIcon(20, weight: .semibold).foregroundStyle(LumeColor.ink)
                     .frame(width: 40, height: 40).background(LumeColor.surface).clipShape(Circle()).lumeShadow(.soft)

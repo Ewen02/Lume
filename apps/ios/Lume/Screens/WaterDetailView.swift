@@ -5,6 +5,7 @@ struct WaterDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     @Query private var logs: [WaterLog]
+    @Query private var profiles: [ProfileRecord]
     @Environment(HealthManager.self) private var health
 
     init() {
@@ -12,7 +13,8 @@ struct WaterDetailView: View {
         _logs = Query(filter: #Predicate<WaterLog> { $0.day >= dayStart }, sort: \WaterLog.day, order: .reverse)
     }
 
-    private let total = 8
+    /// Objectif d'hydratation (réglable, depuis le profil).
+    private var total: Int { max(1, profiles.first?.waterGoalGlasses ?? 8) }
     private let cal = Calendar.current
 
     private var todayLog: WaterLog? {
@@ -29,6 +31,13 @@ struct WaterDetailView: View {
         if let log = todayLog { log.glasses = clamped }
         else { ctx.insert(WaterLog(day: cal.startOfDay(for: Date()), glasses: clamped)) }
         if clamped > prev { Task { await health.logWater(milliliters: Double(clamped - prev) * 250) } }
+    }
+
+    /// Met à jour l'objectif d'hydratation (persisté dans le profil).
+    private func setGoal(_ n: Int) {
+        let clamped = min(16, max(1, n))
+        if let r = profiles.first { r.waterGoalGlasses = clamped }
+        else { let r = ProfileRecord(name: ""); r.waterGoalGlasses = clamped; ctx.insert(r) }
     }
 
     var body: some View {
@@ -50,10 +59,16 @@ struct WaterDetailView: View {
                 }
                 LumeCard {
                     VStack(alignment: .leading, spacing: Spacing.md) {
-                        Text("Objectif : \(total) verres (≈ 2 L)").font(.lumeSubhead).foregroundStyle(LumeColor.muted)
+                        HStack {
+                            Text("Objectif").font(.lumeSubhead).foregroundStyle(LumeColor.ink)
+                            Spacer()
+                            Stepper("\(total) verres (≈ \(String(format: "%.1f", Double(total) * 0.25)) L)",
+                                    value: Binding(get: { total }, set: { setGoal($0) }), in: 1 ... 16)
+                                .font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink).fixedSize()
+                        }
                         HStack(spacing: Spacing.sm) {
-                            ForEach(0 ..< total, id: \.self) { i in
-                                Image(appIcon: .water).lumeIcon(20, weight: .semibold)
+                            ForEach(Array(0 ..< total), id: \.self) { i in
+                                Image(appIcon: .water).lumeIcon(18, weight: .semibold)
                                     .foregroundStyle(i < filled ? LumeColor.fat : LumeColor.faint)
                                     .frame(maxWidth: .infinity)
                             }
