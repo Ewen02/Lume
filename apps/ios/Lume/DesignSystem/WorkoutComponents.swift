@@ -68,7 +68,9 @@ struct ExerciseSessionCard: View {
     /// Retrait de l'exercice de la séance (optionnel).
     var onRemove: (() -> Void)? = nil
 
-    private var oneRM: Int { session.bestOneRM }
+    private var oneRM: Int {
+        session.bestOneRM
+    }
 
     var body: some View {
         LumeCard {
