@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
-import { VISION_PORT } from '../domain/ports/vision.port';
+import { VISION_PORT, VisionPort } from '../domain/ports/vision.port';
 import { NUTRITION_DB_PORT, NutritionDbPort } from '../domain/ports/nutrition-db.port';
-import { BARCODE_PORT } from '../domain/ports/barcode.port';
+import { BARCODE_PORT, BarcodePort } from '../domain/ports/barcode.port';
 import { NutritionResolver } from '../domain/services/nutrition-resolver.service';
 import { ClaudeVisionAdapter } from './adapters/claude-vision.adapter';
 import { UsdaAdapter } from './adapters/usda.adapter';
@@ -31,7 +31,7 @@ import { LookupBarcodeUseCase } from '../application/use-cases/lookup-barcode.us
     },
     {
       provide: AnalyzeMealUseCase,
-      useFactory: (vision: any, resolver: NutritionResolver) => new AnalyzeMealUseCase(vision, resolver),
+      useFactory: (vision: VisionPort, resolver: NutritionResolver) => new AnalyzeMealUseCase(vision, resolver),
       inject: [VISION_PORT, NutritionResolver],
     },
     {
@@ -41,7 +41,7 @@ import { LookupBarcodeUseCase } from '../application/use-cases/lookup-barcode.us
     },
     {
       provide: LookupBarcodeUseCase,
-      useFactory: (bc: any) => new LookupBarcodeUseCase(bc),
+      useFactory: (bc: BarcodePort) => new LookupBarcodeUseCase(bc),
       inject: [BARCODE_PORT],
     },
   ],

@@ -1,17 +1,30 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { BarcodePort } from '../../domain/ports/barcode.port';
 import { Food } from '../../domain/value-objects/food.vo';
 import { Macros } from '../../domain/value-objects/macros.vo';
+import { fetchWithTimeout } from '../http/fetch-with-timeout';
 
 /** Lookup code-barres via l'API publique Open Food Facts (aucune clé requise). */
 @Injectable()
 export class OpenFoodFactsAdapter implements BarcodePort {
+  private readonly logger = new Logger(OpenFoodFactsAdapter.name);
+  private static readonly UA = 'Lume/0.1 (perso)';
+
+  constructor(private readonly config: ConfigService) {}
+  private get timeoutMs(): number {
+    return this.config.get<number>('nutritionTimeoutMs') ?? 8000;
+  }
+
   async lookup(code: string): Promise<Food | null> {
     const c = (code ?? '').trim();
     if (!c) return null;
     try {
       const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(c)}.json?fields=product_name,nutriments`;
-      const res = await fetch(url, { headers: { 'User-Agent': 'Lume/0.1 (perso)' } });
+      const res = await fetchWithTimeout(url, {
+        timeoutMs: this.timeoutMs,
+        headers: { 'User-Agent': OpenFoodFactsAdapter.UA },
+      });
       if (!res.ok) return null;
       const json: any = await res.json();
       if (json?.status !== 1 && !json?.product) return null;
@@ -27,7 +40,9 @@ export class OpenFoodFactsAdapter implements BarcodePort {
       );
       const name: string = p.product_name || `Produit ${c}`;
       return new Food(name, macros, 'OpenFoodFacts', c);
-    } catch {
+    } catch (err) {
+      const reason = (err as Error)?.name === 'AbortError' ? `timeout (${this.timeoutMs} ms)` : (err as Error)?.message;
+      this.logger.warn(`Open Food Facts lookup ${c} échec (${reason}).`);
       return null;
     }
   }
@@ -46,7 +61,10 @@ export class OpenFoodFactsAdapter implements BarcodePort {
       url.searchParams.set('search_terms', q);
       url.searchParams.set('page_size', '15');
       url.searchParams.set('fields', 'product_name,nutriments');
-      const res = await fetch(url.toString(), { headers: { 'User-Agent': 'Lume/0.1 (perso)' } });
+      const res = await fetchWithTimeout(url, {
+        timeoutMs: this.timeoutMs,
+        headers: { 'User-Agent': OpenFoodFactsAdapter.UA },
+      });
       if (!res.ok) return null;
       const json: any = await res.json();
       const products: any[] = json?.products ?? [];
@@ -65,7 +83,9 @@ export class OpenFoodFactsAdapter implements BarcodePort {
       }
       // Aucun mot de la requête retrouvé → on préfère ne rien renvoyer (évite un faux match).
       return bestScore > 0 ? best : null;
-    } catch {
+    } catch (err) {
+      const reason = (err as Error)?.name === 'AbortError' ? `timeout (${this.timeoutMs} ms)` : (err as Error)?.message;
+      this.logger.warn(`Open Food Facts recherche « ${q} » échec (${reason}).`);
       return null;
     }
   }

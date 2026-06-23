@@ -3,6 +3,10 @@ import { TokenGuard } from '../../common/auth/token.guard';
 import { SearchFoodsUseCase } from '../../application/use-cases/search-foods.usecase';
 import { LookupBarcodeUseCase } from '../../application/use-cases/lookup-barcode.usecase';
 
+/** Bornes de sécurité sur les entrées texte (évite des requêtes externes abusives). */
+const MAX_QUERY_LEN = 120;
+const MAX_BARCODE_LEN = 32;
+
 @Controller('foods')
 @UseGuards(TokenGuard)
 export class FoodsController {
@@ -13,11 +17,13 @@ export class FoodsController {
 
   @Get('search')
   async search(@Query('q') q: string) {
-    return { results: await this.searchFoods.execute(q ?? '') };
+    const query = (q ?? '').slice(0, MAX_QUERY_LEN);
+    return { results: await this.searchFoods.execute(query) };
   }
 
   @Get('barcode/:code')
   async barcode(@Param('code') code: string) {
-    return { product: await this.lookupBarcode.execute(code) };
+    const c = (code ?? '').slice(0, MAX_BARCODE_LEN);
+    return { product: await this.lookupBarcode.execute(c) };
   }
 }

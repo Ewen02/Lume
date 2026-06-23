@@ -5,7 +5,8 @@ export interface AnalyzedItem {
   name: string;
   grams: number;
   macros: Macros;
-  source: Food['source'];
+  /** Base d'où viennent les macros, ou `null` si l'aliment n'a pas été trouvé (`matched: false`). */
+  source: Food['source'] | null;
   matched: boolean;
   /** Confiance de reconnaissance du modèle de vision (0–1). */
   confidence: number;

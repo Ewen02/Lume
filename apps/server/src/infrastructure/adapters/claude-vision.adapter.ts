@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { VisionPort, RecognizedMeal } from '../../domain/ports/vision.port';
 import { RecognizedItem } from '../../domain/value-objects/recognized-item.vo';
+import { fetchWithTimeout } from '../http/fetch-with-timeout';
 
 /** Données de démonstration utilisées tant qu'aucune clé Anthropic n'est configurée. */
 const MOCK: RecognizedMeal = {
@@ -37,6 +38,8 @@ Ne renvoie JAMAIS de calories ni de macronutriments : seulement le plat, les ali
  */
 @Injectable()
 export class ClaudeVisionAdapter implements VisionPort {
+  private readonly logger = new Logger(ClaudeVisionAdapter.name);
+
   constructor(private readonly config: ConfigService) {}
 
   async recognize(imageBase64: string): Promise<RecognizedMeal> {
@@ -44,11 +47,13 @@ export class ClaudeVisionAdapter implements VisionPort {
     if (!apiKey) return MOCK;
 
     const model = this.config.get<string>('anthropicModel') || 'claude-sonnet-4-6';
+    const timeoutMs = this.config.get<number>('visionTimeoutMs') ?? 30000;
     const { mediaType, data } = this.splitDataUrl(imageBase64);
 
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
+        timeoutMs,
         headers: {
           'content-type': 'application/json',
           'x-api-key': apiKey,
@@ -68,15 +73,24 @@ export class ClaudeVisionAdapter implements VisionPort {
           ],
         }),
       });
-      if (!res.ok) return MOCK;
+      if (!res.ok) {
+        this.logger.warn(`Vision API HTTP ${res.status} — repli sur la démo.`);
+        return MOCK;
+      }
       const json: any = await res.json();
       const text: string = (json?.content ?? [])
         .filter((b: any) => b?.type === 'text')
         .map((b: any) => b.text)
         .join('\n');
       const parsed = this.parse(text);
-      return parsed.items.length ? parsed : MOCK;
-    } catch {
+      if (!parsed.items.length) {
+        this.logger.warn('Vision : réponse sans aliment exploitable — repli sur la démo.');
+        return MOCK;
+      }
+      return parsed;
+    } catch (err) {
+      const reason = (err as Error)?.name === 'AbortError' ? `timeout (${timeoutMs} ms)` : (err as Error)?.message;
+      this.logger.error(`Vision API échec (${reason}) — repli sur la démo.`);
       return MOCK;
     }
   }

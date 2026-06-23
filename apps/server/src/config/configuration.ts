@@ -4,6 +4,12 @@ export interface AppConfig {
   anthropicApiKey: string;
   usdaApiKey: string;
   anthropicModel: string;
+  /** Délai max (ms) des appels aux bases nutritionnelles (USDA, Open Food Facts). */
+  nutritionTimeoutMs: number;
+  /** Délai max (ms) de l'appel à la vision Claude (plus long, l'analyse d'image prend du temps). */
+  visionTimeoutMs: number;
+  /** Origine(s) CORS autorisée(s). '*' par défaut (app native sans cookie). */
+  corsOrigin: string;
 }
 
 export default (): AppConfig => ({
@@ -12,4 +18,7 @@ export default (): AppConfig => ({
   anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? '',
   usdaApiKey: process.env.USDA_API_KEY ?? '',
   anthropicModel: process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-6',
+  nutritionTimeoutMs: parseInt(process.env.NUTRITION_TIMEOUT_MS ?? '8000', 10),
+  visionTimeoutMs: parseInt(process.env.VISION_TIMEOUT_MS ?? '30000', 10),
+  corsOrigin: process.env.CORS_ORIGIN ?? '*',
 });

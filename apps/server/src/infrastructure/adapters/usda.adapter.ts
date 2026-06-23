@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NutritionDbPort } from '../../domain/ports/nutrition-db.port';
 import { Food } from '../../domain/value-objects/food.vo';
 import { Macros } from '../../domain/value-objects/macros.vo';
+import { fetchWithTimeout } from '../http/fetch-with-timeout';
 
 /** Table de secours (macros pour 100 g) si aucune clé USDA n'est configurée. */
 const FALLBACK: Food[] = [
@@ -17,9 +18,14 @@ const FALLBACK: Food[] = [
 
 @Injectable()
 export class UsdaAdapter implements NutritionDbPort {
+  private readonly logger = new Logger(UsdaAdapter.name);
+
   constructor(private readonly config: ConfigService) {}
   private get key(): string {
     return this.config.get<string>('usdaApiKey') ?? '';
+  }
+  private get timeoutMs(): number {
+    return this.config.get<number>('nutritionTimeoutMs') ?? 8000;
   }
 
   async resolve(name: string): Promise<Food | null> {
@@ -52,8 +58,11 @@ export class UsdaAdapter implements NutritionDbPort {
       url.searchParams.set('pageSize', '25');
       // Génériques d'abord (Foundation/SR Legacy/Survey), Branded en dernier recours.
       url.searchParams.set('dataType', 'Foundation,SR Legacy,Survey (FNDDS),Branded');
-      const res = await fetch(url.toString());
-      if (!res.ok) return this.localSearch(q);
+      const res = await fetchWithTimeout(url, { timeoutMs: this.timeoutMs });
+      if (!res.ok) {
+        this.logger.warn(`USDA HTTP ${res.status} pour « ${q} » — repli local.`);
+        return this.localSearch(q);
+      }
       const json: any = await res.json();
       const foods: any[] = json?.foods ?? [];
       // On garde le dataType pour prioriser les sources fiables au moment du tri.
@@ -70,7 +79,9 @@ export class UsdaAdapter implements NutritionDbPort {
         .map((m) => ({ ...m, score: this.relevance(words, m.food.name, m.dataType) }))
         .sort((a, b) => b.score - a.score);
       return ranked.map((r) => r.food);
-    } catch {
+    } catch (err) {
+      const reason = (err as Error)?.name === 'AbortError' ? `timeout (${this.timeoutMs} ms)` : (err as Error)?.message;
+      this.logger.warn(`USDA échec pour « ${q} » (${reason}) — repli local.`);
       return this.localSearch(q);
     }
   }

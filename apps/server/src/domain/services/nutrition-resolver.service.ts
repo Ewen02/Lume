@@ -25,11 +25,12 @@ export class NutritionResolver {
           confidence: item.confidence,
         });
       } else {
+        // Aliment introuvable : pas de macros, pas de source (l'UI affiche « non trouvé »).
         analyzed.push({
           name: item.name,
           grams: item.grams,
           macros: Macros.zero(),
-          source: 'USDA',
+          source: null,
           matched: false,
           confidence: item.confidence,
         });
