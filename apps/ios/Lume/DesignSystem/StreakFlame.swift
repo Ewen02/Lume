@@ -10,7 +10,9 @@ struct StreakFlame: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Échelle 0→1 selon le streak (plateau à 21 jours) → pilote taille, halo, étincelles.
-    private var intensity: CGFloat { min(CGFloat(max(streak, 0)) / 21, 1) }
+    private var intensity: CGFloat {
+        min(CGFloat(max(streak, 0)) / 21, 1)
+    }
 
     /// Dégradé de feu : base chaude (rouge/orange) → pointe jaune, qui s'intensifie avec la série.
     private var fireGradient: LinearGradient {
