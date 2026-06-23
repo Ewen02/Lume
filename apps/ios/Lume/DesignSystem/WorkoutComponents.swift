@@ -51,6 +51,11 @@ struct SetRow: View {
             .accessibilityLabel(set.done ? "Série validée" : "Valider la série")
         }
         .padding(.vertical, Spacing.sm)
+        .padding(.horizontal, Spacing.xs)
+        // Série validée : fond vert doux, pour la repérer d'un coup d'œil.
+        .background(set.done ? LumeColor.success.opacity(0.10) : .clear,
+                    in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+        .animation(LumeMotion.bouncy, value: set.done)
     }
 }
 
@@ -67,6 +72,8 @@ struct ExerciseSessionCard: View {
     @Binding var session: ExerciseSession
     /// Retrait de l'exercice de la séance (optionnel).
     var onRemove: (() -> Void)? = nil
+    /// Perf de la dernière séance pour cet exercice (ex. "80 kg × 8"), affichée en référence.
+    var lastPerformance: String? = nil
 
     private var oneRM: Int {
         session.bestOneRM
@@ -78,7 +85,15 @@ struct ExerciseSessionCard: View {
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(session.exercise.name).font(.lumeHeadline).foregroundStyle(LumeColor.ink)
-                        MusclePill(group: session.exercise.primary)
+                        HStack(spacing: Spacing.sm) {
+                            MusclePill(group: session.exercise.primary)
+                            if let lastPerformance {
+                                HStack(spacing: 3) {
+                                    Image(appIcon: .recents).lumeIcon(10, weight: .semibold)
+                                    Text(lastPerformance).font(.lumeCaption).monospacedDigit()
+                                }.foregroundStyle(LumeColor.muted)
+                            }
+                        }
                     }
                     Spacer()
                     if oneRM > 0 {

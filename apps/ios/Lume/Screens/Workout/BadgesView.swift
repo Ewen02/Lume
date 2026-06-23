@@ -23,7 +23,9 @@ struct BadgesView: View {
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         SectionHeader(title: category.label)
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: Spacing.md)], spacing: Spacing.md) {
-                            ForEach(badges) { badge in cell(badge) }
+                            ForEach(badges) { badge in
+                                cell(badge).lumeEntrance(BadgeCatalog.all.firstIndex(where: { $0.id == badge.id }) ?? 0)
+                            }
                         }
                     }
                 }

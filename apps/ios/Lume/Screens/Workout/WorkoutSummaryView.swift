@@ -4,6 +4,7 @@ import SwiftUI
 struct WorkoutSummaryView: View {
     let summary: WorkoutSummary
     var newBadges: [Badge] = []
+    var newPRs: [PRBeaten] = []
     var onClose: () -> Void
     @State private var appeared = false
 
@@ -34,10 +35,11 @@ struct WorkoutSummaryView: View {
                          label: "Meilleur 1RM")
             }
 
-            if let ex = summary.bestExercise, summary.bestOneRM > 0 {
+            if let ex = summary.bestExercise, summary.bestOneRM > 0, newPRs.isEmpty {
                 Text("Top exercice : \(ex)").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
             }
 
+            if !newPRs.isEmpty { prsCard }
             if !newBadges.isEmpty { badgesCard }
 
             Spacer()
@@ -50,6 +52,32 @@ struct WorkoutSummaryView: View {
         .interactiveDismissDisabled()
         .onAppear { withAnimation(LumeMotion.celebrate.delay(0.1)) { appeared = true } }
         .sensoryFeedback(.success, trigger: appeared)
+    }
+
+    private var prsCard: some View {
+        VStack(spacing: Spacing.sm) {
+            HStack(spacing: Spacing.xs) {
+                Image(appIcon: .pr).lumeIcon(16, weight: .bold).foregroundStyle(LumeColor.warning)
+                Text(newPRs.count > 1 ? "Nouveaux records !" : "Nouveau record !")
+                    .font(.lumeCallout.weight(.bold)).foregroundStyle(LumeColor.ink)
+            }
+            ForEach(newPRs) { pr in
+                HStack {
+                    Text(pr.exercise).font(.lumeSubhead).foregroundStyle(LumeColor.ink).lineLimit(1)
+                    Spacer()
+                    Text("\(pr.oneRM) kg").font(.lumeSubhead.weight(.bold)).foregroundStyle(LumeColor.ink).monospacedDigit()
+                    if pr.previous > 0 {
+                        Text("+\(pr.oneRM - pr.previous)").font(.lumeCaption.weight(.semibold))
+                            .foregroundStyle(LumeColor.success).monospacedDigit()
+                    }
+                }
+            }
+        }
+        .padding(Spacing.lg)
+        .background(LumeColor.warning.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: Radius.lg).strokeBorder(LumeColor.warning.opacity(0.3), lineWidth: 1))
+        .scaleEffect(appeared ? 1 : 0.8)
     }
 
     private var badgesCard: some View {

@@ -6,6 +6,8 @@ struct ActiveSessionView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(HealthManager.self) private var health
     @Query private var profiles: [ProfileRecord]
+    /// Séances passées (pour afficher « la dernière fois » par exercice).
+    @Query(sort: \WorkoutSessionModel.date, order: .reverse) private var pastSessions: [WorkoutSessionModel]
 
     let title: String
     @State private var sessions: [ExerciseSession]
@@ -17,15 +19,40 @@ struct ActiveSessionView: View {
     @State private var summary: WorkoutSummary?
     /// Badges fraîchement débloqués par cette séance (affichés dans le récap).
     @State private var newBadges: [Badge] = []
+    /// Records personnels battus pendant cette séance (nom d'exercice → nouveau 1RM).
+    @State private var newPRs: [PRBeaten] = []
     /// Dernière durée de repos choisie (réutilisée d'une série à l'autre).
     @AppStorage("lume.restSeconds") private var restSeconds = 90
+    /// Démarrage auto du repos quand on coche une série.
+    @AppStorage("lume.autoRest") private var autoRest = true
 
     init(title: String = "Séance libre", prefill: [ExerciseSession] = []) {
         self.title = title
         _sessions = State(initialValue: prefill)
     }
 
+    /// Détecte les records de 1RM battus : pour chaque exercice de la séance, compare son meilleur
+    /// 1RM (séries effectuées) au record historique des séances passées.
+    private func detectNewPRs() -> [PRBeaten] {
+        var out: [PRBeaten] = []
+        for sess in sessions {
+            let current = sess.sets.filter { $0.reps > 0 }
+                .map { OneRepMax.estimate(weight: $0.weight, reps: $0.reps) }.max() ?? 0
+            guard current > 0 else { continue }
+            let previousBest = pastSessions
+                .flatMap { $0.orderedExercises.filter { $0.name == sess.exercise.name } }
+                .map(\.bestOneRM).max() ?? 0
+            if current > previousBest {
+                out.append(PRBeaten(exercise: sess.exercise.name, oneRM: current, previous: previousBest))
+            }
+        }
+        return out
+    }
+
     private func finish() {
+        // Records battus : calculés AVANT l'insertion (comparaison avec l'historique).
+        newPRs = detectNewPRs()
+
         let model = WorkoutSessionModel(date: startedAt,
                                         durationSec: Int(Date().timeIntervalSince(startedAt)),
                                         title: title)
@@ -77,9 +104,11 @@ struct ActiveSessionView: View {
                         emptyState
                     } else {
                         ForEach($sessions) { $session in
-                            ExerciseSessionCard(session: $session) {
-                                withAnimation(LumeMotion.snappy) { sessions.removeAll { $0.id == session.id } }
-                            }
+                            ExerciseSessionCard(
+                                session: $session,
+                                onRemove: { withAnimation(LumeMotion.snappy) { sessions.removeAll { $0.id == session.id } } },
+                                lastPerformance: LastPerformance.summary(for: session.exercise.name, in: pastSessions)
+                            )
                         }
                         addExerciseButton
                     }
@@ -89,6 +118,10 @@ struct ActiveSessionView: View {
         }
         .background(LumeColor.cream.ignoresSafeArea())
         .safeAreaInset(edge: .top) { header }
+        // Repos auto : ouvre le timer quand une série vient d'être cochée.
+        .onChange(of: doneSetCount) { old, new in
+            if autoRest, new > old, !showRest { showRest = true }
+        }
         .sheet(isPresented: $showRest) {
             RestTimerView(seconds: restSeconds) { restSeconds = $0 }.presentationDetents([.medium, .large])
         }
@@ -101,7 +134,7 @@ struct ActiveSessionView: View {
             }
         }
         .sheet(item: $summary) { s in
-            WorkoutSummaryView(summary: s, newBadges: newBadges) { dismiss() }
+            WorkoutSummaryView(summary: s, newBadges: newBadges, newPRs: newPRs) { dismiss() }
         }
         .sensoryFeedback(.success, trigger: finished)
     }
@@ -128,19 +161,22 @@ struct ActiveSessionView: View {
             }
             if !sessions.isEmpty {
                 HStack(spacing: Spacing.sm) {
-                    liveStat(value: "\(doneSetCount)", label: doneSetCount > 1 ? "séries" : "série")
-                    liveStat(value: "\(liveVolume)", label: "kg")
-                    liveStat(value: "\(sessions.count)", label: sessions.count > 1 ? "exos" : "exo")
+                    liveStat(value: doneSetCount, label: doneSetCount > 1 ? "séries" : "série")
+                    liveStat(value: liveVolume, label: "kg")
+                    liveStat(value: sessions.count, label: sessions.count > 1 ? "exos" : "exo")
                 }
+                .animation(LumeMotion.snappy, value: doneSetCount)
+                .animation(LumeMotion.snappy, value: liveVolume)
             }
         }
         .padding(.horizontal, Spacing.xl).padding(.top, Spacing.lg).padding(.bottom, Spacing.md)
         .background(LumeColor.cream)
     }
 
-    private func liveStat(value: String, label: String) -> some View {
+    private func liveStat(value: Int, label: String) -> some View {
         VStack(spacing: 1) {
-            Text(value).font(.lumeHeadline).foregroundStyle(LumeColor.ink).monospacedDigit()
+            Text("\(value)").font(.lumeHeadline).foregroundStyle(LumeColor.ink).monospacedDigit()
+                .contentTransition(.numericText(value: Double(value)))
             Text(label).font(.lumeCaption).foregroundStyle(LumeColor.muted)
         }
         .frame(maxWidth: .infinity).padding(.vertical, Spacing.sm)

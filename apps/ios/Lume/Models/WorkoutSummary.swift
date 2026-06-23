@@ -39,3 +39,11 @@ struct WorkoutSummary: Identifiable {
         return m > 0 ? "\(m) min \(s) s" : "\(s) s"
     }
 }
+
+/// Record personnel de 1RM battu pendant une séance (pour la célébration du récap).
+struct PRBeaten: Identifiable {
+    var exercise: String
+    var oneRM: Int
+    var previous: Int
+    var id: String { exercise }
+}

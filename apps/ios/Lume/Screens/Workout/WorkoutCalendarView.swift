@@ -9,6 +9,7 @@ struct WorkoutCalendarView: View {
 
     @State private var monthOffset = 0
     @State private var routeSession: WorkoutSessionModel?
+    @State private var appeared = false
 
     private let calendar = Calendar.current
 
@@ -37,6 +38,11 @@ struct WorkoutCalendarView: View {
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
         .sheet(item: $routeSession) { SessionDetailView(session: $0) }
+        .onAppear { withAnimation(LumeMotion.bouncy.delay(0.15)) { appeared = true } }
+        .onChange(of: monthOffset) { _, _ in
+            appeared = false
+            withAnimation(LumeMotion.bouncy.delay(0.1)) { appeared = true }
+        }
     }
 
     private var monthHeader: some View {
@@ -89,6 +95,7 @@ struct WorkoutCalendarView: View {
                 Circle()
                     .fill(daySessions.isEmpty ? Color.clear : tint)
                     .frame(width: 7, height: 7)
+                    .scaleEffect(daySessions.isEmpty || appeared ? 1 : 0)
             }
             .frame(maxWidth: .infinity).frame(height: 44)
             .background(isToday ? LumeColor.faint : Color.clear, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
