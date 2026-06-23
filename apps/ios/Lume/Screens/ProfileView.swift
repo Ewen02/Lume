@@ -1,17 +1,24 @@
 import SwiftData
 import SwiftUI
-import UIKit
 
 struct ProfileView: View {
     @Query private var profiles: [ProfileRecord]
     @Environment(HealthManager.self) private var health
     @AppStorage("lume.useImperialUnits") private var useImperial = false
-    @State private var user = "Ewen"
+    @Environment(\.modelContext) private var ctx
     @State private var showGoal = false
     @State private var showAbout = false
+    @State private var showName = false
+    @State private var showReminders = false
+    @State private var showExport = false
 
     private var record: ProfileRecord? {
         profiles.first
+    }
+
+    private var displayName: String {
+        let name = record?.name.trimmingCharacters(in: .whitespaces) ?? ""
+        return name.isEmpty ? "Toi" : name
     }
 
     private var target: Macros {
@@ -40,42 +47,29 @@ struct ProfileView: View {
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm)
                 .background(LumeColor.cream)
         }
-        .onAppear { if let n = record?.name { user = n } }
         .sheet(isPresented: $showGoal) { GoalView() }
         .sheet(isPresented: $showAbout) { AboutView() }
-    }
-
-    private func openSystemSettings() {
-        if let url = URL(string: UIApplication.openSettingsURLString) {
-            UIApplication.shared.open(url)
+        .sheet(isPresented: $showName) {
+            NameEditView(initial: record?.name ?? "") { newName in
+                if let r = record { r.name = newName }
+                else { ctx.insert(ProfileRecord(name: newName)) }
+            }
         }
+        .sheet(isPresented: $showReminders) { RemindersView() }
+        .sheet(isPresented: $showExport) { ExportView() }
     }
 
     private var headerCard: some View {
         LumeCard {
-            VStack(spacing: Spacing.lg) {
-                HStack(spacing: Spacing.lg) {
-                    Text(String(user.prefix(1)))
-                        .font(.lumeTitle).foregroundStyle(LumeColor.surface)
-                        .frame(width: 60, height: 60).background(LumeColor.ink).clipShape(Circle())
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(user).font(.lumeTitle).foregroundStyle(LumeColor.ink)
-                        Text("Objectif : \(goalLabel)").font(.lumeSubhead).foregroundStyle(LumeColor.muted)
-                    }
-                    Spacer()
+            HStack(spacing: Spacing.lg) {
+                Text(String(displayName.prefix(1)))
+                    .font(.lumeTitle).foregroundStyle(LumeColor.surface)
+                    .frame(width: 60, height: 60).background(LumeColor.ink).clipShape(Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(displayName).font(.lumeTitle).foregroundStyle(LumeColor.ink)
+                    Text("Objectif : \(goalLabel)").font(.lumeSubhead).foregroundStyle(LumeColor.muted)
                 }
-                // Bascule cosmétique : en local-first, 1 profil = 1 compte iCloud.
-                HStack(spacing: Spacing.sm) {
-                    ForEach(["Ewen", "Victoria"], id: \.self) { name in
-                        let active = name == user
-                        Text(name).font(.lumeSubhead.weight(.semibold))
-                            .foregroundStyle(active ? LumeColor.surface : LumeColor.textSecondary)
-                            .frame(maxWidth: .infinity).padding(.vertical, Spacing.sm + 2)
-                            .background(active ? LumeColor.ink : LumeColor.cream)
-                            .clipShape(Capsule())
-                            .onTapGesture { withAnimation(LumeMotion.snappy) { user = name } }
-                    }
-                }
+                Spacer()
             }
         }
     }
@@ -104,6 +98,10 @@ struct ProfileView: View {
     private var settingsCard: some View {
         LumeCard(padding: Spacing.xs) {
             VStack(spacing: 0) {
+                Button { showName = true } label: {
+                    SettingsRow(icon: .person, tint: LumeColor.ink, title: "Prénom", value: displayName)
+                }.buttonStyle(.lumePress)
+                divider
                 Button { showGoal = true } label: {
                     SettingsRow(icon: .progress, tint: LumeColor.protein, title: "Objectif & calories")
                 }.buttonStyle(.lumePress)
@@ -118,8 +116,12 @@ struct ProfileView: View {
                                 value: useImperial ? "lb · kcal" : "kg · kcal", showsChevron: false)
                 }.buttonStyle(.lumePress)
                 divider
-                Button { openSystemSettings() } label: {
-                    SettingsRow(icon: .recents, tint: LumeColor.carbs, title: "Rappels", value: "Réglages")
+                Button { showReminders = true } label: {
+                    SettingsRow(icon: .recents, tint: LumeColor.carbs, title: "Rappels")
+                }.buttonStyle(.lumePress)
+                divider
+                Button { showExport = true } label: {
+                    SettingsRow(icon: .gallery, tint: LumeColor.success, title: "Exporter mes données")
                 }.buttonStyle(.lumePress)
                 divider
                 Button { showAbout = true } label: {
@@ -166,3 +168,46 @@ struct AboutView: View {
 }
 
 #Preview("À propos") { AboutView() }
+
+// MARK: - Édition du prénom
+
+struct NameEditView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String
+    let onSave: (String) -> Void
+
+    init(initial: String, onSave: @escaping (String) -> Void) {
+        _name = State(initialValue: initial)
+        self.onSave = onSave
+    }
+
+    private var trimmed: String {
+        name.trimmingCharacters(in: .whitespaces)
+    }
+
+    var body: some View {
+        VStack(spacing: Spacing.lg) {
+            Spacer()
+            Text("Ton prénom").font(.lumeTitle).foregroundStyle(LumeColor.ink)
+            LumeCard {
+                TextField("Prénom", text: $name)
+                    .multilineTextAlignment(.center)
+                    .textInputAutocapitalization(.words)
+                    .font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+            }.padding(.horizontal, Spacing.xl)
+            Spacer()
+            PrimaryButton(title: "Enregistrer", icon: .validate) {
+                onSave(trimmed)
+                dismiss()
+            }
+            .disabled(trimmed.isEmpty)
+            .opacity(trimmed.isEmpty ? 0.5 : 1)
+            .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.lg)
+        }
+        .frame(maxWidth: .infinity)
+        .background(LumeColor.cream.ignoresSafeArea())
+        .presentationDetents([.medium])
+    }
+}
+
+#Preview("Prénom") { NameEditView(initial: "Ewen") { _ in } }

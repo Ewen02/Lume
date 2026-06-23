@@ -6,7 +6,11 @@ struct ProgressDashboardView: View {
     @Environment(HealthManager.self) private var health
     @Query private var weekFoods: [LoggedFood] // borné aux 7 derniers jours
     @Query(sort: \LoggedFood.date, order: .reverse) private var allFoods: [LoggedFood]
+    @Query(sort: \WeightSample.date) private var weightSamples: [WeightSample]
+    @Query(sort: \WorkoutSessionModel.date, order: .reverse) private var sessions: [WorkoutSessionModel]
+    @Query private var profiles: [ProfileRecord]
     @State private var showStreak = false
+    @State private var showWeightEntry = false
 
     init() {
         let weekStart = Calendar.current.date(byAdding: .day, value: -6,
@@ -15,8 +19,11 @@ struct ProgressDashboardView: View {
                            sort: \LoggedFood.date, order: .reverse)
     }
 
+    /// Priorité : HealthKit → poids saisis localement (WeightSample) → démo.
     private var weights: [WeightEntry] {
-        health.weightSeries.isEmpty ? Mock.weights : health.weightSeries
+        if !health.weightSeries.isEmpty { return health.weightSeries }
+        if !weightSamples.isEmpty { return weightSamples.map { WeightEntry(date: $0.date, kg: $0.kg) } }
+        return Mock.weights
     }
 
     /// Calories par jour sur 7 jours : repli démo seulement si aucun repas enregistré.
@@ -44,11 +51,28 @@ struct ProgressDashboardView: View {
         WeeklyCalories.dailyAverage(of: week)
     }
 
+    private var targetKcal: Int {
+        profiles.first.map { TDEECalculator.target($0.profile).kcal } ?? Mock.target.kcal
+    }
+
+    private var weekly: WeeklyGoals {
+        WeeklyGoals.compute(foods: weekFoods, sessions: sessions, targetKcal: targetKcal)
+    }
+
+    /// Bornes de l'axe Y du graphe poids (défensif si la série venait à être vide).
+    private var weightDomain: ClosedRange<Double> {
+        let kgs = weights.map(\.kg)
+        guard let lo = kgs.min(), let hi = kgs.max() else { return 0 ... 1 }
+        return (lo - 1) ... (hi + 1)
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 HStack(spacing: Spacing.md) {
-                    StatTile(icon: .weight, tint: LumeColor.fat, value: String(format: "%.1f kg", current), label: "Poids actuel")
+                    Button { showWeightEntry = true } label: {
+                        StatTile(icon: .weight, tint: LumeColor.fat, value: String(format: "%.1f kg", current), label: "Poids actuel")
+                    }.buttonStyle(.lumePress)
                     StatTile(icon: .progress, tint: delta <= 0 ? LumeColor.success : LumeColor.protein,
                              value: String(format: "%+.1f kg", delta), label: "Variation")
                 }
@@ -60,8 +84,9 @@ struct ProgressDashboardView: View {
                     }.buttonStyle(.lumePress)
                 }
                 .lumeEntrance(1)
-                weightCard.lumeEntrance(2)
-                caloriesCard.lumeEntrance(3)
+                weeklyGoalsCard.lumeEntrance(2)
+                weightCard.lumeEntrance(3)
+                caloriesCard.lumeEntrance(4)
             }
             .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 130)
         }
@@ -75,6 +100,30 @@ struct ProgressDashboardView: View {
         .task { await health.requestAuthorization() }
         .sheet(isPresented: $showStreak) {
             StreakDetailView(streak: streak, record: streakRecord)
+        }
+        .sheet(isPresented: $showWeightEntry) {
+            WeightEntryView(current: weights.last?.kg)
+        }
+    }
+
+    private var weeklyGoalsCard: some View {
+        let w = weekly
+        return LumeCard {
+            VStack(alignment: .leading, spacing: Spacing.lg) {
+                Text("Cette semaine").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+
+                GoalBar(label: "Jours suivis", value: "\(w.trackedDays)/7",
+                        progress: w.trackingProgress, tint: LumeColor.protein)
+                GoalBar(label: "Séances muscu", value: "\(w.workouts)/\(w.workoutGoal)",
+                        progress: w.workoutProgress, tint: LumeColor.success)
+
+                HStack {
+                    Text("Moy. kcal vs cible").font(.lumeSubhead).foregroundStyle(LumeColor.textSecondary)
+                    Spacer()
+                    Text("\(w.avgKcal) / \(w.targetKcal)")
+                        .font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink).monospacedDigit()
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -90,7 +139,7 @@ struct ProgressDashboardView: View {
                         .interpolationMethod(.catmullRom)
                         .foregroundStyle(LumeColor.ink).lineStyle(.init(lineWidth: 2.5))
                 }
-                .chartYScale(domain: (weights.map(\.kg).min()! - 1) ... (weights.map(\.kg).max()! + 1))
+                .chartYScale(domain: weightDomain)
                 .chartXAxis(.hidden)
                 .frame(height: 170)
             }.frame(maxWidth: .infinity, alignment: .leading)
@@ -114,3 +163,48 @@ struct ProgressDashboardView: View {
 }
 
 #Preview { ProgressDashboardView().modelContainer(LumeStore.preview).environment(HealthManager.shared) }
+
+// MARK: - Saisie de poids
+
+struct WeightEntryView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var ctx
+    @Environment(HealthManager.self) private var health
+    @State private var kg: Double
+
+    init(current: Double?) {
+        // Démarre au dernier poids connu (arrondi au demi-kilo), sinon 70 kg.
+        let base = current ?? 70
+        _kg = State(initialValue: (base * 2).rounded() / 2)
+    }
+
+    private func save() {
+        // Source de vérité = HealthKit ; copie locale (WeightSample) comme repli hors-Santé.
+        let value = kg, now = Date()
+        Task { await health.saveWeight(kg: value, date: now) }
+        ctx.insert(WeightSample(date: now, kg: value))
+        dismiss()
+    }
+
+    var body: some View {
+        VStack(spacing: Spacing.xl) {
+            Spacer()
+            Text("Ton poids").font(.lumeTitle).foregroundStyle(LumeColor.ink)
+            HStack(spacing: Spacing.lg) {
+                RoundIconButton(icon: .minus) { kg = max(35, kg - 0.5) }
+                Text(String(format: "%.1f kg", kg))
+                    .font(.lumeNumberL).foregroundStyle(LumeColor.ink).monospacedDigit().frame(minWidth: 140)
+                RoundIconButton(icon: .add, filled: true) { kg = min(250, kg + 0.5) }
+            }
+            Spacer()
+            PrimaryButton(title: "Enregistrer", icon: .validate) { save() }
+                .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.lg)
+        }
+        .frame(maxWidth: .infinity)
+        .background(LumeColor.cream.ignoresSafeArea())
+        .presentationDetents([.medium])
+        .sensoryFeedback(.selection, trigger: kg)
+    }
+}
+
+#Preview("Poids") { WeightEntryView(current: 74).modelContainer(LumeStore.preview).environment(HealthManager.shared) }
