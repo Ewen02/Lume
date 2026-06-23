@@ -120,16 +120,19 @@ struct RoutineEditorView: View {
     }
 }
 
-/// Sélecteur d'exercices depuis la bibliothèque.
-/// Sélecteur d'exercice réutilisable (éditeur de routine + séance active).
+/// Sélecteur d'exercice réutilisable (éditeur de routine + séance active),
+/// branché sur la bibliothèque persistée (ExerciseModel). Permet d'en ajouter un à la volée.
 struct ExercisePickerView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var ctx
+    @Query(sort: \ExerciseModel.name) private var exercises: [ExerciseModel]
     @State private var query = ""
+    @State private var showAdd = false
     var onPick: (Exercise) -> Void
 
-    private var filtered: [Exercise] {
-        query.isEmpty ? Mock.exercises
-            : Mock.exercises.filter { $0.name.localizedCaseInsensitiveContains(query) }
+    private var filtered: [ExerciseModel] {
+        query.isEmpty ? exercises
+            : exercises.filter { $0.name.localizedCaseInsensitiveContains(query) }
     }
 
     var body: some View {
@@ -139,17 +142,17 @@ struct ExercisePickerView: View {
                 VStack(spacing: Spacing.sm) {
                     if filtered.isEmpty {
                         LumeEmptyState(icon: .search, title: "Aucun exercice",
-                                       message: "Essaie un autre nom.")
+                                       message: "Ajoute-le avec le bouton +.")
                     } else {
                         ForEach(filtered) { e in
-                            Button { onPick(e) } label: {
+                            Button { onPick(e.asExercise) } label: {
                                 HStack(spacing: Spacing.md) {
                                     VStack(alignment: .leading, spacing: 4) {
                                         Text(e.name).font(.lumeCallout).foregroundStyle(LumeColor.ink)
                                         Text(e.equipment).font(.lumeFootnote).foregroundStyle(LumeColor.muted)
                                     }
                                     Spacer()
-                                    MusclePill(group: e.primary)
+                                    MusclePill(group: MuscleGroup.from(code: e.muscleRaw))
                                 }
                                 .padding(Spacing.lg - 2).background(LumeColor.surface)
                                 .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)).lumeShadow(.soft)
@@ -161,9 +164,12 @@ struct ExercisePickerView: View {
         }
         .background(LumeColor.cream.ignoresSafeArea())
         .safeAreaInset(edge: .top) {
-            TopBar(title: "Choisir un exercice", leading: .close, onLeading: { dismiss() })
+            TopBar(title: "Choisir un exercice", leading: .close, trailing: .add,
+                   onLeading: { dismiss() }, onTrailing: { showAdd = true })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
+        .onAppear { seedDefaultExercisesIfNeeded(ctx) }
+        .sheet(isPresented: $showAdd) { ExerciseEditorView() }
     }
 }
 

@@ -10,7 +10,7 @@ enum LumeStore {
         LoggedFood.self, WaterLog.self, WeightSample.self, ProfileRecord.self,
         FavoriteFood.self,
         WorkoutSessionModel.self, LoggedExerciseModel.self, LoggedSetModel.self,
-        RoutineModel.self, RoutineExerciseModel.self,
+        RoutineModel.self, RoutineExerciseModel.self, ExerciseModel.self,
     ])
 
     static let shared: ModelContainer = {
@@ -48,6 +48,7 @@ enum LumeStore {
             ctx.insert(s)
         }
         seedDefaultRoutinesIfNeeded(ctx)
+        seedDefaultExercisesIfNeeded(ctx)
         return container
     }()
 }
