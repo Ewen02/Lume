@@ -10,23 +10,27 @@ struct RoutineListView: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(spacing: Spacing.sm) {
-                    if routineModels.isEmpty {
-                        LumeEmptyState(icon: .routine, title: "Aucune routine",
-                                       message: "Crée ta première routine avec le bouton ci-dessous.")
-                            .padding(.top, Spacing.xxl)
-                    } else {
-                        ForEach(routineModels) { model in
-                            RoutineCard(routine: model.asRoutine) { routeRoutine = model.asRoutine }
-                                .contextMenu {
-                                    Button(role: .destructive) { ctx.delete(model) } label: {
-                                        Label("Supprimer", systemImage: "trash")
-                                    }
+            if routineModels.isEmpty {
+                LumeEmptyState(icon: .routine, title: "Aucune routine",
+                               message: "Crée ta première routine avec le bouton ci-dessous.")
+            } else {
+                List {
+                    ForEach(routineModels) { model in
+                        RoutineCard(routine: model.asRoutine) { routeRoutine = model.asRoutine }
+                            .listRowInsets(EdgeInsets(top: Spacing.xs, leading: Spacing.xl, bottom: Spacing.xs, trailing: Spacing.xl))
+                            .listRowBackground(Color.clear)
+                            .listRowSeparator(.hidden)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button(role: .destructive) { ctx.delete(model) } label: {
+                                    Label("Supprimer", systemImage: "trash")
                                 }
-                        }
+                            }
                     }
-                }.padding(.horizontal, Spacing.xl).padding(.bottom, 100)
+                    .onMove(perform: moveRoutines)
+                    Color.clear.frame(height: 80).listRowSeparator(.hidden).listRowBackground(Color.clear)
+                }
+                .listStyle(.plain)
+                .scrollContentBackground(.hidden)
             }
             PrimaryButton(title: "Nouvelle routine", icon: .add) { showEditor = true }
                 .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.sm)
@@ -38,6 +42,15 @@ struct RoutineListView: View {
         }
         .sheet(item: $routeRoutine) { RoutineDetailView(routine: $0) }
         .sheet(isPresented: $showEditor) { RoutineEditorView() }
+    }
+
+    /// Réordonne les routines et réécrit leur `order` pour persister la nouvelle position.
+    private func moveRoutines(from offsets: IndexSet, to destination: Int) {
+        var ordered = routineModels
+        ordered.move(fromOffsets: offsets, toOffset: destination)
+        for (i, model) in ordered.enumerated() {
+            model.order = i
+        }
     }
 }
 

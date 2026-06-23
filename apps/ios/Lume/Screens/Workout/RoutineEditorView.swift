@@ -33,37 +33,53 @@ struct RoutineEditorView: View {
         editing != nil
     }
 
+    @State private var confirmDelete = false
+
     var body: some View {
         ZStack(alignment: .bottom) {
-            ScrollView {
-                VStack(spacing: Spacing.lg) {
-                    LumeCard {
-                        VStack(alignment: .leading, spacing: Spacing.sm) {
-                            Text("Nom de la routine").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
-                            TextField("Ex. Haut du corps", text: $name)
-                                .font(.lumeHeadline).foregroundStyle(LumeColor.ink)
-                                .textInputAutocapitalization(.sentences)
-                        }
-                    }
-
+            List {
+                Section {
+                    nameField.lumeRow()
+                }
+                Section {
                     if items.isEmpty {
                         LumeEmptyState(icon: .workout, title: "Aucun exercice",
                                        message: "Ajoute des exercices à ta routine.")
+                            .lumeRow()
                     } else {
-                        ForEach($items) { $item in exerciseRow($item) }
-                    }
-
-                    Button { showPicker = true } label: {
-                        HStack(spacing: Spacing.sm) {
-                            Image(appIcon: .add).lumeIcon(16, weight: .semibold)
-                            Text("Ajouter un exercice").font(.lumeCallout)
+                        ForEach($items) { $item in
+                            exerciseRow($item).lumeRow()
                         }
-                        .foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).padding(.vertical, Spacing.md)
-                        .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(LumeColor.border, lineWidth: 1))
-                    }.buttonStyle(.lumePress)
+                        .onMove { items.move(fromOffsets: $0, toOffset: $1) }
+                        .onDelete { items.remove(atOffsets: $0) }
+                    }
+                    addButton.lumeRow()
+                } header: {
+                    HStack {
+                        Text("Exercices").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                        Spacer()
+                        if items.count > 1 {
+                            Text("appui long pour réordonner · glisser ← pour supprimer")
+                                .font(.lumeCaption).foregroundStyle(LumeColor.muted)
+                        }
+                    }.textCase(nil)
                 }
-                .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 110)
+                if isEditing {
+                    Section {
+                        Button(role: .destructive) { confirmDelete = true } label: {
+                            HStack {
+                                Spacer()
+                                Image(appIcon: .trash).lumeIcon(16, weight: .semibold)
+                                Text("Supprimer la routine").font(.lumeCallout.weight(.semibold))
+                                Spacer()
+                            }.foregroundStyle(LumeColor.negative).padding(.vertical, Spacing.sm)
+                        }.lumeRow()
+                    }
+                }
+                Color.clear.frame(height: 80).listRowSeparator(.hidden).listRowBackground(Color.clear)
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
 
             PrimaryButton(title: isEditing ? "Enregistrer les modifications" : "Enregistrer la routine", icon: .validate) { save() }
                 .disabled(!canSave).opacity(canSave ? 1 : 0.5)
@@ -80,6 +96,35 @@ struct RoutineEditorView: View {
                 items.append(Draft(exercise: ex)); showPicker = false
             }
         }
+        .confirmationDialog("Supprimer cette routine ?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Supprimer", role: .destructive) {
+                if let r = editing { ctx.delete(r) }
+                dismiss()
+            }
+            Button("Annuler", role: .cancel) {}
+        }
+    }
+
+    private var nameField: some View {
+        LumeCard {
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                Text("Nom de la routine").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                TextField("Ex. Haut du corps", text: $name)
+                    .font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+                    .textInputAutocapitalization(.sentences)
+            }
+        }
+    }
+
+    private var addButton: some View {
+        Button { showPicker = true } label: {
+            HStack(spacing: Spacing.sm) {
+                Image(appIcon: .add).lumeIcon(16, weight: .semibold)
+                Text("Ajouter un exercice").font(.lumeCallout)
+            }
+            .foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).padding(.vertical, Spacing.md)
+            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(LumeColor.border, lineWidth: 1))
+        }.buttonStyle(.lumePress)
     }
 
     /// Au 1er affichage en mode édition : pré-remplit le nom et les exercices depuis le modèle.
@@ -95,50 +140,30 @@ struct RoutineEditorView: View {
         loaded = true
     }
 
-    private func move(_ item: Draft, by offset: Int) {
-        guard let idx = items.firstIndex(where: { $0.id == item.id }) else { return }
-        let target = idx + offset
-        guard items.indices.contains(target) else { return }
-        withAnimation(LumeMotion.snappy) { items.swapAt(idx, target) }
-    }
-
     private func exerciseRow(_ item: Binding<Draft>) -> some View {
         LumeCard {
             VStack(alignment: .leading, spacing: Spacing.md) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.wrappedValue.exercise.name).font(.lumeCallout).foregroundStyle(LumeColor.ink)
-                        MusclePill(group: item.wrappedValue.exercise.primary)
+                Text(item.wrappedValue.exercise.name).font(.lumeCallout).foregroundStyle(LumeColor.ink)
+                MusclePill(group: item.wrappedValue.exercise.primary)
+                HStack(spacing: Spacing.md) {
+                    // Séries — stepper compact.
+                    HStack(spacing: Spacing.sm) {
+                        RoundIconButton(icon: .minus, size: 22) { item.wrappedValue.sets = max(1, item.wrappedValue.sets - 1) }
+                        VStack(spacing: 0) {
+                            Text("\(item.wrappedValue.sets)").font(.lumeBodyMed).foregroundStyle(LumeColor.ink).monospacedDigit()
+                            Text("séries").font(.lumeCaption).foregroundStyle(LumeColor.muted)
+                        }.frame(minWidth: 44)
+                        RoundIconButton(icon: .add, filled: true, size: 22) { item.wrappedValue.sets += 1 }
                     }
                     Spacer()
-                    if items.count > 1 {
-                        Button { move(item.wrappedValue, by: -1) } label: {
-                            Image(appIcon: .back).lumeIcon(14, weight: .semibold).foregroundStyle(LumeColor.muted)
-                                .rotationEffect(.degrees(90))
-                        }.buttonStyle(.lumePress).accessibilityLabel("Monter")
-                        Button { move(item.wrappedValue, by: 1) } label: {
-                            Image(appIcon: .forward).lumeIcon(14, weight: .semibold).foregroundStyle(LumeColor.muted)
-                                .rotationEffect(.degrees(90))
-                        }.buttonStyle(.lumePress).accessibilityLabel("Descendre")
+                    // Répétitions — champ visiblement éditable.
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("répétitions").font(.lumeCaption).foregroundStyle(LumeColor.muted)
+                        TextField("8-12", text: item.reps)
+                            .multilineTextAlignment(.center).font(.lumeBodyMed).foregroundStyle(LumeColor.ink)
+                            .frame(width: 80).padding(.vertical, Spacing.xs)
+                            .background(LumeColor.cream).clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
                     }
-                    Button { items.removeAll { $0.id == item.wrappedValue.id } } label: {
-                        Image(appIcon: .minusCircle).lumeIcon(22).foregroundStyle(LumeColor.negative)
-                    }.buttonStyle(.lumePress)
-                }
-                HStack {
-                    Text("Séries").font(.lumeSubhead).foregroundStyle(LumeColor.textSecondary)
-                    Spacer()
-                    RoundIconButton(icon: .minus) { item.wrappedValue.sets = max(1, item.wrappedValue.sets - 1) }
-                    Text("\(item.wrappedValue.sets)").font(.lumeBodyMed).foregroundStyle(LumeColor.ink)
-                        .monospacedDigit().frame(minWidth: 28)
-                    RoundIconButton(icon: .add, filled: true) { item.wrappedValue.sets += 1 }
-                }
-                HStack {
-                    Text("Répétitions").font(.lumeSubhead).foregroundStyle(LumeColor.textSecondary)
-                    Spacer()
-                    TextField("8-12", text: item.reps)
-                        .multilineTextAlignment(.trailing).font(.lumeBodyMed).foregroundStyle(LumeColor.ink)
-                        .frame(width: 90)
                 }
             }
         }
@@ -169,6 +194,15 @@ struct RoutineEditorView: View {
             ctx.insert(m)
         }
         dismiss()
+    }
+}
+
+private extension View {
+    /// Ligne de `List` au look Lume : pas d'insets ni de fond système, espacement vertical doux.
+    func lumeRow() -> some View {
+        listRowInsets(EdgeInsets(top: Spacing.xs, leading: Spacing.xl, bottom: Spacing.xs, trailing: Spacing.xl))
+            .listRowBackground(Color.clear)
+            .listRowSeparator(.hidden)
     }
 }
 

@@ -30,12 +30,13 @@ final class ExerciseModel {
     }
 }
 
-/// Insère la bibliothèque par défaut si le store est vide (1re ouverture).
+/// Insère les exercices par défaut manquants (par nom). Au 1er lancement la base est créée ;
+/// aux suivants, seuls les nouveaux exercices par défaut sont ajoutés (sans toucher aux customs).
 @MainActor
 func seedDefaultExercisesIfNeeded(_ context: ModelContext) {
     let existing = (try? context.fetch(FetchDescriptor<ExerciseModel>())) ?? []
-    guard existing.isEmpty else { return }
-    for e in Mock.exercises {
+    let known = Set(existing.map { $0.name.lowercased() })
+    for e in Mock.exercises where !known.contains(e.name.lowercased()) {
         context.insert(ExerciseModel(name: e.name, muscleRaw: e.primary.code,
                                      equipment: e.equipment, isCustom: false))
     }
