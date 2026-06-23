@@ -50,7 +50,9 @@ struct WorkoutHomeView: View {
         WorkoutStats.lastSevenDays(from: sessions)
     }
 
-    private var goal: Int { profiles.first?.weeklyWorkoutGoal ?? 3 }
+    private var goal: Int {
+        profiles.first?.weeklyWorkoutGoal ?? 3
+    }
 
     private var streak: Int {
         WorkoutStreak.currentStreak(from: sessions.map(\.date), goal: goal)

@@ -83,5 +83,7 @@ enum WorkoutStats {
 struct VolumePoint: Identifiable {
     var weekStart: Date
     var volumeKg: Int
-    var id: Date { weekStart }
+    var id: Date {
+        weekStart
+    }
 }

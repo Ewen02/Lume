@@ -6,7 +6,9 @@ struct BadgesView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var unlocks: [BadgeUnlock]
 
-    private var unlockedIDs: Set<String> { Set(unlocks.map(\.badgeID)) }
+    private var unlockedIDs: Set<String> {
+        Set(unlocks.map(\.badgeID))
+    }
 
     private var unlockedCount: Int {
         BadgeCatalog.all.filter { unlockedIDs.contains($0.id) }.count

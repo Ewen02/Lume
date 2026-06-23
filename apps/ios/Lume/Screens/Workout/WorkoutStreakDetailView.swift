@@ -14,7 +14,9 @@ struct WorkoutStreakDetailView: View {
     @State private var burst = false
 
     /// Objectif courant lu depuis le profil (fallback sur la valeur passée à l'ouverture).
-    private var currentGoal: Int { profiles.first?.weeklyWorkoutGoal ?? goal }
+    private var currentGoal: Int {
+        profiles.first?.weeklyWorkoutGoal ?? goal
+    }
 
     private func setGoal(_ value: Int) {
         let clamped = min(7, max(1, value))
@@ -77,7 +79,7 @@ struct WorkoutStreakDetailView: View {
                     get: { currentGoal },
                     set: { setGoal($0) }
                 ), in: 1 ... 7)
-                .font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink).fixedSize()
+                    .font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink).fixedSize()
             }
             .padding(Spacing.lg)
             .background(LumeColor.surface)

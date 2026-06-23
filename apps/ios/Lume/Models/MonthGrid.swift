@@ -36,7 +36,9 @@ struct MonthGrid {
             }
         }
         // Complète la dernière semaine.
-        while cells.count % 7 != 0 { cells.append(nil) }
+        while cells.count % 7 != 0 {
+            cells.append(nil)
+        }
         return cells
     }
 

@@ -52,8 +52,8 @@ struct WorkoutCalendarView: View {
                 Image(appIcon: .forward).lumeIcon(16, weight: .semibold).foregroundStyle(LumeColor.ink)
                     .frame(width: 40, height: 40).background(LumeColor.surface, in: Circle()).lumeShadow(.soft)
             }.buttonStyle(.lumePress)
-            .disabled(monthOffset >= 0)
-            .opacity(monthOffset >= 0 ? 0.4 : 1)
+                .disabled(monthOffset >= 0)
+                .opacity(monthOffset >= 0 ? 0.4 : 1)
         }
     }
 
