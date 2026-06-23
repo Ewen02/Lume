@@ -28,6 +28,11 @@ final class ProfileRecord {
     var waterReminderEndMinute: Int = 1260 // 21h00
     var waterReminderIntervalHours: Int = 2
 
+    // MARK: Muscu
+
+    /// Objectif de séances de musculation par semaine (pilote le streak hebdo et les anneaux).
+    var weeklyWorkoutGoal: Int = 3
+
     init(name: String = "Ewen", sexRaw: String = "male", age: Int = 24, heightCm: Int = 178,
          weightKg: Double = 74, activityRaw: String = "moderate", goalRaw: String = "maintain")
     {

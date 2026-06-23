@@ -58,4 +58,30 @@ enum WorkoutStats {
             .sorted { $0.value.oneRM > $1.value.oneRM }
             .map { PersonalRecord(exercise: $0.key, oneRM: $0.value.oneRM, date: $0.value.date) }
     }
+
+    /// Volume (kg·reps) agrégé par semaine sur les `weeks` dernières semaines, du plus ancien au courant.
+    static func weeklyVolume(from sessions: [WorkoutSessionModel], weeks: Int = 8,
+                             reference: Date = Date(), calendar: Calendar = .current) -> [VolumePoint]
+    {
+        guard let thisWeek = calendar.dateInterval(of: .weekOfYear, for: reference)?.start else { return [] }
+        return (0 ..< weeks).reversed().compactMap { offset -> VolumePoint? in
+            guard let weekStart = calendar.date(byAdding: .weekOfYear, value: -offset, to: thisWeek),
+                  let next = calendar.date(byAdding: .weekOfYear, value: 1, to: weekStart) else { return nil }
+            let volume = sessions
+                .filter { $0.date >= weekStart && $0.date < next }
+                .reduce(0) { acc, s in
+                    acc + s.orderedExercises.reduce(0) { exAcc, ex in
+                        exAcc + ex.orderedSets.reduce(0) { $0 + Int($1.weight) * $1.reps }
+                    }
+                }
+            return VolumePoint(weekStart: weekStart, volumeKg: volume)
+        }
+    }
+}
+
+/// Point de volume hebdomadaire pour le graphe de progression muscu.
+struct VolumePoint: Identifiable {
+    var weekStart: Date
+    var volumeKg: Int
+    var id: Date { weekStart }
 }

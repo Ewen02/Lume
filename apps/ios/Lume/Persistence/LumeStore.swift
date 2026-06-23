@@ -11,6 +11,7 @@ enum LumeStore {
         FavoriteFood.self,
         WorkoutSessionModel.self, LoggedExerciseModel.self, LoggedSetModel.self,
         RoutineModel.self, RoutineExerciseModel.self, ExerciseModel.self,
+        BadgeUnlock.self,
     ])
 
     static let shared: ModelContainer = {

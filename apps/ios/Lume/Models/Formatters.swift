@@ -16,7 +16,19 @@ enum Formatters {
         return f
     }()
 
+    static let monthYear: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "fr_FR")
+        f.dateFormat = "LLLL yyyy"
+        return f
+    }()
+
     static func relative(_ date: Date) -> String {
         relativeFR.localizedString(for: date, relativeTo: Date())
+    }
+
+    /// "Juin 2026" (mois capitalisé).
+    static func monthYearFR(_ date: Date) -> String {
+        monthYear.string(from: date).capitalized
     }
 }

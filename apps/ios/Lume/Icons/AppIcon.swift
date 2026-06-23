@@ -59,6 +59,7 @@ enum AppIcon: String {
     case trash
     case favorite = "star.fill"
     case favoriteOutline = "star"
+    case lock = "lock.fill"
     case recents = "clock.arrow.circlepath"
     case settings = "gearshape.fill"
     case weight = "scalemass.fill"
