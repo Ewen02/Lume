@@ -1,7 +1,9 @@
+import SwiftData
 import SwiftUI
 
 struct RootView: View {
     @AppStorage("lume.hasOnboarded") private var hasOnboarded = false
+    @Query private var profiles: [ProfileRecord]
     @State private var tab: LumeTab = .today
     @State private var showCapture = false
     @State private var justLoggedID = UUID()
@@ -46,6 +48,10 @@ struct RootView: View {
         }
         .sensoryFeedback(.selection, trigger: tab)
         .sensoryFeedback(.success, trigger: justLoggedID)
+        // (Re)pose les rappels au lancement et dès que le profil apparaît/change.
+        .task(id: profiles.first?.persistentModelID) {
+            if let r = profiles.first { await NotificationManager.reschedule(from: r) }
+        }
     }
 }
 

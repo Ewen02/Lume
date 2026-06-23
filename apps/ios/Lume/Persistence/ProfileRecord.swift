@@ -13,6 +13,21 @@ final class ProfileRecord {
     var activityRaw: String = "moderate"
     var goalRaw: String = "maintain"
 
+    // MARK: Rappels (notifications locales)
+
+    /// Rappels de repas activés + heures (minutes depuis minuit, ex. 720 = 12h00).
+    var mealRemindersOn: Bool = false
+    var mealReminderMinutes: [Int] = [720, 1200] // midi + 20h par défaut
+    /// Rappel de séance muscu activé + jours (1 = dimanche … 7 = samedi, calendrier Apple) + heure.
+    var workoutRemindersOn: Bool = false
+    var workoutReminderWeekdays: [Int] = [2, 4, 6] // lun, mer, ven
+    var workoutReminderMinute: Int = 1080 // 18h00
+    /// Rappel d'hydratation : activé + plage horaire (minutes) + intervalle (heures).
+    var waterRemindersOn: Bool = false
+    var waterReminderStartMinute: Int = 540 // 9h00
+    var waterReminderEndMinute: Int = 1260 // 21h00
+    var waterReminderIntervalHours: Int = 2
+
     init(name: String = "Ewen", sexRaw: String = "male", age: Int = 24, heightCm: Int = 178,
          weightKg: Double = 74, activityRaw: String = "moderate", goalRaw: String = "maintain")
     {
