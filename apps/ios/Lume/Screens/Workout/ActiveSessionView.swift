@@ -14,6 +14,8 @@ struct ActiveSessionView: View {
     @State private var startedAt = Date()
     @State private var finished = false
     @State private var summary: WorkoutSummary?
+    /// Dernière durée de repos choisie (réutilisée d'une série à l'autre).
+    @AppStorage("lume.restSeconds") private var restSeconds = 90
 
     init(title: String = "Séance libre", prefill: [ExerciseSession] = []) {
         self.title = title
@@ -29,7 +31,8 @@ struct ActiveSessionView: View {
             let logged = sess.sets.filter { $0.reps > 0 }
             guard !logged.isEmpty else { continue }
             let ex = LoggedExerciseModel(name: sess.exercise.name,
-                                         muscleRaw: sess.exercise.primary.code, order: i)
+                                         muscleRaw: sess.exercise.primary.code,
+                                         equipment: sess.exercise.equipment, order: i)
             ex.session = model
             ctx.insert(ex)
             for (j, set) in logged.enumerated() {
@@ -50,7 +53,9 @@ struct ActiveSessionView: View {
             ScrollView {
                 VStack(spacing: Spacing.lg) {
                     ForEach($sessions) { $session in
-                        ExerciseSessionCard(session: $session)
+                        ExerciseSessionCard(session: $session) {
+                            withAnimation(LumeMotion.snappy) { sessions.removeAll { $0.id == session.id } }
+                        }
                     }
                     Button { showAddExercise = true } label: {
                         HStack(spacing: Spacing.sm) {
@@ -84,11 +89,13 @@ struct ActiveSessionView: View {
                     Text(elapsed).font(.lumeHeadline).foregroundStyle(LumeColor.ink).monospacedDigit()
                 }
                 Spacer()
-                Button { showRest = true } label: { RestTimerPill(seconds: 84) }.buttonStyle(.lumePress)
+                Button { showRest = true } label: { RestTimerPill(seconds: restSeconds) }.buttonStyle(.lumePress)
             }
             .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
-        .sheet(isPresented: $showRest) { RestTimerView().presentationDetents([.medium]) }
+        .sheet(isPresented: $showRest) {
+            RestTimerView(seconds: restSeconds) { restSeconds = $0 }.presentationDetents([.medium, .large])
+        }
         .sheet(isPresented: $showPlate) { PlateCalculatorView() }
         .sheet(isPresented: $showAddExercise) {
             ExercisePickerView { exercise in

@@ -27,6 +27,7 @@ final class LoggedExerciseModel {
     var id: UUID = UUID()
     var name: String = ""
     var muscleRaw: String = MuscleGroup.chest.code // code stable, pas le label
+    var equipment: String = ""
     var order: Int = 0
 
     var session: WorkoutSessionModel?
@@ -34,8 +35,8 @@ final class LoggedExerciseModel {
     @Relationship(deleteRule: .cascade, inverse: \LoggedSetModel.exercise)
     var sets: [LoggedSetModel]? = []
 
-    init(name: String, muscleRaw: String, order: Int = 0) {
-        self.name = name; self.muscleRaw = muscleRaw; self.order = order
+    init(name: String, muscleRaw: String, equipment: String = "", order: Int = 0) {
+        self.name = name; self.muscleRaw = muscleRaw; self.equipment = equipment; self.order = order
     }
 
     var muscle: MuscleGroup {

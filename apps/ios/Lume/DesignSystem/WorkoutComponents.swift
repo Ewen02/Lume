@@ -18,14 +18,27 @@ struct SetHeaderRow: View {
 struct SetRow: View {
     var index: Int
     @Binding var set: SetEntry
+
     var body: some View {
         HStack(spacing: 0) {
             Text("\(index)")
                 .font(.lumeCallout).foregroundStyle(LumeColor.textSecondary)
                 .frame(width: 44, alignment: .leading)
-            Text(set.weight.clean).font(.lumeCallout).foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).monospacedDigit()
-            Text("\(set.reps)").font(.lumeCallout).foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).monospacedDigit()
-            Text(set.rpe.map { "\($0)" } ?? "—").font(.lumeCallout).foregroundStyle(LumeColor.muted).frame(maxWidth: .infinity).monospacedDigit()
+            // Poids (kg) — éditable, décimales autorisées.
+            TextField("0", value: $set.weight, format: .number)
+                .keyboardType(.decimalPad).multilineTextAlignment(.center)
+                .font(.lumeCallout).foregroundStyle(LumeColor.ink).monospacedDigit().frame(maxWidth: .infinity)
+            // Répétitions — éditable, entier.
+            TextField("0", value: $set.reps, format: .number)
+                .keyboardType(.numberPad).multilineTextAlignment(.center)
+                .font(.lumeCallout).foregroundStyle(LumeColor.ink).monospacedDigit().frame(maxWidth: .infinity)
+            // RPE — éditable, optionnel (0 = non renseigné, affiché "—").
+            TextField("—", value: Binding(
+                get: { set.rpe ?? 0 },
+                set: { set.rpe = $0 == 0 ? nil : $0 }
+            ), format: .number)
+                .keyboardType(.numberPad).multilineTextAlignment(.center)
+                .font(.lumeCallout).foregroundStyle(LumeColor.muted).monospacedDigit().frame(maxWidth: .infinity)
             Button { withAnimation(LumeMotion.bouncy) { set.done.toggle() } } label: {
                 Image(appIcon: .validate)
                     .lumeIcon(22, weight: .bold)
@@ -52,10 +65,10 @@ extension Double {
 
 struct ExerciseSessionCard: View {
     @Binding var session: ExerciseSession
-    private var oneRM: Int {
-        let best = session.sets.filter { $0.done }.map { OneRepMax.estimate(weight: $0.weight, reps: $0.reps) }.max()
-        return best ?? 0
-    }
+    /// Retrait de l'exercice de la séance (optionnel).
+    var onRemove: (() -> Void)? = nil
+
+    private var oneRM: Int { session.bestOneRM }
 
     var body: some View {
         LumeCard {
@@ -72,15 +85,27 @@ struct ExerciseSessionCard: View {
                             Text("1RM est.").font(.lumeCaption).foregroundStyle(LumeColor.muted)
                         }
                     }
+                    if let onRemove {
+                        Button(action: onRemove) {
+                            Image(appIcon: .trash).lumeIcon(16, weight: .semibold).foregroundStyle(LumeColor.muted)
+                        }.buttonStyle(.lumePress).accessibilityLabel("Retirer l'exercice")
+                    }
                 }
                 SetHeaderRow()
                 ForEach(Array(session.sets.enumerated()), id: \.element.id) { i, _ in
-                    SetRow(index: i + 1, set: $session.sets[i])
+                    HStack(spacing: Spacing.xs) {
+                        SetRow(index: i + 1, set: $session.sets[i])
+                        Button { removeSet(at: i) } label: {
+                            Image(appIcon: .minusCircle).lumeIcon(18).foregroundStyle(LumeColor.faint)
+                        }.buttonStyle(.lumePress).accessibilityLabel("Supprimer la série")
+                    }
                     if i < session.sets.count - 1 { Divider().background(LumeColor.border) }
                 }
                 Button {
                     let last = session.sets.last
-                    session.sets.append(SetEntry(reps: last?.reps ?? 10, weight: last?.weight ?? 20, rpe: nil))
+                    withAnimation(LumeMotion.snappy) {
+                        session.sets.append(SetEntry(reps: last?.reps ?? 10, weight: last?.weight ?? 20, rpe: nil))
+                    }
                 } label: {
                     HStack(spacing: Spacing.sm) {
                         Image(appIcon: .addSet).lumeIcon(16, weight: .semibold)
@@ -90,6 +115,11 @@ struct ExerciseSessionCard: View {
                 }.buttonStyle(.lumePress)
             }
         }
+    }
+
+    private func removeSet(at index: Int) {
+        guard session.sets.indices.contains(index) else { return }
+        withAnimation(LumeMotion.snappy) { _ = session.sets.remove(at: index) }
     }
 }
 
@@ -113,7 +143,7 @@ struct RoutineCard: View {
             HStack(spacing: Spacing.md) {
                 Image(appIcon: .workout).lumeIcon(20, weight: .semibold).foregroundStyle(LumeColor.ink)
                     .frame(width: 46, height: 46).background(LumeColor.cream)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(routine.name).font(.lumeHeadline).foregroundStyle(LumeColor.ink)
                     Text("\(routine.exercises.count) exercices · \(routine.muscles)")

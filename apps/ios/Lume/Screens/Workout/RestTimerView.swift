@@ -6,10 +6,15 @@ struct RestTimerView: View {
     @State private var total: Int
     @State private var finished = false
     @State private var running = true
+    /// Remonte la durée choisie pour la réutiliser à la prochaine série.
+    var onDurationChange: (Int) -> Void = { _ in }
 
-    init(seconds: Int = 90) {
+    private static let presets = [60, 90, 120, 180]
+
+    init(seconds: Int = 90, onDurationChange: @escaping (Int) -> Void = { _ in }) {
         _remaining = State(initialValue: seconds)
         _total = State(initialValue: seconds)
+        self.onDurationChange = onDurationChange
     }
 
     private var mmss: String {
@@ -17,15 +22,30 @@ struct RestTimerView: View {
     }
 
     var body: some View {
-        VStack(spacing: Spacing.xl) {
+        VStack(spacing: Spacing.lg) {
             Text("Repos").font(.lumeHeadline).foregroundStyle(LumeColor.muted).padding(.top, Spacing.xl)
+
+            // Présélections de durée.
+            HStack(spacing: Spacing.sm) {
+                ForEach(Self.presets, id: \.self) { sec in
+                    let active = total == sec
+                    Button { setDuration(sec) } label: {
+                        Text(label(for: sec)).font(.lumeSubhead.weight(.semibold))
+                            .foregroundStyle(active ? LumeColor.surface : LumeColor.textSecondary)
+                            .padding(.vertical, Spacing.sm).padding(.horizontal, Spacing.md)
+                            .background(active ? LumeColor.ink : LumeColor.surface)
+                            .clipShape(Capsule()).lumeShadow(.soft)
+                    }.buttonStyle(.lumePress)
+                }
+            }
+
             ProgressRing(progress: Double(remaining) / Double(max(total, 1)),
                          color: remaining == 0 ? LumeColor.success : LumeColor.fat, lineWidth: 14)
             {
                 Text(mmss).font(.lumeNumberXL).foregroundStyle(LumeColor.ink).monospacedDigit()
                     .contentTransition(.numericText(value: Double(remaining)))
             }
-            .frame(width: 220, height: 220)
+            .frame(width: 200, height: 200)
             .scaleEffect(finished ? 1.06 : 1)
             .animation(LumeMotion.celebrate, value: finished)
 
@@ -43,6 +63,7 @@ struct RestTimerView: View {
         .frame(maxWidth: .infinity)
         .background(LumeColor.cream.ignoresSafeArea())
         .sensoryFeedback(.success, trigger: finished)
+        .sensoryFeedback(.selection, trigger: total)
         // Décompte réel : un tick par seconde tant qu'il reste du temps.
         .task {
             while running, remaining > 0 {
@@ -52,6 +73,20 @@ struct RestTimerView: View {
                 if remaining == 0 { finished = true }
             }
         }
+    }
+
+    private func label(for seconds: Int) -> String {
+        seconds % 60 == 0 ? "\(seconds / 60) min" : "\(seconds)s"
+    }
+
+    /// Choisit une durée préréglée : réinitialise le décompte et mémorise le choix.
+    private func setDuration(_ seconds: Int) {
+        withAnimation(LumeMotion.snappy) {
+            total = seconds
+            remaining = seconds
+            finished = false
+        }
+        onDurationChange(seconds)
     }
 
     private func adjust(_ delta: Int) {

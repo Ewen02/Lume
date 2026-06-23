@@ -13,6 +13,7 @@ struct WorkoutHomeView: View {
     private enum Route: Identifiable {
         case startSession
         case routine(Routine)
+        case session(WorkoutSessionModel)
         case allRoutines
         case records
         case library
@@ -22,6 +23,7 @@ struct WorkoutHomeView: View {
             switch self {
             case .startSession: "start"
             case let .routine(r): "routine-\(r.id)"
+            case let .session(s): "session-\(s.id)"
             case .allRoutines: "all"
             case .records: "records"
             case .library: "library"
@@ -83,6 +85,7 @@ struct WorkoutHomeView: View {
             switch dest {
             case .startSession: ActiveSessionView()
             case let .routine(r): RoutineDetailView(routine: r)
+            case let .session(s): SessionDetailView(session: s)
             case .allRoutines: RoutineListView()
             case .records: PRHistoryView()
             case .library: ExerciseLibraryView()
@@ -221,19 +224,22 @@ struct WorkoutHomeView: View {
     private func recentRow(_ s: WorkoutSessionModel) -> some View {
         let count = s.orderedExercises.count
         let mins = s.durationSec / 60
-        return HStack(spacing: Spacing.md) {
-            Image(appIcon: .workout).lumeIcon(18, weight: .semibold).foregroundStyle(LumeColor.fat)
-                .frame(width: 44, height: 44).background(LumeColor.fat.opacity(0.14))
-                .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
-            VStack(alignment: .leading, spacing: 3) {
-                Text(s.title).font(.lumeCallout).foregroundStyle(LumeColor.ink)
-                Text("\(Formatters.relative(s.date)) · \(count) exo\(count > 1 ? "s" : "") · \(mins) min")
-                    .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+        return Button { route = .session(s) } label: {
+            HStack(spacing: Spacing.md) {
+                Image(appIcon: .workout).lumeIcon(18, weight: .semibold).foregroundStyle(LumeColor.fat)
+                    .frame(width: 44, height: 44).background(LumeColor.fat.opacity(0.14))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(s.title).font(.lumeCallout).foregroundStyle(LumeColor.ink)
+                    Text("\(Formatters.relative(s.date)) · \(count) exo\(count > 1 ? "s" : "") · \(mins) min")
+                        .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                }
+                Spacer()
+                Image(appIcon: .forward).lumeIcon(14, weight: .semibold).foregroundStyle(LumeColor.muted)
             }
-            Spacer()
-        }
-        .padding(Spacing.lg - 2).background(LumeColor.surface)
-        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)).lumeShadow(.soft)
+            .padding(Spacing.lg - 2).background(LumeColor.surface)
+            .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)).lumeShadow(.soft)
+        }.buttonStyle(.lumePress)
     }
 }
 

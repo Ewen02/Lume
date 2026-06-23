@@ -1,9 +1,30 @@
+import SwiftData
 import SwiftUI
 
 struct RoutineDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @Query private var matches: [RoutineModel]
     @State private var start = false
-    let routine: Routine
+    @State private var showEdit = false
+
+    /// Routine (snapshot d'entrée) + lookup du modèle persistant par id pour l'édition/rafraîchissement.
+    private let fallback: Routine
+
+    init(routine: Routine) {
+        fallback = routine
+        let rid = routine.id
+        _matches = Query(filter: #Predicate<RoutineModel> { $0.id == rid })
+    }
+
+    /// Le modèle persistant si trouvé (permet l'édition), sinon nil (preview/Mock).
+    private var model: RoutineModel? {
+        matches.first
+    }
+
+    /// Données affichées : le modèle à jour si présent, sinon le snapshot d'entrée.
+    private var routine: Routine {
+        model?.asRoutine ?? fallback
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -36,13 +57,18 @@ struct RoutineDetailView: View {
         }
         .background(LumeColor.cream.ignoresSafeArea())
         .safeAreaInset(edge: .top) {
-            TopBar(title: "Routine", leading: .back, trailing: .edit, onLeading: { dismiss() })
+            // Bouton « éditer » seulement si la routine est persistée (pas en preview/Mock).
+            TopBar(title: "Routine", leading: .back, trailing: model != nil ? .edit : nil,
+                   onLeading: { dismiss() }, onTrailing: { showEdit = true })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
         .sheet(isPresented: $start) {
             ActiveSessionView(title: routine.name, prefill: routine.emptySession)
         }
+        .sheet(isPresented: $showEdit) {
+            if let model { RoutineEditorView(editing: model) }
+        }
     }
 }
 
-#Preview { RoutineDetailView(routine: Mock.pushRoutine) }
+#Preview { RoutineDetailView(routine: Mock.pushRoutine).modelContainer(LumeStore.preview) }

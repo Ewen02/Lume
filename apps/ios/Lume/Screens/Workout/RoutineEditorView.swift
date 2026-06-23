@@ -1,15 +1,22 @@
 import SwiftData
 import SwiftUI
 
-/// Création d'une routine : nom + liste d'exercices (séries/répétitions), persistée en SwiftData.
+/// Création OU édition d'une routine : nom + liste d'exercices (séries/répétitions), persistée en SwiftData.
 struct RoutineEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     @Query(sort: \RoutineModel.order) private var existing: [RoutineModel]
 
+    /// Routine à éditer (nil = création).
+    private let editing: RoutineModel?
     @State private var name = ""
     @State private var items: [Draft] = []
     @State private var showPicker = false
+    @State private var loaded = false
+
+    init(editing: RoutineModel? = nil) {
+        self.editing = editing
+    }
 
     private struct Draft: Identifiable {
         let id = UUID()
@@ -20,6 +27,10 @@ struct RoutineEditorView: View {
 
     private var canSave: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty && !items.isEmpty
+    }
+
+    private var isEditing: Bool {
+        editing != nil
     }
 
     var body: some View {
@@ -54,20 +65,41 @@ struct RoutineEditorView: View {
                 .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 110)
             }
 
-            PrimaryButton(title: "Enregistrer la routine", icon: .validate) { save() }
+            PrimaryButton(title: isEditing ? "Enregistrer les modifications" : "Enregistrer la routine", icon: .validate) { save() }
                 .disabled(!canSave).opacity(canSave ? 1 : 0.5)
                 .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.sm)
         }
         .background(LumeColor.cream.ignoresSafeArea())
         .safeAreaInset(edge: .top) {
-            TopBar(title: "Nouvelle routine", leading: .close, onLeading: { dismiss() })
+            TopBar(title: isEditing ? "Modifier la routine" : "Nouvelle routine", leading: .close, onLeading: { dismiss() })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
+        .onAppear(perform: loadIfNeeded)
         .sheet(isPresented: $showPicker) {
             ExercisePickerView { ex in
                 items.append(Draft(exercise: ex)); showPicker = false
             }
         }
+    }
+
+    /// Au 1er affichage en mode édition : pré-remplit le nom et les exercices depuis le modèle.
+    private func loadIfNeeded() {
+        guard !loaded, let r = editing else { loaded = true; return }
+        name = r.name
+        items = r.orderedExercises.map {
+            Draft(exercise: Exercise(name: $0.exerciseName,
+                                     primary: MuscleGroup.from(code: $0.muscleRaw),
+                                     equipment: $0.equipment),
+                  sets: $0.targetSets, reps: $0.targetReps)
+        }
+        loaded = true
+    }
+
+    private func move(_ item: Draft, by offset: Int) {
+        guard let idx = items.firstIndex(where: { $0.id == item.id }) else { return }
+        let target = idx + offset
+        guard items.indices.contains(target) else { return }
+        withAnimation(LumeMotion.snappy) { items.swapAt(idx, target) }
     }
 
     private func exerciseRow(_ item: Binding<Draft>) -> some View {
@@ -79,6 +111,16 @@ struct RoutineEditorView: View {
                         MusclePill(group: item.wrappedValue.exercise.primary)
                     }
                     Spacer()
+                    if items.count > 1 {
+                        Button { move(item.wrappedValue, by: -1) } label: {
+                            Image(appIcon: .back).lumeIcon(14, weight: .semibold).foregroundStyle(LumeColor.muted)
+                                .rotationEffect(.degrees(90))
+                        }.buttonStyle(.lumePress).accessibilityLabel("Monter")
+                        Button { move(item.wrappedValue, by: 1) } label: {
+                            Image(appIcon: .forward).lumeIcon(14, weight: .semibold).foregroundStyle(LumeColor.muted)
+                                .rotationEffect(.degrees(90))
+                        }.buttonStyle(.lumePress).accessibilityLabel("Descendre")
+                    }
                     Button { items.removeAll { $0.id == item.wrappedValue.id } } label: {
                         Image(appIcon: .minusCircle).lumeIcon(22).foregroundStyle(LumeColor.negative)
                     }.buttonStyle(.lumePress)
@@ -103,9 +145,19 @@ struct RoutineEditorView: View {
     }
 
     private func save() {
-        let order = (existing.map(\.order).max() ?? -1) + 1
-        let routine = RoutineModel(name: name.trimmingCharacters(in: .whitespaces), order: order)
-        ctx.insert(routine)
+        let routine: RoutineModel
+        if let r = editing {
+            // Édition : on met à jour le nom et on remplace les exercices.
+            r.name = name.trimmingCharacters(in: .whitespaces)
+            for old in r.orderedExercises {
+                ctx.delete(old)
+            }
+            routine = r
+        } else {
+            let order = (existing.map(\.order).max() ?? -1) + 1
+            routine = RoutineModel(name: name.trimmingCharacters(in: .whitespaces), order: order)
+            ctx.insert(routine)
+        }
         for (i, d) in items.enumerated() {
             let m = RoutineExerciseModel(exerciseName: d.exercise.name,
                                          muscleRaw: d.exercise.primary.code,

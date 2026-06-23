@@ -54,6 +54,11 @@ struct ExerciseSession: Identifiable {
     let id = UUID()
     var exercise: Exercise
     var sets: [SetEntry]
+
+    /// Meilleur 1RM estimé sur les séries effectuées (kg). 0 si aucune.
+    var bestOneRM: Int {
+        sets.filter { $0.done }.map { OneRepMax.estimate(weight: $0.weight, reps: $0.reps) }.max() ?? 0
+    }
 }
 
 struct RoutineExercise: Identifiable {
