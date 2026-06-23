@@ -58,51 +58,37 @@ struct ActiveSessionView: View {
         summary = WorkoutSummary(from: sessions, durationSec: Int(end.timeIntervalSince(start)))
     }
 
+    /// Stats live de la séance en cours.
+    private var doneSetCount: Int {
+        sessions.reduce(0) { $0 + $1.sets.filter(\.done).count }
+    }
+
+    private var liveVolume: Int {
+        sessions.reduce(0) { acc, s in
+            acc + s.sets.filter(\.done).reduce(0) { $0 + Int($1.weight) * $1.reps }
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(spacing: Spacing.lg) {
-                    ForEach($sessions) { $session in
-                        ExerciseSessionCard(session: $session) {
-                            withAnimation(LumeMotion.snappy) { sessions.removeAll { $0.id == session.id } }
+                    if sessions.isEmpty {
+                        emptyState
+                    } else {
+                        ForEach($sessions) { $session in
+                            ExerciseSessionCard(session: $session) {
+                                withAnimation(LumeMotion.snappy) { sessions.removeAll { $0.id == session.id } }
+                            }
                         }
+                        addExerciseButton
                     }
-                    Button { showAddExercise = true } label: {
-                        HStack(spacing: Spacing.sm) {
-                            Image(appIcon: .add).lumeIcon(16, weight: .semibold)
-                            Text("Ajouter un exercice").font(.lumeCallout)
-                        }.foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).padding(.vertical, Spacing.md)
-                            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(LumeColor.border, lineWidth: 1))
-                    }.buttonStyle(.lumePress)
-                    Button { showPlate = true } label: {
-                        HStack(spacing: Spacing.sm) {
-                            Image(appIcon: .plates).lumeIcon(16, weight: .semibold)
-                            Text("Calculateur de disques").font(.lumeCallout)
-                        }.foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).padding(.vertical, Spacing.md)
-                            .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(LumeColor.border, lineWidth: 1))
-                    }.buttonStyle(.lumePress)
-                }.padding(.horizontal, Spacing.xl).padding(.bottom, 110)
+                }.padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 150)
             }
-            PrimaryButton(title: "Terminer la séance", icon: .validate) { finish() }
-                .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.sm)
+            bottomBar
         }
         .background(LumeColor.cream.ignoresSafeArea())
-        .safeAreaInset(edge: .top) {
-            HStack {
-                Button { dismiss() } label: {
-                    Image(appIcon: .close).lumeIcon(18, weight: .semibold).foregroundStyle(LumeColor.ink)
-                        .frame(width: 40, height: 40).background(LumeColor.surface).clipShape(Circle()).lumeShadow(.soft)
-                }.buttonStyle(.lumePress)
-                Spacer()
-                VStack(spacing: 0) {
-                    Text(title).font(.lumeCaption).foregroundStyle(LumeColor.muted)
-                    Text(elapsed).font(.lumeHeadline).foregroundStyle(LumeColor.ink).monospacedDigit()
-                }
-                Spacer()
-                Button { showRest = true } label: { RestTimerPill(seconds: restSeconds) }.buttonStyle(.lumePress)
-            }
-            .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
-        }
+        .safeAreaInset(edge: .top) { header }
         .sheet(isPresented: $showRest) {
             RestTimerView(seconds: restSeconds) { restSeconds = $0 }.presentationDetents([.medium, .large])
         }
@@ -118,6 +104,98 @@ struct ActiveSessionView: View {
             WorkoutSummaryView(summary: s, newBadges: newBadges) { dismiss() }
         }
         .sensoryFeedback(.success, trigger: finished)
+    }
+
+    // MARK: En-tête riche (chrono live + stats)
+
+    private var header: some View {
+        VStack(spacing: Spacing.md) {
+            HStack {
+                Button { dismiss() } label: {
+                    Image(appIcon: .close).lumeIcon(18, weight: .semibold).foregroundStyle(LumeColor.ink)
+                        .frame(width: 40, height: 40).background(LumeColor.surface, in: Circle()).lumeShadow(.soft)
+                }.buttonStyle(.lumePress)
+                Spacer()
+                VStack(spacing: 0) {
+                    Text(title).font(.lumeCaption).foregroundStyle(LumeColor.muted)
+                    // Chrono qui tourne réellement (rafraîchi chaque seconde).
+                    TimelineView(.periodic(from: startedAt, by: 1)) { _ in
+                        Text(elapsed).font(.lumeTitle).foregroundStyle(LumeColor.ink).monospacedDigit()
+                    }
+                }
+                Spacer()
+                Button { showRest = true } label: { RestTimerPill(seconds: restSeconds) }.buttonStyle(.lumePress)
+            }
+            if !sessions.isEmpty {
+                HStack(spacing: Spacing.sm) {
+                    liveStat(value: "\(doneSetCount)", label: doneSetCount > 1 ? "séries" : "série")
+                    liveStat(value: "\(liveVolume)", label: "kg")
+                    liveStat(value: "\(sessions.count)", label: sessions.count > 1 ? "exos" : "exo")
+                }
+            }
+        }
+        .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, Spacing.md)
+        .background(LumeColor.cream)
+    }
+
+    private func liveStat(value: String, label: String) -> some View {
+        VStack(spacing: 1) {
+            Text(value).font(.lumeHeadline).foregroundStyle(LumeColor.ink).monospacedDigit()
+            Text(label).font(.lumeCaption).foregroundStyle(LumeColor.muted)
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, Spacing.sm)
+        .background(LumeColor.surface, in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+    }
+
+    // MARK: État vide
+
+    private var emptyState: some View {
+        VStack(spacing: Spacing.lg) {
+            Image(appIcon: .workout).lumeIcon(48, weight: .semibold).foregroundStyle(LumeColor.ink)
+                .frame(width: 96, height: 96).background(LumeColor.surface, in: Circle()).lumeShadow(.soft)
+            VStack(spacing: Spacing.xs) {
+                Text("Ta séance est vide").font(.lumeTitle).foregroundStyle(LumeColor.ink)
+                Text("Ajoute ton premier exercice pour commencer à enregistrer tes séries.")
+                    .font(.lumeSubhead).foregroundStyle(LumeColor.muted).multilineTextAlignment(.center)
+            }
+            PrimaryButton(title: "Ajouter un exercice", icon: .add) { showAddExercise = true }
+        }
+        .frame(maxWidth: .infinity).padding(.top, Spacing.xxl * 2).padding(.horizontal, Spacing.sm)
+    }
+
+    private var addExerciseButton: some View {
+        Button { showAddExercise = true } label: {
+            HStack(spacing: Spacing.sm) {
+                Image(appIcon: .add).lumeIcon(16, weight: .semibold)
+                Text("Ajouter un exercice").font(.lumeCallout)
+            }.foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).padding(.vertical, Spacing.md)
+                .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(LumeColor.border, lineWidth: 1))
+        }.buttonStyle(.lumePress)
+    }
+
+    // MARK: Barre du bas (outils flottants + terminer)
+
+    private var bottomBar: some View {
+        VStack(spacing: Spacing.sm) {
+            HStack(spacing: Spacing.sm) {
+                toolButton(icon: .restTimer, label: "Repos") { showRest = true }
+                toolButton(icon: .plates, label: "Disques") { showPlate = true }
+            }
+            PrimaryButton(title: "Terminer la séance", icon: .validate) { finish() }
+                .disabled(doneSetCount == 0)
+                .opacity(doneSetCount == 0 ? 0.5 : 1)
+        }
+        .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.sm)
+    }
+
+    private func toolButton(icon: AppIcon, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: Spacing.xs) {
+                Image(appIcon: icon).lumeIcon(15, weight: .semibold)
+                Text(label).font(.lumeSubhead.weight(.semibold))
+            }.foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).padding(.vertical, Spacing.sm + 2)
+                .background(LumeColor.surface, in: Capsule()).lumeShadow(.soft)
+        }.buttonStyle(.lumePress)
     }
 
     private var elapsed: String {
