@@ -48,7 +48,10 @@ struct RoutineEditorView: View {
                             .lumeRow()
                     } else {
                         ForEach($items) { $item in
-                            exerciseRow($item).lumeRow()
+                            exerciseRow($item)
+                                .listRowInsets(EdgeInsets(top: Spacing.xs, leading: Spacing.xl, bottom: Spacing.xs, trailing: Spacing.xl))
+                                .listRowBackground(rowCardBackground)
+                                .listRowSeparator(.hidden)
                         }
                         .onMove { items.move(fromOffsets: $0, toOffset: $1) }
                         .onDelete { items.remove(atOffsets: $0) }
@@ -140,33 +143,42 @@ struct RoutineEditorView: View {
         loaded = true
     }
 
+    /// Contenu d'une ligne exercice (sans fond ni ombre — le fond est porté par listRowBackground,
+    /// pour que le « lift » de drag ne dessine pas un second fond par-dessus la carte).
     private func exerciseRow(_ item: Binding<Draft>) -> some View {
-        LumeCard {
-            VStack(alignment: .leading, spacing: Spacing.md) {
-                Text(item.wrappedValue.exercise.name).font(.lumeCallout).foregroundStyle(LumeColor.ink)
-                MusclePill(group: item.wrappedValue.exercise.primary)
-                HStack(spacing: Spacing.md) {
-                    // Séries — stepper compact.
-                    HStack(spacing: Spacing.sm) {
-                        RoundIconButton(icon: .minus, size: 22) { item.wrappedValue.sets = max(1, item.wrappedValue.sets - 1) }
-                        VStack(spacing: 0) {
-                            Text("\(item.wrappedValue.sets)").font(.lumeBodyMed).foregroundStyle(LumeColor.ink).monospacedDigit()
-                            Text("séries").font(.lumeCaption).foregroundStyle(LumeColor.muted)
-                        }.frame(minWidth: 44)
-                        RoundIconButton(icon: .add, filled: true, size: 22) { item.wrappedValue.sets += 1 }
-                    }
-                    Spacer()
-                    // Répétitions — champ visiblement éditable.
-                    VStack(alignment: .trailing, spacing: 2) {
-                        Text("répétitions").font(.lumeCaption).foregroundStyle(LumeColor.muted)
-                        TextField("8-12", text: item.reps)
-                            .multilineTextAlignment(.center).font(.lumeBodyMed).foregroundStyle(LumeColor.ink)
-                            .frame(width: 80).padding(.vertical, Spacing.xs)
-                            .background(LumeColor.cream).clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
-                    }
+        VStack(alignment: .leading, spacing: Spacing.md) {
+            Text(item.wrappedValue.exercise.name).font(.lumeCallout).foregroundStyle(LumeColor.ink)
+            MusclePill(group: item.wrappedValue.exercise.primary)
+            HStack(spacing: Spacing.md) {
+                // Séries — stepper compact.
+                HStack(spacing: Spacing.sm) {
+                    RoundIconButton(icon: .minus, size: 22) { item.wrappedValue.sets = max(1, item.wrappedValue.sets - 1) }
+                    VStack(spacing: 0) {
+                        Text("\(item.wrappedValue.sets)").font(.lumeBodyMed).foregroundStyle(LumeColor.ink).monospacedDigit()
+                        Text("séries").font(.lumeCaption).foregroundStyle(LumeColor.muted)
+                    }.frame(minWidth: 44)
+                    RoundIconButton(icon: .add, filled: true, size: 22) { item.wrappedValue.sets += 1 }
+                }
+                Spacer()
+                // Répétitions — champ visiblement éditable.
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text("répétitions").font(.lumeCaption).foregroundStyle(LumeColor.muted)
+                    TextField("8-12", text: item.reps)
+                        .multilineTextAlignment(.center).font(.lumeBodyMed).foregroundStyle(LumeColor.ink)
+                        .frame(width: 80).padding(.vertical, Spacing.xs)
+                        .background(LumeColor.cream).clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
                 }
             }
         }
+        .padding(Spacing.lg)
+    }
+
+    /// Fond carte d'une ligne d'éditeur (porté par listRowBackground), aligné sur les marges du contenu.
+    private var rowCardBackground: some View {
+        RoundedRectangle(cornerRadius: Radius.xl, style: .continuous)
+            .fill(LumeColor.surface)
+            .lumeShadow(.soft)
+            .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.xs)
     }
 
     private func save() {
