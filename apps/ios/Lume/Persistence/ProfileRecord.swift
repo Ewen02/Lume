@@ -34,6 +34,7 @@ final class ProfileRecord {
     var weeklyWorkoutGoal: Int = 3
 
     // MARK: Nutrition
+
     /// Objectif d'hydratation quotidien, en verres de 250 ml (8 ≈ 2 L).
     var waterGoalGlasses: Int = 8
 

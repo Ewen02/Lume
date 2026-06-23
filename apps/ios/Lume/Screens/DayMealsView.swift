@@ -19,8 +19,13 @@ struct DayMealsView: View {
                        sort: \LoggedFood.date)
     }
 
-    private var consumed: Macros { foods.reduce(.zero) { $0 + $1.macros } }
-    private var target: Macros { profiles.first.map { TDEECalculator.target($0.profile) } ?? Mock.target }
+    private var consumed: Macros {
+        foods.reduce(.zero) { $0 + $1.macros }
+    }
+
+    private var target: Macros {
+        profiles.first.map { TDEECalculator.target($0.profile) } ?? Mock.target
+    }
 
     /// Repas groupés par créneau (petit-déj, déj…), aliments triés.
     private var byMeal: [(type: MealType, foods: [LoggedFood])] {

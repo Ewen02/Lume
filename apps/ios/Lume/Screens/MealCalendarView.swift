@@ -16,13 +16,20 @@ struct MealCalendarView: View {
 
     private struct DayRoute: Identifiable { let id = UUID(); let day: Date }
 
-    private var grid: MonthGrid { MonthGrid(month: Date(), calendar: calendar).adding(monthOffset) }
-    private var targetKcal: Int { profiles.first.map { TDEECalculator.target($0.profile).kcal } ?? Mock.target.kcal }
+    private var grid: MonthGrid {
+        MonthGrid(month: Date(), calendar: calendar).adding(monthOffset)
+    }
+
+    private var targetKcal: Int {
+        profiles.first.map { TDEECalculator.target($0.profile).kcal } ?? Mock.target.kcal
+    }
 
     /// Calories par jour (début de jour → kcal).
     private var kcalByDay: [Date: Int] {
         var out: [Date: Int] = [:]
-        for f in foods { out[calendar.startOfDay(for: f.date), default: 0] += f.kcal }
+        for f in foods {
+            out[calendar.startOfDay(for: f.date), default: 0] += f.kcal
+        }
         return out
     }
 

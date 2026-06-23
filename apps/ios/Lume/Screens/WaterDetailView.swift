@@ -14,7 +14,10 @@ struct WaterDetailView: View {
     }
 
     /// Objectif d'hydratation (réglable, depuis le profil).
-    private var total: Int { max(1, profiles.first?.waterGoalGlasses ?? 8) }
+    private var total: Int {
+        max(1, profiles.first?.waterGoalGlasses ?? 8)
+    }
+
     private let cal = Calendar.current
 
     private var todayLog: WaterLog? {

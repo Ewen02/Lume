@@ -32,7 +32,9 @@ struct SessionComparison {
 
         // 1RM par exercice présent dans les deux séances.
         var prevBest: [String: Int] = [:]
-        for ex in prev.orderedExercises { prevBest[ex.name] = max(prevBest[ex.name] ?? 0, ex.bestOneRM) }
+        for ex in prev.orderedExercises {
+            prevBest[ex.name] = max(prevBest[ex.name] ?? 0, ex.bestOneRM)
+        }
         var deltas: [(String, Int)] = []
         for ex in session.orderedExercises where ex.bestOneRM > 0 {
             if let before = prevBest[ex.name], before > 0 {
@@ -42,5 +44,7 @@ struct SessionComparison {
         oneRMDeltas = deltas
     }
 
-    var hasComparison: Bool { previous != nil }
+    var hasComparison: Bool {
+        previous != nil
+    }
 }
