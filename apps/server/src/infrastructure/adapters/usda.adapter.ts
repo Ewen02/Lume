@@ -52,13 +52,7 @@ export class UsdaAdapter implements NutritionDbPort {
     if (!q) return this.key ? [] : FALLBACK;
     if (!this.key) return this.localSearch(q);
     try {
-      const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
-      url.searchParams.set('api_key', this.key);
-      url.searchParams.set('query', q);
-      url.searchParams.set('pageSize', '25');
-      // Génériques d'abord (Foundation/SR Legacy/Survey), Branded en dernier recours.
-      url.searchParams.set('dataType', 'Foundation,SR Legacy,Survey (FNDDS),Branded');
-      const res = await fetchWithTimeout(url, { timeoutMs: this.timeoutMs });
+      const res = await this.fetchSearch(q);
       if (!res.ok) {
         this.logger.warn(`USDA HTTP ${res.status} pour « ${q} » — repli local.`);
         return this.localSearch(q);
@@ -84,6 +78,35 @@ export class UsdaAdapter implements NutritionDbPort {
       this.logger.warn(`USDA échec pour « ${q} » (${reason}) — repli local.`);
       return this.localSearch(q);
     }
+  }
+
+  /**
+   * Appelle FDC en POST JSON. Le `dataType` part en tableau dans le corps : on évite
+   * ainsi le query-string `dataType=Survey+%28FNDDS%29` qui faisait rejeter la requête
+   * en HTTP 400 par le nginx d'entrée d'USDA, de façon intermittente.
+   * Un seul nouvel essai sur échec transitoire (429/5xx) — au-delà, l'appelant bascule en local.
+   */
+  private async fetchSearch(q: string): Promise<Response> {
+    const url = new URL('https://api.nal.usda.gov/fdc/v1/foods/search');
+    url.searchParams.set('api_key', this.key);
+    const init = {
+      timeoutMs: this.timeoutMs,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: q,
+        pageSize: 25,
+        // Génériques d'abord (Foundation/SR Legacy/Survey), Branded en dernier recours.
+        dataType: ['Foundation', 'SR Legacy', 'Survey (FNDDS)', 'Branded'],
+      }),
+    };
+    const res = await fetchWithTimeout(url, init);
+    // Échec transitoire (throttle/erreur serveur) → un seul nouvel essai après un court délai.
+    if (res.status === 429 || res.status >= 500) {
+      await new Promise((r) => setTimeout(r, 300));
+      return fetchWithTimeout(url, init);
+    }
+    return res;
   }
 
   /** Score de pertinence : recouvrement des mots + bonus correspondance exacte + fiabilité source. */

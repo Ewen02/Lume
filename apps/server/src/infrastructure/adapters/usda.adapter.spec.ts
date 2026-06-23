@@ -95,6 +95,34 @@ describe('UsdaAdapter', () => {
       expect(Array.isArray(list)).toBe(true);
     });
 
+    it('appelle FDC en POST avec dataType en tableau dans le corps (pas en query-string)', async () => {
+      // Régression : le query-string `dataType=Survey+(FNDDS)` faisait rejeter la requête
+      // en HTTP 400 par le nginx d'USDA de façon intermittente. On envoie donc en POST JSON.
+      const spy = jest.spyOn(global, 'fetch').mockResolvedValue(usdaResponse([]));
+      await adapter().search('chicken');
+      const [url, init] = spy.mock.calls[0] as [URL, RequestInit];
+      expect(String(url)).not.toContain('dataType');
+      expect(init.method).toBe('POST');
+      const body = JSON.parse(String(init.body));
+      expect(Array.isArray(body.dataType)).toBe(true);
+      expect(body.dataType).toContain('Survey (FNDDS)');
+      expect(body.query).toBe('chicken');
+    });
+
+    it('réessaie une fois sur échec transitoire (5xx) avant de réussir', async () => {
+      const spy = jest
+        .spyOn(global, 'fetch')
+        .mockResolvedValueOnce({ ok: false, status: 503 } as Response)
+        .mockResolvedValueOnce(
+          usdaResponse([
+            { description: 'Chicken', dataType: 'Foundation', foodNutrients: [{ nutrientId: 1008, value: 165 }] },
+          ]),
+        );
+      const list = await adapter().search('chicken');
+      expect(spy).toHaveBeenCalledTimes(2);
+      expect(list[0].name).toBe('Chicken');
+    });
+
     it('priorise le candidat dont le nom recoupe le mieux la requête', async () => {
       jest.spyOn(global, 'fetch').mockResolvedValue(
         usdaResponse([
