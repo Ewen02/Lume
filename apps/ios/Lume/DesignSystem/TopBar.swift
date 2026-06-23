@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// Barre de navigation : bouton gauche optionnel, titre, action droite optionnelle.
+/// Présentée en tête de sheet → une marge supérieure intégrée évite que le contenu colle au bord.
 struct TopBar: View {
     var title: String
     var leading: AppIcon? = nil
@@ -17,6 +18,7 @@ struct TopBar: View {
             }
         }
         .frame(height: 40)
+        .padding(.top, Spacing.sm)
     }
 
     private func circle(_ icon: AppIcon, _ action: @escaping () -> Void) -> some View {
