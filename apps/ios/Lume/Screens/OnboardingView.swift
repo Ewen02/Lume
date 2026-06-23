@@ -7,7 +7,9 @@ struct OnboardingView: View {
     @Query private var profiles: [ProfileRecord]
 
     @State private var step = 0
-    @State private var profile = Mock.profile
+    /// Valeurs de départ neutres (prénom vide → saisi à l'étape profil).
+    @State private var profile = UserProfile(name: "", sex: .male, age: 25, heightCm: 175,
+                                             weightKg: 70, activity: .moderate, goal: .maintain)
     @State private var cameraGranted = Permissions.cameraGranted
     @State private var notifGranted = false
 
@@ -18,9 +20,15 @@ struct OnboardingView: View {
         TDEECalculator.target(profile)
     }
 
+    private var trimmedName: String {
+        profile.name.trimmingCharacters(in: .whitespaces)
+    }
+
     private func finish() {
-        if let r = profiles.first { r.update(from: profile) }
-        else { ctx.insert(ProfileRecord(from: profile)) }
+        var saved = profile
+        saved.name = trimmedName
+        if let r = profiles.first { r.update(from: saved) }
+        else { ctx.insert(ProfileRecord(from: saved)) }
         onFinish()
     }
 
@@ -48,6 +56,8 @@ struct OnboardingView: View {
             {
                 if step < lastStep { withAnimation { step += 1 } } else { finish() }
             }
+            .disabled(step == 1 && trimmedName.isEmpty)
+            .opacity(step == 1 && trimmedName.isEmpty ? 0.5 : 1)
             .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.lg)
 
             if step == lastStep {
@@ -80,6 +90,14 @@ struct OnboardingView: View {
             stepTitle("Parle-nous de toi", "Pour calculer ton objectif.")
             LumeCard {
                 VStack(spacing: Spacing.lg) {
+                    HStack {
+                        Text("Prénom").font(.lumeBodyMed).foregroundStyle(LumeColor.ink)
+                        Spacer()
+                        TextField("Ton prénom", text: $profile.name)
+                            .multilineTextAlignment(.trailing)
+                            .textInputAutocapitalization(.words)
+                            .font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink)
+                    }
                     HStack {
                         Text("Sexe").font(.lumeBodyMed).foregroundStyle(LumeColor.ink)
                         Spacer()

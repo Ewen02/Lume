@@ -3,7 +3,7 @@ import SwiftUI
 struct RoutineDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var start = false
-    var routine: Routine = Mock.pushRoutine
+    let routine: Routine
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -39,8 +39,10 @@ struct RoutineDetailView: View {
             TopBar(title: "Routine", leading: .back, trailing: .edit, onLeading: { dismiss() })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
-        .sheet(isPresented: $start) { ActiveSessionView() }
+        .sheet(isPresented: $start) {
+            ActiveSessionView(title: routine.name, prefill: routine.emptySession)
+        }
     }
 }
 
-#Preview { RoutineDetailView() }
+#Preview { RoutineDetailView(routine: Mock.pushRoutine) }

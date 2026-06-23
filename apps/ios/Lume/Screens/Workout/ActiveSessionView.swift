@@ -15,7 +15,7 @@ struct ActiveSessionView: View {
     @State private var finished = false
     @State private var summary: WorkoutSummary?
 
-    init(title: String = "Séance libre", prefill: [ExerciseSession] = Mock.activeSession) {
+    init(title: String = "Séance libre", prefill: [ExerciseSession] = []) {
         self.title = title
         _sessions = State(initialValue: prefill)
     }
@@ -109,4 +109,4 @@ struct ActiveSessionView: View {
     }
 }
 
-#Preview { ActiveSessionView().modelContainer(LumeStore.preview).environment(HealthManager.shared) }
+#Preview { ActiveSessionView(prefill: Mock.activeSession).modelContainer(LumeStore.preview).environment(HealthManager.shared) }

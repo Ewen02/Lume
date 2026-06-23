@@ -71,6 +71,17 @@ struct Routine: Identifiable {
         let groups = Set(exercises.map { $0.exercise.primary.rawValue })
         return groups.sorted().joined(separator: " · ")
     }
+
+    /// Séance active vierge prête à remplir : un exercice par exercice de la routine,
+    /// avec `targetSets` séries vides (reps/poids à 0, non cochées).
+    var emptySession: [ExerciseSession] {
+        exercises.map { ex in
+            ExerciseSession(exercise: ex.exercise,
+                            sets: (0 ..< max(1, ex.targetSets)).map { _ in
+                                SetEntry(reps: 0, weight: 0, rpe: nil, done: false)
+                            })
+        }
+    }
 }
 
 struct PRPoint: Identifiable {
