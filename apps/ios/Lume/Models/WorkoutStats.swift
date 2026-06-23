@@ -13,7 +13,32 @@ struct PersonalRecord: Identifiable {
     }
 }
 
+/// Résumé d'entraînement sur une fenêtre (7 jours par défaut) : nombre de séances,
+/// volume total (kg·reps) et durée cumulée. Extrait des vues, testable.
+struct WeekTraining {
+    var sessions: Int
+    var volumeKg: Int
+    var minutes: Int
+}
+
 enum WorkoutStats {
+    /// Résumé des 7 derniers jours.
+    static func lastSevenDays(from sessions: [WorkoutSessionModel],
+                              reference: Date = Date(),
+                              calendar: Calendar = .current) -> WeekTraining
+    {
+        let today0 = calendar.startOfDay(for: reference)
+        let weekStart = calendar.date(byAdding: .day, value: -6, to: today0) ?? today0
+        let inWeek = sessions.filter { $0.date >= weekStart }
+        let volume = inWeek.reduce(0.0) { acc, s in
+            acc + s.orderedExercises.reduce(0.0) { exAcc, ex in
+                exAcc + ex.orderedSets.reduce(0.0) { $0 + $1.weight * Double($1.reps) }
+            }
+        }
+        let secs = inWeek.reduce(0) { $0 + $1.durationSec }
+        return WeekTraining(sessions: inWeek.count, volumeKg: Int(volume), minutes: secs / 60)
+    }
+
     /// Meilleur 1RM estimé par exercice, trié du plus lourd au plus léger.
     ///
     /// - Parameter sessions: séances persistées (`WorkoutSessionModel`).

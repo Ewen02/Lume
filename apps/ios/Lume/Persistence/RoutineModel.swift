@@ -20,8 +20,9 @@ final class RoutineModel {
     }
 
     /// Mappe vers la struct `Routine` utilisée par l'UI (RoutineCard, RoutineDetailView).
+    /// L'id stable du modèle est propagé pour une identité SwiftUI constante entre les rendus.
     var asRoutine: Routine {
-        Routine(name: name, exercises: orderedExercises.map {
+        Routine(id: id, name: name, exercises: orderedExercises.map {
             RoutineExercise(
                 exercise: Exercise(name: $0.exerciseName,
                                    primary: MuscleGroup.from(code: $0.muscleRaw),
@@ -53,10 +54,11 @@ final class RoutineExerciseModel {
     }
 }
 
-/// Insère les routines par défaut si le store n'en contient aucune (1re ouverture).
-/// Les routines deviennent alors de vraies données persistées (éditables, synchronisées).
+/// Insère les routines types (Push/Pull/Legs) à la demande de l'utilisateur
+/// (choix « routines types » de l'onboarding muscu). Idempotent : n'insère que si le store est vide.
+/// Les routines deviennent alors de vraies données persistées (éditables, supprimables).
 @MainActor
-func seedDefaultRoutinesIfNeeded(_ context: ModelContext) {
+func seedDefaultRoutines(_ context: ModelContext) {
     let existing = (try? context.fetch(FetchDescriptor<RoutineModel>())) ?? []
     guard existing.isEmpty else { return }
     for (i, routine) in Mock.routines.enumerated() {

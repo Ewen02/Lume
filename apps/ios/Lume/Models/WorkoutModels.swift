@@ -64,7 +64,8 @@ struct RoutineExercise: Identifiable {
 }
 
 struct Routine: Identifiable {
-    let id = UUID()
+    /// Stable quand la routine vient d'un `RoutineModel` persisté (évite la ré-identité à chaque rendu).
+    var id: UUID = .init()
     var name: String
     var exercises: [RoutineExercise]
     var muscles: String {

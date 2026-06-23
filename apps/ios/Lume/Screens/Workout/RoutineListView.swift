@@ -8,16 +8,23 @@ struct RoutineListView: View {
     @State private var routeRoutine: Routine?
     @State private var showEditor = false
 
-    private var routines: [Routine] {
-        routineModels.isEmpty ? Mock.routines : routineModels.map(\.asRoutine)
-    }
-
     var body: some View {
         ZStack(alignment: .bottom) {
             ScrollView {
                 VStack(spacing: Spacing.sm) {
-                    ForEach(routines) { r in
-                        Button { routeRoutine = r } label: { RoutineCard(routine: r) }.buttonStyle(.lumePress)
+                    if routineModels.isEmpty {
+                        LumeEmptyState(icon: .routine, title: "Aucune routine",
+                                       message: "Crée ta première routine avec le bouton ci-dessous.")
+                            .padding(.top, Spacing.xxl)
+                    } else {
+                        ForEach(routineModels) { model in
+                            RoutineCard(routine: model.asRoutine) { routeRoutine = model.asRoutine }
+                                .contextMenu {
+                                    Button(role: .destructive) { ctx.delete(model) } label: {
+                                        Label("Supprimer", systemImage: "trash")
+                                    }
+                                }
+                        }
                     }
                 }.padding(.horizontal, Spacing.xl).padding(.bottom, 100)
             }
@@ -31,7 +38,6 @@ struct RoutineListView: View {
         }
         .sheet(item: $routeRoutine) { RoutineDetailView(routine: $0) }
         .sheet(isPresented: $showEditor) { RoutineEditorView() }
-        .onAppear { seedDefaultRoutinesIfNeeded(ctx) }
     }
 }
 

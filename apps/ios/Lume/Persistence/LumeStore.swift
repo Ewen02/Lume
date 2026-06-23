@@ -47,7 +47,7 @@ enum LumeStore {
             s.exercise = bench
             ctx.insert(s)
         }
-        seedDefaultRoutinesIfNeeded(ctx)
+        seedDefaultRoutines(ctx)
         seedDefaultExercisesIfNeeded(ctx)
         return container
     }()
