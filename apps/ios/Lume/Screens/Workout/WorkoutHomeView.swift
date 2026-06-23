@@ -40,6 +40,7 @@ struct WorkoutHomeView: View {
     }
 
     @State private var route: Route?
+    @State private var showStartChoice = false
 
     /// Vrais records (1RM estimé). Vide tant qu'aucune séance — pas de chiffres inventés.
     private var topRecords: [PersonalRecord] {
@@ -186,7 +187,10 @@ struct WorkoutHomeView: View {
     // MARK: Démarrer
 
     private var startCard: some View {
-        Button { route = .startSession } label: {
+        Button {
+            // Avec des routines : on propose le choix (libre ou routine). Sinon séance libre directe.
+            if routineModels.isEmpty { route = .startSession } else { showStartChoice = true }
+        } label: {
             HStack(spacing: Spacing.md) {
                 Image(appIcon: .workout).lumeIcon(24, weight: .semibold)
                 VStack(alignment: .leading, spacing: 2) {
@@ -201,7 +205,14 @@ struct WorkoutHomeView: View {
             .background(LumeColor.ink)
             .clipShape(RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous))
             .lumeShadow(.card)
-        }.buttonStyle(.lumePress)
+        }
+        .buttonStyle(.lumePress)
+        .confirmationDialog("Démarrer une séance", isPresented: $showStartChoice, titleVisibility: .visible) {
+            Button("Séance libre") { route = .startSession }
+            ForEach(routineModels) { model in
+                Button(model.name) { route = .routine(model.asRoutine) }
+            }
+        }
     }
 
     // MARK: Résumé de la semaine

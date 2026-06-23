@@ -6,6 +6,8 @@ struct RootView: View {
     @Query private var profiles: [ProfileRecord]
     @State private var tab: LumeTab = .today
     @State private var showCapture = false
+    @State private var showSession = false
+    @State private var showWeight = false
     @State private var justLoggedID = UUID()
 
     var body: some View {
@@ -14,6 +16,24 @@ struct RootView: View {
         } else {
             OnboardingView { withAnimation(LumeMotion.smooth) { hasOnboarded = true } }
                 .transition(.opacity)
+        }
+    }
+
+    /// L'icône du bouton flottant change selon l'onglet (action contextuelle).
+    private var fabIcon: AppIcon {
+        switch tab {
+        case .workout: .workout
+        case .progress: .weight
+        default: .add
+        }
+    }
+
+    /// Action contextuelle du bouton flottant selon l'onglet courant.
+    private func fabAction() {
+        switch tab {
+        case .workout: showSession = true
+        case .progress: showWeight = true
+        default: showCapture = true
         }
     }
 
@@ -35,7 +55,7 @@ struct RootView: View {
             LumeTabBar(selection: $tab)
                 .padding(.horizontal, Spacing.lg)
                 .overlay(alignment: .top) {
-                    FloatingActionButton { showCapture = true }
+                    FloatingActionButton(icon: fabIcon) { fabAction() }
                         .offset(y: -30)
                 }
         }
@@ -45,6 +65,12 @@ struct RootView: View {
                 withAnimation(LumeMotion.smooth) { tab = .today }
                 justLoggedID = UUID()
             }
+        }
+        .sheet(isPresented: $showSession) {
+            ActiveSessionView()
+        }
+        .sheet(isPresented: $showWeight) {
+            WeightEntryView(current: nil)
         }
         .sensoryFeedback(.selection, trigger: tab)
         .sensoryFeedback(.success, trigger: justLoggedID)
