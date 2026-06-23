@@ -45,5 +45,7 @@ struct PRBeaten: Identifiable {
     var exercise: String
     var oneRM: Int
     var previous: Int
-    var id: String { exercise }
+    var id: String {
+        exercise
+    }
 }
