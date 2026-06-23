@@ -172,19 +172,16 @@ struct TodayView: View {
                     MacroCard(letter: "L", value: consumed.fat, goal: target.fat, color: LumeColor.fat, label: "Lipides")
                 }
                 .lumeEntrance(3)
-                if !dayFoods.isEmpty {
-                    MacroBreakdownCard(consumed: consumed, target: target).lumeEntrance(4)
-                }
                 Button { showWater = true } label: { WaterTracker(filled: water) }
                     .buttonStyle(.lumePress)
-                    .lumeEntrance(5)
-                SectionHeader(title: "Repas du jour").lumeEntrance(6)
+                    .lumeEntrance(4)
+                SectionHeader(title: "Repas du jour").lumeEntrance(5)
                 if dayGroups.isEmpty {
-                    emptyState.lumeEntrance(7)
+                    emptyState.lumeEntrance(6)
                 } else {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.id) { idx, group in
                         mealGroup(group)
-                            .lumeEntrance(7 + idx)
+                            .lumeEntrance(6 + idx)
                             // Suppression : la carte rétrécit et s'efface (collapse).
                             .transition(.asymmetric(
                                 insertion: .opacity.combined(with: .move(edge: .top)),
