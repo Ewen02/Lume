@@ -66,6 +66,11 @@ struct TodayView: View {
         dayFoods.reduce(.zero) { $0 + $1.macros }
     }
 
+    /// Macros consommées AUJOURD'HUI (pour le widget, indépendant du jour sélectionné).
+    private var todayConsumed: Macros {
+        allFoods.filter { cal.isDateInToday($0.date) }.reduce(.zero) { $0 + $1.macros }
+    }
+
     /// L'eau n'est chargée que pour aujourd'hui (la query est bornée au jour courant).
     private var water: Int {
         guard isToday else { return 0 }
@@ -192,6 +197,8 @@ struct TodayView: View {
                 withAnimation(LumeMotion.smooth) { highlight = false }
             }
         }
+        // Tient le widget (calories+macros du jour) à jour.
+        .task(id: todayConsumed) { WidgetUpdater.update(consumed: todayConsumed, target: target) }
         .sheet(isPresented: $showWater) { WaterDetailView() }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(item: $routeEntry) { FoodDetailView(entry: $0) }
