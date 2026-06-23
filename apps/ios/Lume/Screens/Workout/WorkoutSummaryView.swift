@@ -3,6 +3,7 @@ import SwiftUI
 /// Écran de récap gratifiant après une séance (durée, volume, séries, meilleur 1RM).
 struct WorkoutSummaryView: View {
     let summary: WorkoutSummary
+    var newBadges: [Badge] = []
     var onClose: () -> Void
     @State private var appeared = false
 
@@ -36,6 +37,9 @@ struct WorkoutSummaryView: View {
             if let ex = summary.bestExercise, summary.bestOneRM > 0 {
                 Text("Top exercice : \(ex)").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
             }
+
+            if !newBadges.isEmpty { badgesCard }
+
             Spacer()
             PrimaryButton(title: "Terminer", icon: .validate) { onClose() }
                 .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.lg)
@@ -46,6 +50,28 @@ struct WorkoutSummaryView: View {
         .interactiveDismissDisabled()
         .onAppear { withAnimation(LumeMotion.celebrate.delay(0.1)) { appeared = true } }
         .sensoryFeedback(.success, trigger: appeared)
+    }
+
+    private var badgesCard: some View {
+        VStack(spacing: Spacing.sm) {
+            Text(newBadges.count > 1 ? "Nouveaux badges débloqués !" : "Nouveau badge débloqué !")
+                .font(.lumeCallout.weight(.semibold)).foregroundStyle(LumeColor.ink)
+            HStack(spacing: Spacing.md) {
+                ForEach(newBadges) { badge in
+                    VStack(spacing: Spacing.xs) {
+                        Image(appIcon: badge.icon).lumeIcon(22, weight: .bold).foregroundStyle(badge.tint)
+                            .frame(width: 56, height: 56).background(badge.tint.opacity(0.14), in: Circle())
+                        Text(badge.title).font(.lumeCaption).foregroundStyle(LumeColor.muted)
+                            .multilineTextAlignment(.center).lineLimit(2)
+                    }.frame(maxWidth: 90)
+                }
+            }
+        }
+        .padding(Spacing.lg)
+        .background(LumeColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .lumeShadow(.soft)
+        .scaleEffect(appeared ? 1 : 0.8)
     }
 }
 

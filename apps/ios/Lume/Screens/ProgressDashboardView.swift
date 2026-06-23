@@ -56,7 +56,16 @@ struct ProgressDashboardView: View {
     }
 
     private var weekly: WeeklyGoals {
-        WeeklyGoals.compute(foods: weekFoods, sessions: sessions, targetKcal: targetKcal)
+        WeeklyGoals.compute(foods: weekFoods, sessions: sessions, targetKcal: targetKcal,
+                            workoutGoal: profiles.first?.weeklyWorkoutGoal ?? 3)
+    }
+
+    private var weeklyVolume: [VolumePoint] {
+        WorkoutStats.weeklyVolume(from: sessions)
+    }
+
+    private var bestOneRM: Int {
+        sessions.flatMap { $0.orderedExercises.map(\.bestOneRM) }.max() ?? 0
     }
 
     /// Bornes de l'axe Y du graphe poids (défensif si la série venait à être vide).
@@ -87,6 +96,7 @@ struct ProgressDashboardView: View {
                 weeklyGoalsCard.lumeEntrance(2)
                 weightCard.lumeEntrance(3)
                 caloriesCard.lumeEntrance(4)
+                if !sessions.isEmpty { muscleCard.lumeEntrance(5) }
             }
             .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 130)
         }
@@ -123,6 +133,30 @@ struct ProgressDashboardView: View {
                     Text("\(w.avgKcal) / \(w.targetKcal)")
                         .font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink).monospacedDigit()
                 }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var muscleCard: some View {
+        LumeCard {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack {
+                    Text("Volume muscu").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+                    Spacer()
+                    if bestOneRM > 0 {
+                        Text("1RM max \(bestOneRM) kg").font(.lumeFootnote).foregroundStyle(LumeColor.muted).monospacedDigit()
+                    }
+                }
+                Text("kg soulevés par semaine").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                Chart(weeklyVolume) { p in
+                    BarMark(x: .value("Semaine", p.weekStart, unit: .weekOfYear),
+                            y: .value("kg", p.volumeKg), width: .fixed(16))
+                        .foregroundStyle(p.volumeKg == 0 ? LumeColor.faint : LumeColor.protein)
+                        .cornerRadius(5)
+                }
+                .chartYAxis(.hidden)
+                .chartXAxis { AxisMarks(values: .stride(by: .weekOfYear, count: 2)) }
+                .frame(height: 150)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }

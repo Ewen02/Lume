@@ -5,6 +5,7 @@ struct ActiveSessionView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     @Environment(HealthManager.self) private var health
+    @Query private var profiles: [ProfileRecord]
 
     let title: String
     @State private var sessions: [ExerciseSession]
@@ -14,6 +15,8 @@ struct ActiveSessionView: View {
     @State private var startedAt = Date()
     @State private var finished = false
     @State private var summary: WorkoutSummary?
+    /// Badges fraîchement débloqués par cette séance (affichés dans le récap).
+    @State private var newBadges: [Badge] = []
     /// Dernière durée de repos choisie (réutilisée d'une série à l'autre).
     @AppStorage("lume.restSeconds") private var restSeconds = 90
 
@@ -43,8 +46,15 @@ struct ActiveSessionView: View {
         }
         let start = startedAt, end = Date()
         Task { await health.saveWorkout(start: start, end: end) }
+
+        // Réconcilie les badges (la séance vient d'être insérée → re-fetch frais inclus).
+        try? ctx.save()
+        let all = (try? ctx.fetch(FetchDescriptor<WorkoutSessionModel>())) ?? []
+        let goal = profiles.first?.weeklyWorkoutGoal ?? 3
+        newBadges = BadgeEvaluator.reconcile(sessions: all, goal: goal, context: ctx, date: end)
+
         finished = true
-        // Récap gratifiant avant de fermer (volume, séries, meilleur 1RM).
+        // Récap gratifiant avant de fermer (volume, séries, meilleur 1RM, badges).
         summary = WorkoutSummary(from: sessions, durationSec: Int(end.timeIntervalSince(start)))
     }
 
@@ -105,7 +115,7 @@ struct ActiveSessionView: View {
             }
         }
         .sheet(item: $summary) { s in
-            WorkoutSummaryView(summary: s) { dismiss() }
+            WorkoutSummaryView(summary: s, newBadges: newBadges) { dismiss() }
         }
         .sensoryFeedback(.success, trigger: finished)
     }

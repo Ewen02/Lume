@@ -5,6 +5,7 @@ struct WorkoutHomeView: View {
     @Environment(\.modelContext) private var ctx
     @Query(sort: \WorkoutSessionModel.date, order: .reverse) private var sessions: [WorkoutSessionModel]
     @Query(sort: \RoutineModel.order) private var routineModels: [RoutineModel]
+    @Query private var profiles: [ProfileRecord]
 
     /// Onboarding muscu : tant que l'utilisateur n'a pas choisi comment démarrer, on l'affiche.
     @AppStorage("lume.workoutSetupDone") private var setupDone = false
@@ -18,6 +19,9 @@ struct WorkoutHomeView: View {
         case records
         case library
         case newRoutine
+        case calendar
+        case badges
+        case streak
 
         var id: String {
             switch self {
@@ -28,6 +32,9 @@ struct WorkoutHomeView: View {
             case .records: "records"
             case .library: "library"
             case .newRoutine: "new"
+            case .calendar: "calendar"
+            case .badges: "badges"
+            case .streak: "streak"
             }
         }
     }
@@ -41,6 +48,20 @@ struct WorkoutHomeView: View {
 
     private var week: WeekTraining {
         WorkoutStats.lastSevenDays(from: sessions)
+    }
+
+    private var goal: Int { profiles.first?.weeklyWorkoutGoal ?? 3 }
+
+    private var streak: Int {
+        WorkoutStreak.currentStreak(from: sessions.map(\.date), goal: goal)
+    }
+
+    private var streakRecord: Int {
+        WorkoutStreak.longestStreak(from: sessions.map(\.date), goal: goal)
+    }
+
+    private var sessionsThisWeek: Int {
+        WorkoutStreak.sessionsThisWeek(from: sessions.map(\.date))
     }
 
     var body: some View {
@@ -57,21 +78,23 @@ struct WorkoutHomeView: View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 startCard.lumeEntrance(0)
+                engagementCard.lumeEntrance(1)
+                quickAccess.lumeEntrance(2)
 
                 if week.sessions > 0 {
-                    weekSummary.lumeEntrance(1)
+                    weekSummary.lumeEntrance(3)
                 }
 
                 if !sessions.isEmpty {
-                    SectionHeader(title: "Séances récentes").lumeEntrance(2)
+                    SectionHeader(title: "Séances récentes") { route = .calendar }.lumeEntrance(4)
                     ForEach(Array(sessions.prefix(3).enumerated()), id: \.element.id) { idx, s in
-                        recentRow(s).lumeEntrance(3 + idx)
+                        recentRow(s).lumeEntrance(5 + idx)
                     }
                 }
 
-                routinesSection.lumeEntrance(4)
-                libraryLink.lumeEntrance(5)
-                recordsSection.lumeEntrance(6)
+                routinesSection.lumeEntrance(6)
+                libraryLink.lumeEntrance(7)
+                recordsSection.lumeEntrance(8)
             }
             .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 130)
         }
@@ -90,8 +113,72 @@ struct WorkoutHomeView: View {
             case .records: PRHistoryView()
             case .library: ExerciseLibraryView()
             case .newRoutine: RoutineEditorView()
+            case .calendar: WorkoutCalendarView()
+            case .badges: BadgesView()
+            case .streak: WorkoutStreakDetailView(streak: streak, record: streakRecord, goal: goal)
             }
         }
+        // Rattrape les badges déjà mérités (séances enregistrées avant l'arrivée du système).
+        .task { BadgeEvaluator.reconcile(sessions: sessions, goal: goal, context: ctx) }
+    }
+
+    // MARK: Engagement (flamme + objectif de la semaine)
+
+    private var engagementCard: some View {
+        LumeCard {
+            HStack(spacing: Spacing.lg) {
+                // Flamme de série hebdo (tap → détail).
+                Button { route = .streak } label: {
+                    VStack(spacing: 2) {
+                        StreakFlame(streak: streak, size: 40).frame(height: 56)
+                        Text(streak > 0 ? "\(streak) sem." : "—")
+                            .font(.lumeCaption.weight(.semibold)).foregroundStyle(LumeColor.ink).monospacedDigit()
+                        Text("Série").font(.lumeCaption).foregroundStyle(LumeColor.muted)
+                    }
+                }.buttonStyle(.lumePress)
+
+                Divider().frame(height: 60).overlay(LumeColor.border)
+
+                // Anneau d'objectif de séances cette semaine.
+                ProgressRing(progress: goal > 0 ? min(1, Double(sessionsThisWeek) / Double(goal)) : 0,
+                             color: LumeColor.protein, lineWidth: 8)
+                {
+                    VStack(spacing: 0) {
+                        Text("\(sessionsThisWeek)/\(goal)").font(.lumeCallout.weight(.bold))
+                            .foregroundStyle(LumeColor.ink).monospacedDigit()
+                    }
+                }.frame(width: 60, height: 60)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Objectif de la semaine").font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.ink)
+                    Text(sessionsThisWeek >= goal ? "Objectif atteint 💪" : "\(max(0, goal - sessionsThisWeek)) séance(s) restante(s)")
+                        .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                }
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    // MARK: Accès rapide (calendrier / récompenses)
+
+    private var quickAccess: some View {
+        HStack(spacing: Spacing.md) {
+            quickTile(icon: .recents, tint: LumeColor.fat, title: "Calendrier") { route = .calendar }
+            quickTile(icon: .pr, tint: LumeColor.warning, title: "Récompenses") { route = .badges }
+        }
+    }
+
+    private func quickTile(icon: AppIcon, tint: Color, title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: Spacing.sm) {
+                Image(appIcon: icon).lumeIcon(16, weight: .semibold).foregroundStyle(tint)
+                    .frame(width: 36, height: 36).background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                Text(title).font(.lumeCallout).foregroundStyle(LumeColor.ink)
+                Spacer()
+            }
+            .padding(Spacing.md).frame(maxWidth: .infinity)
+            .background(LumeColor.surface).clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)).lumeShadow(.soft)
+        }.buttonStyle(.lumePress)
     }
 
     // MARK: Démarrer
