@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Définition d'un badge (jalon de musculation). Catalogue statique ; le déblocage est persisté
+/// Définition d'un badge (jalon). Catalogue statique ; le déblocage est persisté
 /// via `BadgeUnlock`. `id` est stable (clé de persistance).
 struct Badge: Identifiable {
     let id: String
@@ -9,8 +9,14 @@ struct Badge: Identifiable {
     let icon: AppIcon
     let tint: Color
 
+    /// Domaine d'appartenance (sépare les badges muscu des badges nutrition à l'affichage).
+    enum Domain: String { case workout, nutrition }
+
     enum Category: String, CaseIterable, Identifiable {
+        /// Muscu
         case volume, force, regularity
+        // Nutrition
+        case logging, streak, balance
         var id: String {
             rawValue
         }
@@ -20,22 +26,35 @@ struct Badge: Identifiable {
             case .volume: "Assiduité"
             case .force: "Force"
             case .regularity: "Régularité"
+            case .logging: "Suivi"
+            case .streak: "Série"
+            case .balance: "Équilibre"
             }
         }
     }
 
     let category: Category
+    var domain: Badge.Domain = .workout
 }
 
-/// Stats agrégées nécessaires pour évaluer les badges (calculées une fois depuis les séances).
+/// Stats agrégées nécessaires pour évaluer les badges (muscu + nutrition).
 struct BadgeStats {
-    var totalSessions: Int
+    /// — Muscu —
+    var totalSessions: Int = 0
     /// Meilleur 1RM estimé tous exercices confondus (kg).
-    var bestOneRM: Int
+    var bestOneRM: Int = 0
     /// Plus long streak hebdomadaire historique (semaines).
-    var longestWeeklyStreak: Int
+    var longestWeeklyStreak: Int = 0
     /// Volume total cumulé sur toutes les séances (kg).
-    var totalVolume: Int
+    var totalVolume: Int = 0
+
+    /// — Nutrition —
+    /// Nombre de jours distincts où au moins un repas a été logué.
+    var loggedDays: Int = 0
+    /// Plus longue série QUOTIDIENNE de jours avec repas (jours consécutifs).
+    var longestDailyStreak: Int = 0
+    /// Nombre de jours où les 3 macros ont atteint au moins 90 % de leur cible (jour « équilibré »).
+    var balancedDays: Int = 0
 }
 
 enum BadgeCatalog {
@@ -70,6 +89,31 @@ enum BadgeCatalog {
               icon: .streak, tint: LumeColor.carbs, category: .regularity),
         Badge(id: "streak_12", title: "3 mois en feu", detail: "12 semaines d'affilée. En feu 🔥",
               icon: .streak, tint: LumeColor.negative, category: .regularity),
+
+        // ===== NUTRITION =====
+        // — Suivi (jours logués) —
+        Badge(id: "log_1", title: "Premier repas", detail: "Tu as logué ton tout premier repas.",
+              icon: .calories, tint: LumeColor.success, category: .logging, domain: .nutrition),
+        Badge(id: "log_7", title: "7 jours suivis", detail: "7 jours où tu as logué tes repas.",
+              icon: .calories, tint: LumeColor.success, category: .logging, domain: .nutrition),
+        Badge(id: "log_30", title: "30 jours suivis", detail: "30 jours de suivi alimentaire.",
+              icon: .calories, tint: LumeColor.protein, category: .logging, domain: .nutrition),
+        Badge(id: "log_100", title: "100 jours suivis", detail: "100 jours suivis. Une vraie routine.",
+              icon: .pr, tint: LumeColor.warning, category: .logging, domain: .nutrition),
+
+        // — Série quotidienne (streak nutrition) —
+        Badge(id: "nstreak_3", title: "3 jours d'affilée", detail: "3 jours consécutifs avec au moins un repas logué.",
+              icon: .streak, tint: LumeColor.warning, category: .streak, domain: .nutrition),
+        Badge(id: "nstreak_7", title: "1 semaine en feu", detail: "7 jours consécutifs. La régularité paie 🔥",
+              icon: .streak, tint: LumeColor.carbs, category: .streak, domain: .nutrition),
+        Badge(id: "nstreak_30", title: "30 jours d'affilée", detail: "30 jours consécutifs. Discipline de fer.",
+              icon: .streak, tint: LumeColor.negative, category: .streak, domain: .nutrition),
+
+        // — Équilibre (jours où les macros sont atteintes) —
+        Badge(id: "balance_1", title: "Jour équilibré", detail: "Un jour où tes 3 macros ont approché leur cible (≥ 90 %).",
+              icon: .validate, tint: LumeColor.success, category: .balance, domain: .nutrition),
+        Badge(id: "balance_10", title: "10 jours équilibrés", detail: "10 journées où tes 3 macros ont approché leur cible.",
+              icon: .validate, tint: LumeColor.protein, category: .balance, domain: .nutrition),
     ]
 
     /// IDs des badges débloqués au vu des stats fournies.
@@ -94,7 +138,25 @@ enum BadgeCatalog {
         unlock("streak_4", stats.longestWeeklyStreak >= 4)
         unlock("streak_12", stats.longestWeeklyStreak >= 12)
 
+        // — Nutrition —
+        unlock("log_1", stats.loggedDays >= 1)
+        unlock("log_7", stats.loggedDays >= 7)
+        unlock("log_30", stats.loggedDays >= 30)
+        unlock("log_100", stats.loggedDays >= 100)
+
+        unlock("nstreak_3", stats.longestDailyStreak >= 3)
+        unlock("nstreak_7", stats.longestDailyStreak >= 7)
+        unlock("nstreak_30", stats.longestDailyStreak >= 30)
+
+        unlock("balance_1", stats.balancedDays >= 1)
+        unlock("balance_10", stats.balancedDays >= 10)
+
         return ids
+    }
+
+    /// Badges d'un domaine (muscu ou nutrition), dans l'ordre du catalogue.
+    static func all(in domain: Badge.Domain) -> [Badge] {
+        all.filter { $0.domain == domain }
     }
 
     static func badge(id: String) -> Badge? {

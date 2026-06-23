@@ -11,6 +11,7 @@ struct ProfileView: View {
     @State private var showName = false
     @State private var showReminders = false
     @State private var showExport = false
+    @State private var showBadges = false
 
     private var record: ProfileRecord? {
         profiles.first
@@ -56,6 +57,7 @@ struct ProfileView: View {
             }
         }
         .sheet(isPresented: $showReminders) { RemindersView() }
+        .sheet(isPresented: $showBadges) { BadgesView(domain: .nutrition) }
         .sheet(isPresented: $showExport) { ExportView() }
     }
 
@@ -118,6 +120,10 @@ struct ProfileView: View {
                 divider
                 Button { showReminders = true } label: {
                     SettingsRow(icon: .recents, tint: LumeColor.carbs, title: "Rappels")
+                }.buttonStyle(.lumePress)
+                divider
+                Button { showBadges = true } label: {
+                    SettingsRow(icon: .pr, tint: LumeColor.warning, title: "Récompenses nutrition")
                 }.buttonStyle(.lumePress)
                 divider
                 Button { showExport = true } label: {

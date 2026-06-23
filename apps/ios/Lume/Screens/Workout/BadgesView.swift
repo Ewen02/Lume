@@ -1,30 +1,41 @@
 import SwiftData
 import SwiftUI
 
-/// Écran « Récompenses » : tous les badges, débloqués ou verrouillés, groupés par catégorie.
+/// Écran « Récompenses » : badges d'un domaine (muscu ou nutrition), débloqués ou verrouillés.
 struct BadgesView: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var unlocks: [BadgeUnlock]
+
+    var domain: Badge.Domain = .workout
+
+    private var badges: [Badge] {
+        BadgeCatalog.all(in: domain)
+    }
 
     private var unlockedIDs: Set<String> {
         Set(unlocks.map(\.badgeID))
     }
 
     private var unlockedCount: Int {
-        BadgeCatalog.all.filter { unlockedIDs.contains($0.id) }.count
+        badges.filter { unlockedIDs.contains($0.id) }.count
+    }
+
+    /// Catégories présentes dans ce domaine.
+    private var categories: [Badge.Category] {
+        Badge.Category.allCases.filter { cat in badges.contains { $0.category == cat } }
     }
 
     var body: some View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 header
-                ForEach(Badge.Category.allCases) { category in
-                    let badges = BadgeCatalog.all.filter { $0.category == category }
+                ForEach(categories) { category in
+                    let cat = badges.filter { $0.category == category }
                     VStack(alignment: .leading, spacing: Spacing.sm) {
                         SectionHeader(title: category.label)
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: Spacing.md)], spacing: Spacing.md) {
-                            ForEach(badges) { badge in
-                                cell(badge).lumeEntrance(BadgeCatalog.all.firstIndex(where: { $0.id == badge.id }) ?? 0)
+                            ForEach(cat) { badge in
+                                cell(badge).lumeEntrance(badges.firstIndex(where: { $0.id == badge.id }) ?? 0)
                             }
                         }
                     }
@@ -45,9 +56,9 @@ struct BadgesView: View {
                 Image(appIcon: .pr).lumeIcon(22, weight: .bold).foregroundStyle(LumeColor.warning)
                     .frame(width: 48, height: 48).background(LumeColor.warning.opacity(0.14), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("\(unlockedCount) / \(BadgeCatalog.all.count) badges")
+                    Text("\(unlockedCount) / \(badges.count) badges")
                         .font(.lumeHeadline).foregroundStyle(LumeColor.ink).monospacedDigit()
-                    Text("Débloque-les en t'entraînant régulièrement.")
+                    Text(domain == .nutrition ? "Débloque-les en suivant ton alimentation." : "Débloque-les en t'entraînant régulièrement.")
                         .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
                 }
                 Spacer()

@@ -21,6 +21,8 @@ struct TodayView: View {
     @State private var didDelete = false
     @State private var showStreak = false
     @State private var highlight = false
+    /// Badges nutrition fraîchement débloqués (affichés en célébration).
+    @State private var celebrateBadges: [Badge] = []
 
     /// Repas en attente de confirmation de suppression.
     private struct DeletableMeal: Identifiable {
@@ -170,16 +172,19 @@ struct TodayView: View {
                     MacroCard(letter: "L", value: consumed.fat, goal: target.fat, color: LumeColor.fat, label: "Lipides")
                 }
                 .lumeEntrance(3)
+                if !dayFoods.isEmpty {
+                    MacroBreakdownCard(consumed: consumed, target: target).lumeEntrance(4)
+                }
                 Button { showWater = true } label: { WaterTracker(filled: water) }
                     .buttonStyle(.lumePress)
-                    .lumeEntrance(4)
-                SectionHeader(title: "Repas du jour").lumeEntrance(5)
+                    .lumeEntrance(5)
+                SectionHeader(title: "Repas du jour").lumeEntrance(6)
                 if dayGroups.isEmpty {
-                    emptyState.lumeEntrance(6)
+                    emptyState.lumeEntrance(7)
                 } else {
                     ForEach(Array(dayGroups.enumerated()), id: \.element.id) { idx, group in
                         mealGroup(group)
-                            .lumeEntrance(6 + idx)
+                            .lumeEntrance(7 + idx)
                             // Suppression : la carte rétrécit et s'efface (collapse).
                             .transition(.asymmetric(
                                 insertion: .opacity.combined(with: .move(edge: .top)),
@@ -197,9 +202,17 @@ struct TodayView: View {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
                 withAnimation(LumeMotion.smooth) { highlight = false }
             }
+            // Un repas vient d'être logué : vérifie les badges nutrition à débloquer.
+            let fresh = BadgeEvaluator.reconcileNutrition(foods: streakFoods, target: target, context: ctx)
+            if !fresh.isEmpty { celebrateBadges = fresh }
         }
         // Tient le widget (calories+macros du jour) à jour.
         .task(id: todayConsumed) { WidgetUpdater.update(consumed: todayConsumed, target: target) }
+        // Rattrape les badges nutrition déjà mérités (sans célébration au lancement).
+        .task { BadgeEvaluator.reconcileNutrition(foods: streakFoods, target: target, context: ctx) }
+        .sheet(isPresented: Binding(get: { !celebrateBadges.isEmpty }, set: { if !$0 { celebrateBadges = [] } })) {
+            BadgeCelebrationView(badges: celebrateBadges) { celebrateBadges = [] }
+        }
         .sheet(isPresented: $showWater) { WaterDetailView() }
         .sheet(isPresented: $showSearch) { SearchView() }
         .sheet(isPresented: $showCalendar) { MealCalendarView() }
