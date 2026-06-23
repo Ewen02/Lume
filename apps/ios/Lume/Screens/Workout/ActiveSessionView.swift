@@ -134,7 +134,7 @@ struct ActiveSessionView: View {
                 }
             }
         }
-        .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, Spacing.md)
+        .padding(.horizontal, Spacing.xl).padding(.top, Spacing.lg).padding(.bottom, Spacing.md)
         .background(LumeColor.cream)
     }
 
