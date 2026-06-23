@@ -16,6 +16,8 @@ struct RoutineListView: View {
             } else {
                 List {
                     ForEach(routineModels) { model in
+                        // La carte est l'UNIQUE vue de la ligne → la prévisualisation de drag épouse la carte.
+                        // Les marges passent par listRowInsets (gérées par la cellule, hors preview de drag).
                         RoutineCard(routine: model.asRoutine) { routeRoutine = model.asRoutine }
                             .listRowInsets(EdgeInsets(top: Spacing.xs, leading: Spacing.xl, bottom: Spacing.xs, trailing: Spacing.xl))
                             .listRowBackground(Color.clear)
