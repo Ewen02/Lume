@@ -17,6 +17,8 @@ struct ActiveSessionView: View {
     @State private var startedAt = Date()
     @State private var finished = false
     @State private var summary: WorkoutSummary?
+    /// Note libre de la séance (ressenti, douleur…).
+    @State private var note = ""
     /// Badges fraîchement débloqués par cette séance (affichés dans le récap).
     @State private var newBadges: [Badge] = []
     /// Records personnels battus pendant cette séance (nom d'exercice → nouveau 1RM).
@@ -55,7 +57,8 @@ struct ActiveSessionView: View {
 
         let model = WorkoutSessionModel(date: startedAt,
                                         durationSec: Int(Date().timeIntervalSince(startedAt)),
-                                        title: title)
+                                        title: title,
+                                        note: note.trimmingCharacters(in: .whitespacesAndNewlines))
         ctx.insert(model)
         for (i, sess) in sessions.enumerated() {
             let logged = sess.sets.filter { $0.reps > 0 }
@@ -111,6 +114,7 @@ struct ActiveSessionView: View {
                             )
                         }
                         addExerciseButton
+                        noteField
                     }
                 }.padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 150)
             }
@@ -207,6 +211,17 @@ struct ActiveSessionView: View {
             }.foregroundStyle(LumeColor.ink).frame(maxWidth: .infinity).padding(.vertical, Spacing.md)
                 .overlay(RoundedRectangle(cornerRadius: Radius.md).stroke(LumeColor.border, lineWidth: 1))
         }.buttonStyle(.lumePress)
+    }
+
+    private var noteField: some View {
+        LumeCard {
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                Text("Note de séance").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                TextField("Ressenti, douleur, remarque…", text: $note, axis: .vertical)
+                    .font(.lumeSubhead).foregroundStyle(LumeColor.ink)
+                    .lineLimit(1 ... 4)
+            }
+        }
     }
 
     // MARK: Barre du bas (outils flottants + terminer)

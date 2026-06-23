@@ -9,12 +9,14 @@ final class WorkoutSessionModel {
     var date: Date = Date()
     var durationSec: Int = 0
     var title: String = "Séance"
+    /// Note libre saisie en fin de séance (ressenti, douleur, remarque…).
+    var note: String = ""
 
     @Relationship(deleteRule: .cascade, inverse: \LoggedExerciseModel.session)
     var exercises: [LoggedExerciseModel]? = []
 
-    init(date: Date = Date(), durationSec: Int = 0, title: String = "Séance") {
-        self.date = date; self.durationSec = durationSec; self.title = title
+    init(date: Date = Date(), durationSec: Int = 0, title: String = "Séance", note: String = "") {
+        self.date = date; self.durationSec = durationSec; self.title = title; self.note = note
     }
 
     var orderedExercises: [LoggedExerciseModel] {

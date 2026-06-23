@@ -5,6 +5,7 @@ import SwiftUI
 struct SessionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
+    @Query(sort: \WorkoutSessionModel.date, order: .reverse) private var allSessions: [WorkoutSessionModel]
     let session: WorkoutSessionModel
     @State private var confirmDelete = false
 
@@ -18,8 +19,13 @@ struct SessionDetailView: View {
         session.orderedExercises.reduce(0) { $0 + $1.orderedSets.count }
     }
 
+    private var comparison: SessionComparison {
+        SessionComparison(session: session, allSessions: allSessions)
+    }
+
     var body: some View {
-        ScrollView {
+        let cmp = comparison // calculé une seule fois par rendu
+        return ScrollView {
             VStack(spacing: Spacing.lg) {
                 header
                 HStack(spacing: Spacing.md) {
@@ -27,6 +33,8 @@ struct SessionDetailView: View {
                     StatTile(icon: .oneRepMax, tint: LumeColor.carbs, value: "\(totalVolume)", label: "kg soulevés")
                     StatTile(icon: .addSet, tint: LumeColor.success, value: "\(setCount)", label: setCount > 1 ? "séries" : "série")
                 }
+                if !session.note.isEmpty { noteCard }
+                if cmp.hasComparison { comparisonCard(cmp) }
                 ForEach(session.orderedExercises) { ex in exerciseCard(ex) }
             }
             .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, Spacing.xxl)
@@ -51,6 +59,46 @@ struct SessionDetailView: View {
             Text(session.title).font(.lumeDisplay).foregroundStyle(LumeColor.ink)
             Text(Formatters.relative(session.date)).font(.lumeSubhead).foregroundStyle(LumeColor.muted)
         }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var noteCard: some View {
+        LumeCard {
+            HStack(alignment: .top, spacing: Spacing.md) {
+                Image(appIcon: .edit).lumeIcon(14, weight: .semibold).foregroundStyle(LumeColor.muted)
+                Text(session.note).font(.lumeSubhead).foregroundStyle(LumeColor.ink)
+                Spacer(minLength: 0)
+            }
+        }
+    }
+
+    private func comparisonCard(_ c: SessionComparison) -> some View {
+        LumeCard {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                Text("vs séance précédente").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                // Volume.
+                HStack {
+                    Text("Volume").font(.lumeSubhead).foregroundStyle(LumeColor.textSecondary)
+                    Spacer()
+                    deltaLabel(c.volumeDelta, unit: "kg")
+                }
+                // 1RM par exercice (limité aux 3 plus marquants).
+                ForEach(c.oneRMDeltas.sorted { abs($0.delta) > abs($1.delta) }.prefix(3), id: \.exercise) { item in
+                    HStack {
+                        Text(item.exercise).font(.lumeSubhead).foregroundStyle(LumeColor.textSecondary).lineLimit(1)
+                        Spacer()
+                        deltaLabel(item.delta, unit: "kg 1RM")
+                    }
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    /// Pastille de variation : verte si gain, rouge si baisse, neutre si égal.
+    private func deltaLabel(_ delta: Int, unit: String) -> some View {
+        let tint: Color = delta > 0 ? LumeColor.success : (delta < 0 ? LumeColor.negative : LumeColor.muted)
+        let sign = delta > 0 ? "+" : ""
+        return Text("\(sign)\(delta) \(unit)")
+            .font(.lumeSubhead.weight(.semibold)).foregroundStyle(tint).monospacedDigit()
     }
 
     private func exerciseCard(_ ex: LoggedExerciseModel) -> some View {
