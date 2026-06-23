@@ -10,7 +10,9 @@ struct ExerciseEditorView: View {
     @State private var muscle: MuscleGroup = .chest
     @State private var equipment = ""
 
-    private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespaces)
+    }
 
     private func save() {
         let eq = equipment.trimmingCharacters(in: .whitespaces)

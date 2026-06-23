@@ -5,7 +5,7 @@ import Foundation
 enum DataExporter {
     // MARK: CSV — journal alimentaire + poids
 
-    static func foodCSV(_ foods: [LoggedFood], calendar: Calendar = .current) -> String {
+    static func foodCSV(_ foods: [LoggedFood], calendar _: Calendar = .current) -> String {
         var rows = ["date,repas,aliment,grammes,kcal,proteines_g,glucides_g,lipides_g"]
         for f in foods.sorted(by: { $0.date < $1.date }) {
             let cols = [
@@ -54,7 +54,9 @@ enum DataExporter {
 
     // MARK: Helpers
 
-    private static func iso(_ date: Date) -> String { isoDate(date) }
+    private static func iso(_ date: Date) -> String {
+        isoDate(date)
+    }
 
     /// Échappe un champ CSV (guillemets si virgule, guillemet ou saut de ligne).
     private static func escape(_ field: String) -> String {
@@ -73,7 +75,9 @@ private let sharedISOFormatter: ISO8601DateFormatter = {
     return f
 }()
 
-private func isoDate(_ date: Date) -> String { sharedISOFormatter.string(from: date) }
+private func isoDate(_ date: Date) -> String {
+    sharedISOFormatter.string(from: date)
+}
 
 // MARK: - DTOs Codable (plats, sans SwiftData)
 
@@ -107,7 +111,9 @@ private struct FoodDTO: Codable {
 
 private struct WeightDTO: Codable {
     let date: String, kg: Double
-    init(_ s: WeightSample) { date = isoDate(s.date); kg = s.kg }
+    init(_ s: WeightSample) {
+        date = isoDate(s.date); kg = s.kg
+    }
 }
 
 private struct FavoriteDTO: Codable {
@@ -135,5 +141,7 @@ private struct ExerciseDTO: Codable {
 
 private struct SetDTO: Codable {
     let reps: Int, weight: Double, rpe: Int?
-    init(_ s: LoggedSetModel) { reps = s.reps; weight = s.weight; rpe = s.rpe }
+    init(_ s: LoggedSetModel) {
+        reps = s.reps; weight = s.weight; rpe = s.rpe
+    }
 }

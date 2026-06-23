@@ -22,7 +22,7 @@ enum NotificationManager {
 
     /// (Re)planifie tous les rappels depuis la config du profil. À appeler après tout changement de réglage.
     static func reschedule(from profile: ProfileRecord) async {
-        cancelAll()
+        await cancelAll()
         guard await isAuthorized() else { return }
 
         if profile.mealRemindersOn {
@@ -62,20 +62,19 @@ enum NotificationManager {
         guard p.waterReminderEndMinute > p.waterReminderStartMinute else { return [] }
         var out: [Int] = []
         var m = p.waterReminderStartMinute
-        while m <= p.waterReminderEndMinute && out.count < 12 {
+        while m <= p.waterReminderEndMinute, out.count < 12 {
             out.append(m); m += step
         }
         return out
     }
 
-    /// Annule uniquement les rappels Lume (repas + séance).
-    static func cancelAll() {
-        center.getPendingNotificationRequests { requests in
-            let ours = requests.map(\.identifier).filter {
-                $0.hasPrefix(ID.meal) || $0.hasPrefix(ID.workout) || $0.hasPrefix(ID.water)
-            }
-            center.removePendingNotificationRequests(withIdentifiers: ours)
+    /// Annule uniquement les rappels Lume (repas, hydratation, séance).
+    static func cancelAll() async {
+        let pending = await center.pendingNotificationRequests()
+        let ours = pending.map(\.identifier).filter {
+            $0.hasPrefix(ID.meal) || $0.hasPrefix(ID.workout) || $0.hasPrefix(ID.water)
         }
+        center.removePendingNotificationRequests(withIdentifiers: ours)
     }
 
     // MARK: - Privé

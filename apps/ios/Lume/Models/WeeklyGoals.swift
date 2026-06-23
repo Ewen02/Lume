@@ -15,13 +15,19 @@ struct WeeklyGoals {
     var workoutGoal: Int
 
     /// Progression de suivi (0...1) : jours suivis / 7.
-    var trackingProgress: Double { Double(trackedDays) / 7.0 }
+    var trackingProgress: Double {
+        Double(trackedDays) / 7.0
+    }
+
     /// Progression séances (0...1, plafonnée).
     var workoutProgress: Double {
         workoutGoal <= 0 ? 0 : min(1, Double(workouts) / Double(workoutGoal))
     }
+
     /// Écart à la cible kcal (négatif = sous la cible).
-    var kcalDelta: Int { avgKcal - targetKcal }
+    var kcalDelta: Int {
+        avgKcal - targetKcal
+    }
 
     static func compute(foods: [LoggedFood],
                         sessions: [WorkoutSessionModel],
