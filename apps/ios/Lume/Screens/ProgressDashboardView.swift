@@ -11,6 +11,8 @@ struct ProgressDashboardView: View {
     @Query private var profiles: [ProfileRecord]
     @State private var showStreak = false
     @State private var showWeightEntry = false
+    /// Anime les barres du graphe calories à l'apparition (montée de 0 → valeur).
+    @State private var chartGrow: Double = 0
 
     init() {
         let weekStart = Calendar.current.date(byAdding: .day, value: -6,
@@ -108,6 +110,7 @@ struct ProgressDashboardView: View {
                 .background(LumeColor.cream)
         }
         .task { await health.requestAuthorization() }
+        .onAppear { withAnimation(LumeMotion.smooth.delay(0.25)) { chartGrow = 1 } }
         .sheet(isPresented: $showStreak) {
             StreakDetailView(streak: streak, record: streakRecord)
         }
@@ -185,10 +188,11 @@ struct ProgressDashboardView: View {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 Text("Calories cette semaine").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
                 Chart(week) { d in
-                    BarMark(x: .value("Jour", d.label), y: .value("kcal", d.kcal), width: .fixed(22))
+                    BarMark(x: .value("Jour", d.label), y: .value("kcal", Double(d.kcal) * chartGrow), width: .fixed(22))
                         .foregroundStyle(d.kcal == 0 ? LumeColor.faint : LumeColor.ink)
                         .cornerRadius(6)
                 }
+                .chartYScale(domain: 0 ... Double(max(week.map(\.kcal).max() ?? 1, 1)))
                 .chartYAxis(.hidden)
                 .frame(height: 150)
             }.frame(maxWidth: .infinity, alignment: .leading)
