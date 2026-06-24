@@ -24,11 +24,13 @@ struct ExternalWorkout: Identifiable {
     }
 }
 
-/// Pas d'une journée (pour le graphe d'activité de Progrès).
-struct DaySteps: Identifiable {
+/// Valeur quotidienne datée d'une métrique d'activité (pas, calories actives…).
+/// Type daté commun aux séries de Progrès : permet un filtrage par période homogène
+/// (`.filter { $0.date >= start }`) sans aligner deux séries par longueur.
+struct DayValue: Identifiable {
     var date: Date
-    var steps: Int
-    /// id stable (dérivé du jour) → SwiftUI/Charts ne re-anime pas tout à chaque refresh.
+    var value: Int
+    /// id stable (dérivé du jour) → SwiftUI/Charts ne ré-anime pas tout à chaque refresh.
     var id: Date {
         date
     }

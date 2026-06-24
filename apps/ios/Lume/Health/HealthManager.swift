@@ -29,8 +29,8 @@ final class HealthManager {
     /// Séances récentes importées de Santé (lecture seule).
     var externalWorkouts: [ExternalWorkout] = []
     /// Séries 30 j pour les graphes d'activité de Progrès.
-    var stepsSeries: [DaySteps] = []
-    var activeEnergySeries: [DayCalories] = []
+    var stepsSeries: [DayValue] = []
+    var activeEnergySeries: [DayValue] = []
 
     var available: Bool {
         HKHealthStore.isHealthDataAvailable()
@@ -67,15 +67,18 @@ final class HealthManager {
     }
 
     /// Recharge toutes les lectures Santé (poids + conso/eau externes + activité + séances).
+    /// Les sources Lume sont résolues d'abord (exclusion anti-double-comptage), puis les
+    /// lectures — indépendantes — tournent en parallèle.
     func refreshAll() async {
         guard available else { return }
         await resolveLumeSources(force: true) // re-résout : de nouvelles sources Lume ont pu apparaître
-        await refreshWeight()
-        await refreshDietToday()
-        await refreshWaterToday()
-        await refreshActivityToday()
-        await refreshActivitySeries()
-        await refreshExternalWorkouts()
+        async let weight: Void = refreshWeight()
+        async let diet: Void = refreshDietToday()
+        async let water: Void = refreshWaterToday()
+        async let activity: Void = refreshActivityToday()
+        async let series: Void = refreshActivitySeries()
+        async let workouts: Void = refreshExternalWorkouts()
+        _ = await (weight, diet, water, activity, series, workouts)
     }
 
     /// Recharge les 60 derniers échantillons de poids (ordre chronologique).
@@ -161,12 +164,13 @@ final class HealthManager {
         guard available else { return }
         await resolveLumeSources()
         let pred = todayExcludingLume()
-        let kcal = await sum(energyType, unit: .kilocalorie(), predicate: pred)
-        let protein = await sum(proteinType, unit: .gram(), predicate: pred)
-        let carbs = await sum(carbsType, unit: .gram(), predicate: pred)
-        let fat = await sum(fatType, unit: .gram(), predicate: pred)
-        externalToday = Macros(kcal: Int(kcal.rounded()), protein: Int(protein.rounded()),
-                               carbs: Int(carbs.rounded()), fat: Int(fat.rounded()))
+        // Les 4 sommes sont indépendantes → en parallèle.
+        async let kcal = sum(energyType, unit: .kilocalorie(), predicate: pred)
+        async let protein = sum(proteinType, unit: .gram(), predicate: pred)
+        async let carbs = sum(carbsType, unit: .gram(), predicate: pred)
+        async let fat = sum(fatType, unit: .gram(), predicate: pred)
+        externalToday = await Macros(kcal: Int(kcal.rounded()), protein: Int(protein.rounded()),
+                                     carbs: Int(carbs.rounded()), fat: Int(fat.rounded()))
     }
 
     /// Eau du jour saisie hors Lume (millilitres).
@@ -181,8 +185,10 @@ final class HealthManager {
         guard available else { return }
         let start = Calendar.current.startOfDay(for: Date())
         let datePred = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
-        stepsToday = Int(await sum(stepType, unit: .count(), predicate: datePred).rounded())
-        activeEnergyToday = Int(await sum(activeEnergyType, unit: .kilocalorie(), predicate: datePred).rounded())
+        async let steps = sum(stepType, unit: .count(), predicate: datePred)
+        async let active = sum(activeEnergyType, unit: .kilocalorie(), predicate: datePred)
+        stepsToday = Int(await steps.rounded())
+        activeEnergyToday = Int(await active.rounded())
     }
 
     /// Séries 30 j (pas/jour, calories actives/jour) pour les graphes de Progrès.
@@ -191,10 +197,10 @@ final class HealthManager {
         let cal = Calendar.current
         let start = cal.date(byAdding: .day, value: -29, to: cal.startOfDay(for: Date())) ?? Date()
         stepsSeries = await dailySeries(stepType, unit: .count(), since: start).map {
-            DaySteps(date: $0.date, steps: Int($0.value.rounded()))
+            DayValue(date: $0.date, value: Int($0.value.rounded()))
         }
         activeEnergySeries = await dailySeries(activeEnergyType, unit: .kilocalorie(), since: start).map {
-            DayCalories(label: shortDay($0.date), kcal: Int($0.value.rounded()))
+            DayValue(date: $0.date, value: Int($0.value.rounded()))
         }
     }
 
@@ -216,11 +222,6 @@ final class HealthManager {
         } catch {
             return []
         }
-    }
-
-    private func shortDay(_ date: Date) -> String {
-        let cal = Calendar.current
-        return "\(cal.component(.day, from: date))/\(cal.component(.month, from: date))"
     }
 
     /// Séances récentes (30 j) importées de Santé, hors Lume — lecture seule.
