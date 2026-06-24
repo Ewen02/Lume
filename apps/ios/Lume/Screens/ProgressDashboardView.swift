@@ -10,6 +10,7 @@ struct ProgressDashboardView: View {
     @Query(sort: \WeightSample.date) private var weightSamples: [WeightSample]
     @Query(sort: \WorkoutSessionModel.date, order: .reverse) private var sessions: [WorkoutSessionModel]
     @Query private var profiles: [ProfileRecord]
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showStreak = false
     @State private var showWeightEntry = false
     @State private var showPRHistory = false
@@ -20,6 +21,8 @@ struct ProgressDashboardView: View {
     @State private var period: ChartPeriod = .week
     /// Anime les barres du graphe calories à l'apparition (montée de 0 → valeur).
     @State private var chartGrow: Double = 0
+    /// Affiche brièvement la pastille de célébration quand l'objectif de poids est atteint.
+    @State private var showGoalBurst = false
 
     init() {
         // `weekFoods` reste borné à 7 j pour la carte « Cette semaine » (jours suivis, kcal vs cible).
@@ -91,9 +94,10 @@ struct ProgressDashboardView: View {
         WeightTrend.movingAverageDelta(allWeights)
     }
 
-    /// Moyenne kcal/jour sur 7 j (StatTile) — indépendante de la période des graphes.
+    /// Moyenne kcal/jour sur la période sélectionnée (cohérente avec le graphe calories).
     private var avgKcal: Int {
-        WeeklyCalories.dailyAverage(of: WeeklyCalories.lastSevenDays(from: weekFoods))
+        let active = caloriesPoints.filter { $0.value > 0 }
+        return active.isEmpty ? 0 : active.map(\.value).reduce(0, +) / active.count
     }
 
     /// Macros moyennes (P/G/L) sur 7 j, pour les chips sous le graphe calories.
@@ -181,7 +185,23 @@ struct ProgressDashboardView: View {
                 .background(LumeColor.cream)
         }
         .task { await health.requestAuthorization() }
-        .onAppear { withAnimation(LumeMotion.smooth.delay(0.25)) { chartGrow = 1 } }
+        .onAppear { withAnimation(reduceMotion ? nil : LumeMotion.smooth.delay(0.25)) { chartGrow = 1 } }
+        // Transition douce des graphes au changement de période.
+        .animation(LumeMotion.smooth, value: period)
+        // Jalon léger : petite fête quand l'objectif de poids est atteint.
+        .sensoryFeedback(.success, trigger: goalReached)
+        .overlay(alignment: .top) {
+            if goalReached, showGoalBurst {
+                goalBurst.transition(.scale(scale: 0.6).combined(with: .opacity))
+            }
+        }
+        .onChange(of: goalReached) { _, reached in
+            guard reached else { return }
+            withAnimation(LumeMotion.celebrate) { showGoalBurst = true }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
+                withAnimation(LumeMotion.smooth) { showGoalBurst = false }
+            }
+        }
         .sheet(isPresented: $showStreak) {
             StreakDetailView(streak: streak, record: streakRecord)
         }
@@ -263,6 +283,23 @@ struct ProgressDashboardView: View {
         guard targetWeightKg > 0, !allWeights.isEmpty else { return nil }
         let goal = profiles.first?.profile.goal ?? .maintain
         return WeightTrend.targetLabel(current: current, target: targetWeightKg, goal: goal)
+    }
+
+    /// Objectif de poids atteint → déclenche le jalon (haptique + pastille).
+    private var goalReached: Bool {
+        targetLabel == "Objectif atteint"
+    }
+
+    /// Pastille de célébration éphémère affichée quand l'objectif est atteint.
+    private var goalBurst: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(appIcon: .validate).lumeIcon(16, weight: .bold).foregroundStyle(LumeColor.surface)
+            Text("Objectif atteint 🎉").font(.lumeSubhead.weight(.bold)).foregroundStyle(LumeColor.surface)
+        }
+        .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
+        .background(LumeColor.success, in: Capsule())
+        .lumeShadow(.card)
+        .padding(.top, Spacing.sm)
     }
 
     /// Progression vers l'objectif (0…1) : du poids de départ vers la cible. nil si non pertinent.
@@ -351,9 +388,11 @@ struct ProgressDashboardView: View {
         }
         .chartXSelection(value: $selectedDate)
         .frame(height: 170)
+        .opacity(chartGrow) // révélation douce de la courbe à l'apparition
         .accessibilityLabel("Évolution du poids")
         .accessibilityValue(hasWeightData ? String(format: "Actuel %.1f kilos", current) : "Aucune donnée")
         .overlay(alignment: .topLeading) { selectionLollipop }
+        .sensoryFeedback(.selection, trigger: selectedEntry?.id)
     }
 
     /// Pesée la plus proche de la date tapée (parmi les points affichés).
@@ -371,11 +410,9 @@ struct ProgressDashboardView: View {
 
     @ViewBuilder private var selectionLollipop: some View {
         if let e = selectedEntry {
-            HStack(spacing: Spacing.sm) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(String(format: "%.1f kg", e.kg)).font(.lumeSubhead.weight(.bold)).foregroundStyle(LumeColor.ink).monospacedDigit()
-                    Text(Formatters.dayMonthFR.string(from: e.date)).font(.lumeFootnote).foregroundStyle(LumeColor.muted)
-                }
+            ChartLollipop(title: String(format: "%.1f kg", e.kg),
+                          subtitle: Formatters.dayMonthFR.string(from: e.date))
+            {
                 if let sample = selectedSample {
                     Button { editingSample = sample } label: {
                         Image(appIcon: .edit).lumeIcon(15, weight: .semibold).foregroundStyle(LumeColor.ink)
@@ -385,9 +422,7 @@ struct ProgressDashboardView: View {
                     }.buttonStyle(.lumePress)
                 }
             }
-            .padding(.horizontal, Spacing.sm).padding(.vertical, Spacing.xs)
-            .background(LumeColor.surface, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
-            .lumeShadow(.soft)
+            .animation(LumeMotion.snappy, value: e.id)
         }
     }
 
@@ -420,50 +455,32 @@ struct ProgressDashboardView: View {
         bmr > 0 && balanceSeries.contains { $0.consumed > 0 }
     }
 
+    /// Net énergétique par jour (consommé − dépensé) en points de graphe.
+    private var balanceNetPoints: [ChartPoint] {
+        balanceSeries.map { ChartPoint(date: $0.date, value: $0.net) }
+    }
+
     private var energyBalanceCard: some View {
-        let series = balanceSeries
-        let avgNet = EnergyBalance.averageNet(series)
-        let maxVal = series.flatMap { [$0.consumed, $0.expended] }.max() ?? 1
+        let avgNet = EnergyBalance.averageNet(balanceSeries)
         return LumeCard {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Balance énergétique").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
                     Spacer()
-                    // Net moyen : déficit (vert, on perd) vs surplus (rouge, on prend).
                     Text(avgNet <= 0 ? "déficit \(abs(avgNet)) kcal/j" : "surplus \(avgNet) kcal/j")
                         .font(.lumeFootnote.weight(.semibold)).monospacedDigit()
-                        .foregroundStyle(avgNet <= 0 ? LumeColor.success : LumeColor.protein)
+                        .foregroundStyle(avgNet <= 0 ? LumeColor.success : LumeColor.negative)
                 }
-                Chart(series) { d in
-                    // Consommé et dépensé côte à côte, un couple de barres par jour.
-                    BarMark(x: .value("Jour", d.date, unit: .day),
-                            y: .value("kcal", Double(d.consumed) * chartGrow), width: .fixed(6))
-                        .foregroundStyle(LumeColor.ink)
-                        .position(by: .value("Type", "Consommé"))
-                        .cornerRadius(3)
-                    BarMark(x: .value("Jour", d.date, unit: .day),
-                            y: .value("kcal", Double(d.expended) * chartGrow), width: .fixed(6))
-                        .foregroundStyle(LumeColor.carbs)
-                        .position(by: .value("Type", "Dépensé"))
-                        .cornerRadius(3)
-                }
-                .chartYScale(domain: 0 ... Double(max(maxVal, 1)))
-                .chartYAxis(.hidden)
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.day().month(.abbreviated)).font(.lumeFootnote)
-                    }
-                }
-                .frame(height: 150)
-                .accessibilityLabel("Balance énergétique : consommé vs dépensé par jour")
-                // Légende + honnêteté sur la source de la dépense.
+                // Net divergent autour de 0 : vert sous la ligne (déficit), rouge au-dessus (surplus).
+                InteractiveBarChart(points: balanceNetPoints, diverging: true,
+                                    format: { kcalLabel($0, signed: true) })
+                    .accessibilityLabel("Balance énergétique nette par jour")
                 HStack(spacing: Spacing.md) {
-                    legendDot(LumeColor.ink, "Consommé")
-                    legendDot(LumeColor.carbs, "Dépensé")
+                    legendDot(LumeColor.success, "Déficit")
+                    legendDot(LumeColor.negative, "Surplus")
                     Spacer()
                 }
-                Text(health.isAuthorized ? "Dépense = repos + activité (Santé)." : "Dépense au repos seul — active Apple Santé pour inclure ton activité.")
+                Text(health.isAuthorized ? "Net = consommé − (repos + activité)." : "Dépense au repos seul — active Apple Santé pour inclure ton activité.")
                     .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -476,13 +493,24 @@ struct ProgressDashboardView: View {
         }
     }
 
+    /// Format kcal compact (« 1 850 kcal »), avec signe optionnel pour le net.
+    private func kcalLabel(_ v: Int, signed: Bool = false) -> String {
+        let s = signed && v > 0 ? "+" : ""
+        return "\(s)\(v) kcal"
+    }
+
+    /// Calories consommées par jour (datées) sur la période, en points de graphe.
+    private var caloriesPoints: [ChartPoint] {
+        WeeklyCalories.consumedByDay(from: allFoods, since: balanceStart)
+            .map { ChartPoint(date: $0.date, value: $0.value) }
+    }
+
     private var caloriesCard: some View {
         LumeCard {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 HStack(alignment: .firstTextBaseline) {
-                    Text(caloriesTitle).font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+                    Text("Calories par jour").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
                     Spacer()
-                    // Comparaison « vs S-1 » pertinente seulement sur la vue semaine.
                     if period == .week, hasWeekData, let pct = weekComparison.deltaPct {
                         let up = pct >= 0
                         Text(String(format: "%@%.0f %% vs S-1", up ? "+" : "−", abs(pct) * 100))
@@ -491,17 +519,8 @@ struct ProgressDashboardView: View {
                     }
                 }
                 if hasWeekData {
-                    Chart(week) { d in
-                        BarMark(x: .value("Période", d.label), y: .value("kcal", Double(d.kcal) * chartGrow),
-                                width: .fixed(period.aggregatesByWeek ? 14 : 22))
-                            .foregroundStyle(d.kcal == 0 ? LumeColor.faint : LumeColor.ink)
-                            .cornerRadius(6)
-                    }
-                    .chartYScale(domain: 0 ... Double(max(week.map(\.kcal).max() ?? 1, 1)))
-                    .chartYAxis(.hidden)
-                    .frame(height: 150)
-                    .accessibilityLabel("Calories par \(period.aggregatesByWeek ? "semaine" : "jour")")
-                    // Macros moyennes (sur 7 j) — profondeur nutritionnelle.
+                    InteractiveBarChart(points: caloriesPoints, format: { kcalLabel($0) })
+                        .accessibilityLabel("Calories consommées par jour")
                     if let m = weeklyMacros {
                         HStack(spacing: Spacing.sm) {
                             Chip(color: LumeColor.protein, text: "P \(m.protein) g")
@@ -532,6 +551,10 @@ struct ProgressDashboardView: View {
         return active.isEmpty ? 0 : active.map(\.value).reduce(0, +) / active.count
     }
 
+    private var stepsPoints: [ChartPoint] {
+        stepsForPeriod.map { ChartPoint(date: $0.date, value: $0.value) }
+    }
+
     private var activityCard: some View {
         let avgSteps = dayAverage(stepsForPeriod)
         let avgActive = dayAverage(forPeriod(health.activeEnergySeries))
@@ -542,22 +565,8 @@ struct ProgressDashboardView: View {
                     Spacer()
                     Text("\(avgSteps) / jour en moyenne").font(.lumeFootnote).foregroundStyle(LumeColor.muted).monospacedDigit()
                 }
-                Chart(stepsForPeriod) { d in
-                    BarMark(x: .value("Jour", d.date, unit: .day),
-                            y: .value("Pas", Double(d.value) * chartGrow),
-                            width: .fixed(period.aggregatesByWeek ? 6 : 14))
-                        .foregroundStyle(d.value == 0 ? LumeColor.faint : LumeColor.carbs)
-                        .cornerRadius(4)
-                }
-                .chartYAxis(.hidden)
-                .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                        AxisGridLine()
-                        AxisValueLabel(format: .dateTime.day().month(.abbreviated)).font(.lumeFootnote)
-                    }
-                }
-                .frame(height: 130)
-                .accessibilityLabel("Pas par jour")
+                InteractiveBarChart(points: stepsPoints, tint: LumeColor.carbs, format: { "\($0) pas" }, height: 130)
+                    .accessibilityLabel("Pas par jour")
                 if avgActive > 0 {
                     HStack(spacing: Spacing.sm) {
                         Image(appIcon: .activeEnergy).lumeIcon(13, weight: .semibold).foregroundStyle(LumeColor.protein)
