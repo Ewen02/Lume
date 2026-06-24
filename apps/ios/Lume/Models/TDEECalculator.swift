@@ -13,7 +13,20 @@ enum TDEECalculator {
     }
 
     static func target(_ p: UserProfile) -> Macros {
-        let kcal = tdee(p) + p.goal.kcalDelta
+        macros(forKcal: tdee(p) + p.goal.kcalDelta, profile: p)
+    }
+
+    /// Cible « de repos » : base = BMR (sans facteur d'activité) + objectif.
+    /// Sert au bilan énergétique dynamique : on y ajoute ensuite les calories
+    /// actives RÉELLES mesurées par Santé (cf. `EnergyBudget`), au lieu d'estimer
+    /// l'activité via le facteur — ce qui éviterait le double-comptage.
+    static func restingTarget(_ p: UserProfile) -> Macros {
+        macros(forKcal: Int(bmr(p).rounded()) + p.goal.kcalDelta, profile: p)
+    }
+
+    /// Répartition macros pour une cible kcal donnée (protéines 1.8 g/kg, lipides 0.9 g/kg,
+    /// glucides = reste). Factorisé entre cible fixe (TDEE), cible de repos (BMR) et cible dynamique.
+    static func macros(forKcal kcal: Int, profile p: UserProfile) -> Macros {
         let protein = Int((1.8 * p.weightKg).rounded())
         let fat = Int((0.9 * p.weightKg).rounded())
         let kcalFromPF = protein * 4 + fat * 9

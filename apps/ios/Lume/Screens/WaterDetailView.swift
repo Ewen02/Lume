@@ -28,6 +28,16 @@ struct WaterDetailView: View {
         todayLog?.glasses ?? 0
     }
 
+    /// Verres ajoutés via Santé (hors Lume), en verres de 250 ml.
+    private var externalGlasses: Int {
+        health.isAuthorized ? Int((health.externalWaterMl / 250).rounded()) : 0
+    }
+
+    /// Total affiché vers l'objectif = saisies Lume + apports Santé externes.
+    private var displayedFilled: Int {
+        filled + externalGlasses
+    }
+
     private func set(_ n: Int) {
         let clamped = max(0, min(total, n))
         let prev = filled
@@ -48,10 +58,13 @@ struct WaterDetailView: View {
             VStack(spacing: Spacing.xl) {
                 LumeCard(padding: Spacing.xxl, radius: Radius.xxl) {
                     VStack(spacing: Spacing.lg) {
-                        ProgressRing(progress: Double(filled) / Double(total), color: LumeColor.fat, lineWidth: 12) {
+                        ProgressRing(progress: Double(displayedFilled) / Double(total), color: LumeColor.fat, lineWidth: 12) {
                             VStack(spacing: 0) {
-                                Text("\(filled)").font(.lumeNumberXL).foregroundStyle(LumeColor.ink)
+                                Text("\(displayedFilled)").font(.lumeNumberXL).foregroundStyle(LumeColor.ink)
                                 Text("/ \(total) verres").font(.lumeSubhead).foregroundStyle(LumeColor.muted)
+                                if externalGlasses > 0 {
+                                    Text("dont \(externalGlasses) via Santé").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                                }
                             }
                         }.frame(width: 180, height: 180)
                         HStack(spacing: Spacing.xl) {
@@ -81,6 +94,7 @@ struct WaterDetailView: View {
             }.padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.xxl)
         }
         .background(LumeColor.cream.ignoresSafeArea())
+        .task { await health.refreshWaterToday() }
         .sensoryFeedback(trigger: filled) { old, new in new > old ? .increase : (new < old ? .decrease : nil) }
         .safeAreaInset(edge: .top) {
             TopBar(title: "Eau", leading: .back, onLeading: { dismiss() })

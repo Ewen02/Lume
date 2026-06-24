@@ -3,6 +3,7 @@ import SwiftUI
 
 struct WorkoutHomeView: View {
     @Environment(\.modelContext) private var ctx
+    @Environment(HealthManager.self) private var health
     @Query(sort: \WorkoutSessionModel.date, order: .reverse) private var sessions: [WorkoutSessionModel]
     @Query(sort: \RoutineModel.order) private var routineModels: [RoutineModel]
     @Query private var profiles: [ProfileRecord]
@@ -95,6 +96,13 @@ struct WorkoutHomeView: View {
                     }
                 }
 
+                if !health.externalWorkouts.isEmpty {
+                    SectionHeader(title: "Depuis Santé").lumeEntrance(5)
+                    ForEach(Array(health.externalWorkouts.prefix(3))) { w in
+                        externalWorkoutRow(w).lumeEntrance(6)
+                    }
+                }
+
                 routinesSection.lumeEntrance(6)
                 libraryLink.lumeEntrance(7)
                 recordsSection.lumeEntrance(8)
@@ -123,6 +131,8 @@ struct WorkoutHomeView: View {
         }
         // Rattrape les badges déjà mérités (séances enregistrées avant l'arrivée du système).
         .task { BadgeEvaluator.reconcile(sessions: sessions, goal: goal, context: ctx) }
+        // Charge les séances importées de Santé (lecture seule).
+        .task { await health.refreshExternalWorkouts() }
     }
 
     // MARK: Engagement (flamme + objectif de la semaine)
@@ -340,6 +350,26 @@ struct WorkoutHomeView: View {
             .padding(Spacing.lg - 2).background(LumeColor.surface)
             .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)).lumeShadow(.soft)
         }.buttonStyle(.lumePress)
+    }
+
+    /// Séance importée de Santé : lecture seule (pas d'édition), badge « Santé ».
+    private func externalWorkoutRow(_ w: ExternalWorkout) -> some View {
+        HStack(spacing: Spacing.md) {
+            Image(appIcon: .workout).lumeIcon(18, weight: .semibold).foregroundStyle(LumeColor.success)
+                .frame(width: 44, height: 44).background(LumeColor.success.opacity(0.14))
+                .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: Spacing.sm) {
+                    Text(w.type).font(.lumeCallout).foregroundStyle(LumeColor.ink)
+                    Chip(color: LumeColor.success, text: "Santé")
+                }
+                Text("\(Formatters.relative(w.date)) · \(w.durationLabel)\(w.kcal.map { " · \($0) kcal" } ?? "")")
+                    .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+            }
+            Spacer()
+        }
+        .padding(Spacing.lg - 2).background(LumeColor.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)).lumeShadow(.soft)
     }
 }
 

@@ -16,31 +16,66 @@ final class HealthManager {
     var latestWeightKg: Double?
     var weightSeries: [WeightEntry] = []
 
+    // MARK: Lectures Santé (peuplées par refreshAll)
+
+    /// Consommation du jour saisie HORS Lume (autres apps), pour compléter le total local.
+    var externalToday: Macros = .zero
+    /// Eau du jour saisie hors Lume (millilitres).
+    var externalWaterMl: Double = 0
+    /// Pas du jour (toutes sources : capteurs / Apple Watch).
+    var stepsToday: Int = 0
+    /// Calories actives brûlées aujourd'hui (toutes sources) — pour la cible dynamique.
+    var activeEnergyToday: Int = 0
+    /// Séances récentes importées de Santé (lecture seule).
+    var externalWorkouts: [ExternalWorkout] = []
+    /// Séries 30 j pour les graphes d'activité de Progrès.
+    var stepsSeries: [DaySteps] = []
+    var activeEnergySeries: [DayCalories] = []
+
     var available: Bool {
         HKHealthStore.isHealthDataAvailable()
     }
 
     private let weightType = HKQuantityType(.bodyMass)
+    private let energyType = HKQuantityType(.dietaryEnergyConsumed)
+    private let proteinType = HKQuantityType(.dietaryProtein)
+    private let carbsType = HKQuantityType(.dietaryCarbohydrates)
+    private let fatType = HKQuantityType(.dietaryFatTotal)
+    private let waterType = HKQuantityType(.dietaryWater)
+    private let stepType = HKQuantityType(.stepCount)
+    private let activeEnergyType = HKQuantityType(.activeEnergyBurned)
+
     private var shareTypes: Set<HKSampleType> {
-        [HKQuantityType(.dietaryEnergyConsumed), HKQuantityType(.dietaryProtein),
-         HKQuantityType(.dietaryCarbohydrates), HKQuantityType(.dietaryFatTotal),
-         HKQuantityType(.dietaryWater), HKObjectType.workoutType()]
+        [energyType, proteinType, carbsType, fatType, waterType, HKObjectType.workoutType()]
     }
 
     private var readTypes: Set<HKObjectType> {
-        [weightType]
+        [weightType, energyType, proteinType, carbsType, fatType, waterType,
+         stepType, activeEnergyType, HKObjectType.workoutType()]
     }
 
-    /// Demande l'autorisation puis charge le poids. Idempotent.
+    /// Demande l'autorisation puis charge toutes les lectures. Idempotent.
     func requestAuthorization() async {
         guard available else { return }
         do {
             try await store.requestAuthorization(toShare: shareTypes, read: readTypes)
             isAuthorized = true
-            await refreshWeight()
+            await refreshAll()
         } catch {
             isAuthorized = false
         }
+    }
+
+    /// Recharge toutes les lectures Santé (poids + conso/eau externes + activité + séances).
+    func refreshAll() async {
+        guard available else { return }
+        await resolveLumeSources(force: true) // re-résout : de nouvelles sources Lume ont pu apparaître
+        await refreshWeight()
+        await refreshDietToday()
+        await refreshWaterToday()
+        await refreshActivityToday()
+        await refreshActivitySeries()
+        await refreshExternalWorkouts()
     }
 
     /// Recharge les 60 derniers échantillons de poids (ordre chronologique).
@@ -61,6 +96,176 @@ final class HealthManager {
             latestWeightKg = series.last?.kg
         } catch {
             // silencieux : le graphe retombe sur ses données de secours
+        }
+    }
+
+    // MARK: - Lectures conso/activité
+
+    /// Sources HealthKit appartenant à Lume (résolues par bundle identifier), mises en cache.
+    /// `HKSource.default()` n'identifie PAS de façon fiable les échantillons écrits par l'app ;
+    /// on résout donc les vraies sources de l'app via une HKSourceQuery, pour les exclure à la lecture.
+    private var lumeSources: Set<HKSource> = []
+    private var sourcesResolved = false
+
+    /// Trouve les sources dont le bundle identifier correspond à l'app courante (énergie diététique
+    /// suffit : Lume écrit toujours l'énergie). Idempotent : ne re-résout pas une fois fait.
+    /// Appelé en tête de chaque lecture qui exclut Lume, pour garantir l'exclusion quel que soit
+    /// l'ordre d'appel (une vue peut rafraîchir l'eau/les séances avant `refreshAll`).
+    private func resolveLumeSources(force: Bool = false) async {
+        guard force || !sourcesResolved else { return }
+        let bundleID = Bundle.main.bundleIdentifier
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            let query = HKSourceQuery(sampleType: energyType, samplePredicate: nil) { [weak self] _, sources, _ in
+                let mine = (sources ?? []).filter { $0.bundleIdentifier == bundleID }
+                Task { @MainActor in
+                    self?.lumeSources = Set(mine)
+                    self?.sourcesResolved = true
+                    cont.resume()
+                }
+            }
+            store.execute(query)
+        }
+    }
+
+    /// Prédicat d'exclusion des échantillons écrits par Lume (vide si sources non résolues → n'exclut rien).
+    private func excludingLumePredicate() -> NSPredicate? {
+        guard !lumeSources.isEmpty else { return nil }
+        let fromLume = HKQuery.predicateForObjects(from: lumeSources)
+        return NSCompoundPredicate(notPredicateWithSubpredicate: fromLume)
+    }
+
+    /// Prédicat « aujourd'hui, hors échantillons écrits par Lume » (anti double-comptage).
+    private func todayExcludingLume() -> NSPredicate {
+        let start = Calendar.current.startOfDay(for: Date())
+        let datePred = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        guard let notLume = excludingLumePredicate() else { return datePred }
+        return NSCompoundPredicate(andPredicateWithSubpredicates: [datePred, notLume])
+    }
+
+    /// Somme cumulée d'un type quantitatif sur un prédicat (0 si indispo/non autorisé).
+    private func sum(_ type: HKQuantityType, unit: HKUnit, predicate: NSPredicate) async -> Double {
+        do {
+            let descriptor = HKStatisticsQueryDescriptor(
+                predicate: .quantitySample(type: type, predicate: predicate),
+                options: .cumulativeSum
+            )
+            let stats = try await descriptor.result(for: store)
+            return stats?.sumQuantity()?.doubleValue(for: unit) ?? 0
+        } catch {
+            return 0
+        }
+    }
+
+    /// Conso du jour saisie hors Lume (énergie + macros).
+    func refreshDietToday() async {
+        guard available else { return }
+        await resolveLumeSources()
+        let pred = todayExcludingLume()
+        let kcal = await sum(energyType, unit: .kilocalorie(), predicate: pred)
+        let protein = await sum(proteinType, unit: .gram(), predicate: pred)
+        let carbs = await sum(carbsType, unit: .gram(), predicate: pred)
+        let fat = await sum(fatType, unit: .gram(), predicate: pred)
+        externalToday = Macros(kcal: Int(kcal.rounded()), protein: Int(protein.rounded()),
+                               carbs: Int(carbs.rounded()), fat: Int(fat.rounded()))
+    }
+
+    /// Eau du jour saisie hors Lume (millilitres).
+    func refreshWaterToday() async {
+        guard available else { return }
+        await resolveLumeSources()
+        externalWaterMl = await sum(waterType, unit: .literUnit(with: .milli), predicate: todayExcludingLume())
+    }
+
+    /// Pas + calories actives du jour (toutes sources — la dépense ne vient pas de Lume).
+    func refreshActivityToday() async {
+        guard available else { return }
+        let start = Calendar.current.startOfDay(for: Date())
+        let datePred = HKQuery.predicateForSamples(withStart: start, end: Date(), options: .strictStartDate)
+        stepsToday = Int(await sum(stepType, unit: .count(), predicate: datePred).rounded())
+        activeEnergyToday = Int(await sum(activeEnergyType, unit: .kilocalorie(), predicate: datePred).rounded())
+    }
+
+    /// Séries 30 j (pas/jour, calories actives/jour) pour les graphes de Progrès.
+    func refreshActivitySeries() async {
+        guard available else { return }
+        let cal = Calendar.current
+        let start = cal.date(byAdding: .day, value: -29, to: cal.startOfDay(for: Date())) ?? Date()
+        stepsSeries = await dailySeries(stepType, unit: .count(), since: start).map {
+            DaySteps(date: $0.date, steps: Int($0.value.rounded()))
+        }
+        activeEnergySeries = await dailySeries(activeEnergyType, unit: .kilocalorie(), since: start).map {
+            DayCalories(label: shortDay($0.date), kcal: Int($0.value.rounded()))
+        }
+    }
+
+    /// Collection statistique par jour (somme) d'un type sur une fenêtre.
+    private func dailySeries(_ type: HKQuantityType, unit: HKUnit, since start: Date) async -> [(date: Date, value: Double)] {
+        do {
+            let descriptor = HKStatisticsCollectionQueryDescriptor(
+                predicate: .quantitySample(type: type, predicate: HKQuery.predicateForSamples(withStart: start, end: Date())),
+                options: .cumulativeSum,
+                anchorDate: Calendar.current.startOfDay(for: start),
+                intervalComponents: DateComponents(day: 1)
+            )
+            let collection = try await descriptor.result(for: store)
+            var out: [(Date, Double)] = []
+            collection.enumerateStatistics(from: start, to: Date()) { stats, _ in
+                out.append((stats.startDate, stats.sumQuantity()?.doubleValue(for: unit) ?? 0))
+            }
+            return out.map { (date: $0.0, value: $0.1) }
+        } catch {
+            return []
+        }
+    }
+
+    private func shortDay(_ date: Date) -> String {
+        let cal = Calendar.current
+        return "\(cal.component(.day, from: date))/\(cal.component(.month, from: date))"
+    }
+
+    /// Séances récentes (30 j) importées de Santé, hors Lume — lecture seule.
+    func refreshExternalWorkouts() async {
+        guard available else { return }
+        await resolveLumeSources()
+        let cal = Calendar.current
+        let start = cal.date(byAdding: .day, value: -30, to: Date()) ?? Date()
+        let datePred = HKQuery.predicateForSamples(withStart: start, end: Date())
+        let pred: NSPredicate
+        if let notLume = excludingLumePredicate() {
+            pred = NSCompoundPredicate(andPredicateWithSubpredicates: [datePred, notLume])
+        } else {
+            pred = datePred
+        }
+        do {
+            let descriptor = HKSampleQueryDescriptor(
+                predicates: [.workout(pred)],
+                sortDescriptors: [SortDescriptor(\.startDate, order: .reverse)],
+                limit: 10
+            )
+            let workouts = try await descriptor.result(for: store)
+            externalWorkouts = workouts.map { w in
+                let kcal = w.statistics(for: activeEnergyType)?.sumQuantity()?.doubleValue(for: .kilocalorie())
+                return ExternalWorkout(date: w.startDate,
+                                       durationSec: Int(w.duration),
+                                       kcal: kcal.map { Int($0.rounded()) },
+                                       type: Self.label(for: w.workoutActivityType))
+            }
+        } catch {
+            externalWorkouts = []
+        }
+    }
+
+    /// Libellé court (français) pour les types d'activité les plus courants.
+    private static func label(for type: HKWorkoutActivityType) -> String {
+        switch type {
+        case .running: "Course"
+        case .walking: "Marche"
+        case .cycling: "Vélo"
+        case .traditionalStrengthTraining, .functionalStrengthTraining: "Muscu"
+        case .highIntensityIntervalTraining: "HIIT"
+        case .swimming: "Natation"
+        case .yoga: "Yoga"
+        default: "Séance"
         }
     }
 

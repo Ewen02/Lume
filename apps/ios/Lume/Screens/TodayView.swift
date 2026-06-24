@@ -3,6 +3,7 @@ import SwiftUI
 
 struct TodayView: View {
     @Environment(\.modelContext) private var ctx
+    @Environment(HealthManager.self) private var health
     @Query private var allFoods: [LoggedFood] // borné aux 7 derniers jours
     @Query private var waterLogs: [WaterLog] // borné au jour courant
     @Query private var profiles: [ProfileRecord]
@@ -48,8 +49,26 @@ struct TodayView: View {
         _waterLogs = Query(filter: #Predicate<WaterLog> { $0.day >= dayStart }, sort: \WaterLog.day, order: .reverse)
     }
 
+    /// Calories actives mesurées par Santé aujourd'hui (`nil` si non autorisé/indispo).
+    private var activeKcal: Int? {
+        health.isAuthorized && health.activeEnergyToday > 0 ? health.activeEnergyToday : nil
+    }
+
+    /// Cible du jour : dynamique (BMR + objectif + calories actives réelles) si Santé est
+    /// disponible, sinon TDEE fixe historique. Calculée seulement pour aujourd'hui.
     private var target: Macros {
-        profiles.first.map { TDEECalculator.target($0.profile) } ?? Mock.target
+        guard let p = profiles.first?.profile else { return Mock.target }
+        guard isToday else { return TDEECalculator.target(p) }
+        return EnergyBudget.target(p, activeKcal: activeKcal, healthAuthorized: health.isAuthorized)
+    }
+
+    private var isDynamicTarget: Bool {
+        isToday && EnergyBudget.isDynamic(activeKcal: activeKcal, healthAuthorized: health.isAuthorized)
+    }
+
+    /// Conso externe (autres apps Santé), uniquement pertinente pour aujourd'hui.
+    private var externalConsumed: Macros {
+        isToday ? health.externalToday : .zero
     }
 
     private var streak: Int {
@@ -65,13 +84,19 @@ struct TodayView: View {
         allFoods.filter { cal.isDate($0.date, inSameDayAs: selectedDay) }
     }
 
-    private var consumed: Macros {
+    /// Conso locale (journal Lume) du jour sélectionné.
+    private var localConsumed: Macros {
         dayFoods.reduce(.zero) { $0 + $1.macros }
     }
 
-    /// Macros consommées AUJOURD'HUI (pour le widget, indépendant du jour sélectionné).
+    /// Conso affichée = journal local + apports externes Santé (aujourd'hui).
+    private var consumed: Macros {
+        localConsumed + externalConsumed
+    }
+
+    /// Macros consommées AUJOURD'HUI (pour le widget) — local + externe Santé.
     private var todayConsumed: Macros {
-        allFoods.filter { cal.isDateInToday($0.date) }.reduce(.zero) { $0 + $1.macros }
+        allFoods.filter { cal.isDateInToday($0.date) }.reduce(.zero) { $0 + $1.macros } + health.externalToday
     }
 
     /// L'eau n'est chargée que pour aujourd'hui (la query est bornée au jour courant).
@@ -162,16 +187,26 @@ struct TodayView: View {
                 } }
                 .lumeEntrance(1)
                 .sensoryFeedback(.selection, trigger: selectedDay)
-                CalorieCard(consumed: consumed.kcal, goal: target.kcal)
-                    .scaleEffect(highlight ? 1.04 : 1)
-                    .shadow(color: LumeColor.protein.opacity(highlight ? 0.45 : 0), radius: highlight ? 18 : 0)
-                    .lumeEntrance(2)
+                VStack(spacing: Spacing.xs) {
+                    CalorieCard(consumed: consumed.kcal, goal: target.kcal)
+                    if isToday, externalConsumed.kcal > 0 {
+                        Text("dont \(externalConsumed.kcal) kcal via Santé")
+                            .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                            .frame(maxWidth: .infinity, alignment: .trailing)
+                    }
+                }
+                .scaleEffect(highlight ? 1.04 : 1)
+                .shadow(color: LumeColor.protein.opacity(highlight ? 0.45 : 0), radius: highlight ? 18 : 0)
+                .lumeEntrance(2)
                 HStack(spacing: Spacing.md) {
                     MacroCard(letter: "P", value: consumed.protein, goal: target.protein, color: LumeColor.protein, label: "Protéines")
                     MacroCard(letter: "G", value: consumed.carbs, goal: target.carbs, color: LumeColor.carbs, label: "Glucides")
                     MacroCard(letter: "L", value: consumed.fat, goal: target.fat, color: LumeColor.fat, label: "Lipides")
                 }
                 .lumeEntrance(3)
+                if isToday, health.isAuthorized, health.stepsToday > 0 || health.activeEnergyToday > 0 {
+                    activityCard.lumeEntrance(4)
+                }
                 Button { showWater = true } label: { WaterTracker(filled: water) }
                     .buttonStyle(.lumePress)
                     .lumeEntrance(4)
@@ -203,6 +238,8 @@ struct TodayView: View {
             let fresh = BadgeEvaluator.reconcileNutrition(foods: streakFoods, target: target, context: ctx)
             if !fresh.isEmpty { celebrateBadges = fresh }
         }
+        // Rafraîchit les lectures Santé (conso externe, pas, calories actives) à l'ouverture.
+        .task { await health.requestAuthorization() }
         // Tient le widget (calories+macros du jour) à jour.
         .task(id: todayConsumed) { WidgetUpdater.update(consumed: todayConsumed, target: target) }
         // Rattrape les badges nutrition déjà mérités (sans célébration au lancement).
@@ -368,6 +405,29 @@ struct TodayView: View {
             .onTapGesture { routeEntry = food }
     }
 
+    /// Carte « Activité » : pas + calories actives du jour, et bilan restant.
+    /// La cible inclut déjà les calories actives (cible dynamique), donc restant = cible − consommé.
+    private var activityCard: some View {
+        let remaining = target.kcal - consumed.kcal
+        return LumeCard {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack {
+                    Text("Activité").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+                    Spacer()
+                    if isDynamicTarget {
+                        Text("Cible ajustée").font(.lumeFootnote).foregroundStyle(LumeColor.success)
+                    }
+                }
+                HStack(spacing: Spacing.md) {
+                    StatTile(icon: .steps, tint: LumeColor.carbs, value: "\(health.stepsToday)", label: "Pas")
+                    StatTile(icon: .activeEnergy, tint: LumeColor.protein, value: "\(health.activeEnergyToday)", label: "kcal actives")
+                    StatTile(icon: .calories, tint: remaining >= 0 ? LumeColor.success : LumeColor.negative,
+                             value: "\(remaining)", label: remaining >= 0 ? "kcal restantes" : "kcal au-dessus")
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     private var header: some View {
         HStack(spacing: Spacing.sm) {
             // Sur un jour passé : flèche pour revenir à aujourd'hui.
@@ -415,4 +475,4 @@ struct TodayView: View {
     }
 }
 
-#Preview { TodayView().modelContainer(LumeStore.preview) }
+#Preview { TodayView().modelContainer(LumeStore.preview).environment(HealthManager.shared) }

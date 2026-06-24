@@ -101,8 +101,18 @@ struct ProgressDashboardView: View {
         WeeklyMacros.average(from: weekFoods)
     }
 
+    /// Pas par jour (Santé) filtrés sur la période sélectionnée.
+    private var stepsForPeriod: [DaySteps] {
+        guard let start = period.start() else { return health.stepsSeries }
+        return health.stepsSeries.filter { $0.date >= start }
+    }
+
+    /// Cible kcal cohérente avec l'écran Aujourd'hui : dynamique (BMR + calories actives
+    /// réelles) si Santé est autorisé, sinon TDEE fixe.
     private var targetKcal: Int {
-        profiles.first.map { TDEECalculator.target($0.profile).kcal } ?? Mock.target.kcal
+        guard let p = profiles.first?.profile else { return Mock.target.kcal }
+        let active = health.isAuthorized && health.activeEnergyToday > 0 ? health.activeEnergyToday : nil
+        return EnergyBudget.targetKcal(p, activeKcal: active, healthAuthorized: health.isAuthorized)
     }
 
     private var weekly: WeeklyGoals {
@@ -153,7 +163,8 @@ struct ProgressDashboardView: View {
                 periodPicker.lumeEntrance(3)
                 weightCard.lumeEntrance(4)
                 caloriesCard.lumeEntrance(5)
-                if !sessions.isEmpty { muscleCard.lumeEntrance(6) }
+                if health.isAuthorized, !stepsForPeriod.isEmpty { activityCard.lumeEntrance(6) }
+                if !sessions.isEmpty { muscleCard.lumeEntrance(7) }
             }
             .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 130)
         }
@@ -426,6 +437,52 @@ struct ProgressDashboardView: View {
                         selection: Binding(get: { period.rawValue },
                                            set: { period = ChartPeriod(rawValue: $0) ?? .week }))
             .frame(maxWidth: .infinity)
+    }
+
+    /// Calories actives (Santé) filtrées sur la période — moyenne/jour affichée sous le graphe.
+    private var activeEnergyForPeriod: [DayCalories] {
+        guard let start = period.start() else { return health.activeEnergySeries }
+        // activeEnergySeries n'est pas datée (label seulement) → on aligne sur la longueur des pas.
+        return Array(health.activeEnergySeries.suffix(stepsForPeriod.count))
+    }
+
+    private var activityCard: some View {
+        let totalSteps = stepsForPeriod.reduce(0) { $0 + $1.steps }
+        let avgSteps = stepsForPeriod.isEmpty ? 0 : totalSteps / stepsForPeriod.count
+        let activeDays = activeEnergyForPeriod.filter { $0.kcal > 0 }
+        let avgActive = activeDays.isEmpty ? 0 : activeDays.map(\.kcal).reduce(0, +) / activeDays.count
+        return LumeCard {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Pas").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+                    Spacer()
+                    Text("\(avgSteps) / jour en moyenne").font(.lumeFootnote).foregroundStyle(LumeColor.muted).monospacedDigit()
+                }
+                Chart(stepsForPeriod) { d in
+                    BarMark(x: .value("Jour", d.date, unit: .day),
+                            y: .value("Pas", Double(d.steps) * chartGrow),
+                            width: .fixed(period.aggregatesByWeek ? 6 : 14))
+                        .foregroundStyle(d.steps == 0 ? LumeColor.faint : LumeColor.carbs)
+                        .cornerRadius(4)
+                }
+                .chartYAxis(.hidden)
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.day().month(.abbreviated)).font(.lumeFootnote)
+                    }
+                }
+                .frame(height: 130)
+                .accessibilityLabel("Pas par jour")
+                if avgActive > 0 {
+                    HStack(spacing: Spacing.sm) {
+                        Image(appIcon: .activeEnergy).lumeIcon(13, weight: .semibold).foregroundStyle(LumeColor.protein)
+                        Text("\(avgActive) kcal actives / jour en moyenne")
+                            .font(.lumeFootnote).foregroundStyle(LumeColor.muted).monospacedDigit()
+                    }
+                }
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 }
 

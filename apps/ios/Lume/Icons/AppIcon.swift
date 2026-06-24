@@ -26,6 +26,8 @@ enum AppIcon: String {
     case streak = "flame.fill"
     case calories = "flame.circle.fill"
     case water = "drop.fill"
+    case steps = "figure.walk"
+    case activeEnergy = "flame"
     // Macros : un anneau coloré + label suffit. Symboles optionnels si besoin :
     case protein = "fork.knife"
     case carbs = "leaf.fill"
