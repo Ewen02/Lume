@@ -7,8 +7,13 @@ struct GoalView: View {
     @Query private var profiles: [ProfileRecord]
     @Environment(HealthManager.self) private var health
     @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
-    @State private var profile = Mock.profile
+    /// Profil neutre par défaut (jamais de Mock.* dans une vue branchée au store) — remplacé
+    /// par le vrai `ProfileRecord` à l'apparition.
+    @State private var profile = UserProfile(name: "", sex: .male, age: 30, heightCm: 170,
+                                             weightKg: 70, activity: .moderate, goal: .maintain)
     @State private var loaded = false
+    /// L'utilisateur a-t-il édité le poids ? Si oui, on ne l'écrase pas avec la valeur HealthKit.
+    @State private var weightEdited = false
 
     private var target: Macros {
         TDEECalculator.target(profile)
@@ -40,7 +45,11 @@ struct GoalView: View {
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
         .onAppear { if !loaded { if let r = profiles.first { profile = r.profile }; loaded = true } }
-        .task { await health.requestAuthorization(); if let kg = health.latestWeightKg { profile.weightKg = (kg * 2).rounded() / 2 } }
+        // Pré-remplit le poids depuis Santé, mais jamais par-dessus une saisie manuelle de l'utilisateur.
+        .task {
+            await health.requestAuthorization()
+            if !weightEdited, let kg = health.latestWeightKg { profile.weightKg = (kg * 2).rounded() / 2 }
+        }
     }
 
     private var targetCard: some View {
@@ -70,7 +79,7 @@ struct GoalView: View {
                 }
                 stepperRow(title: "Âge", value: "\(profile.age) ans") { profile.age = max(14, profile.age - 1) } plus: { profile.age += 1 }
                 stepperRow(title: "Taille", value: "\(profile.heightCm) cm") { profile.heightCm -= 1 } plus: { profile.heightCm += 1 }
-                stepperRow(title: "Poids", value: WeightFormat.body(profile.weightKg, imperial: useImperial)) { profile.weightKg -= step } plus: { profile.weightKg += step }
+                stepperRow(title: "Poids", value: WeightFormat.body(profile.weightKg, imperial: useImperial)) { weightEdited = true; profile.weightKg -= step } plus: { weightEdited = true; profile.weightKg += step }
                 stepperRow(title: "Objectif de poids",
                            value: profile.targetWeightKg > 0 ? WeightFormat.body(profile.targetWeightKg, imperial: useImperial) : "—",
                            minus: { profile.targetWeightKg = profile.targetWeightKg > 0 ? max(0, profile.targetWeightKg - step) : 0 },

@@ -49,7 +49,22 @@ private struct RemindersForm: View {
                     .multilineTextAlignment(.center).padding(.horizontal, Spacing.xl)
             }
         }
-        .task { authorized = await NotificationManager.isAuthorized() }
+        .task {
+            authorized = await NotificationManager.isAuthorized()
+            // Permission révoquée dans Réglages iOS alors que des rappels étaient actifs :
+            // on remet les toggles à OFF (sinon ils mentent — « activé » sans aucune notif).
+            if !authorized { syncOffIfRevoked() }
+        }
+    }
+
+    /// Aligne l'état persisté sur la réalité système : si l'autorisation a disparu, aucun rappel
+    /// ne peut partir → on désactive les toggles persistés et on annule les notifications en attente.
+    private func syncOffIfRevoked() {
+        guard record.mealRemindersOn || record.waterRemindersOn || record.workoutRemindersOn else { return }
+        record.mealRemindersOn = false
+        record.waterRemindersOn = false
+        record.workoutRemindersOn = false
+        apply()
     }
 
     // MARK: Repas

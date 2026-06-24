@@ -111,8 +111,9 @@ final class HealthManager {
     private var sourcesResolved = false
 
     /// Trouve les sources dont le bundle identifier correspond à l'app courante. On interroge
-    /// **chaque** type que Lume écrit (énergie ET eau) : un utilisateur qui ne loggue que de l'eau
-    /// n'apparaît pas dans les sources d'énergie → sans cette union, son eau Lume serait recomptée.
+    /// **chaque** type que Lume écrit (énergie, eau ET séances) : un utilisateur qui ne loggue
+    /// qu'un seul de ces types n'apparaîtrait pas dans les sources des autres → sans cette union,
+    /// son eau serait recomptée ou ses séances échapperaient à la suppression au reset.
     /// Idempotent : ne re-résout pas une fois fait.
     /// Appelé en tête de chaque lecture qui exclut Lume, pour garantir l'exclusion quel que soit
     /// l'ordre d'appel (une vue peut rafraîchir l'eau/les séances avant `refreshAll`).
@@ -120,7 +121,8 @@ final class HealthManager {
         guard force || !sourcesResolved else { return }
         let bundleID = Bundle.main.bundleIdentifier
         var mine: Set<HKSource> = []
-        for type in [energyType, waterType] {
+        let types: [HKSampleType] = [energyType, waterType, HKObjectType.workoutType()]
+        for type in types {
             let found = await withCheckedContinuation { (cont: CheckedContinuation<Set<HKSource>, Never>) in
                 let query = HKSourceQuery(sampleType: type, samplePredicate: nil) { _, sources, _ in
                     cont.resume(returning: Set((sources ?? []).filter { $0.bundleIdentifier == bundleID }))
@@ -359,5 +361,19 @@ final class HealthManager {
         } catch {
             // silencieux
         }
+    }
+
+    /// Supprime de Santé toutes les données ÉCRITES PAR LUME (poids, séances), pour un « effacer
+    /// mes données » honnête. On ne touche qu'aux échantillons de nos sources : les données d'autres
+    /// apps restent intactes. Sans ça, le poids relu depuis Santé repeuplerait la série après reset.
+    func deleteLumeData() async {
+        guard available else { return }
+        await resolveLumeSources()
+        guard let notLume = excludingLumePredicate() else { return } // sources Lume inconnues → rien à supprimer
+        let onlyLume = NSCompoundPredicate(notPredicateWithSubpredicate: notLume)
+        try? await store.deleteObjects(of: weightType, predicate: onlyLume)
+        try? await store.deleteObjects(of: HKObjectType.workoutType(), predicate: onlyLume)
+        // Recharge les séries dépendantes pour refléter la suppression immédiatement.
+        await refreshWeight()
     }
 }

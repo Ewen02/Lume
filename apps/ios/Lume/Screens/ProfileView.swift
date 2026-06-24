@@ -55,15 +55,22 @@ struct ProfileView: View {
         }
     }
 
-    /// Efface tout le journal et réinitialise (avec confirmation préalable).
+    /// Efface toutes les données utilisateur (avec confirmation préalable). Profil et réglages
+    /// sont conservés ; le catalogue d'exercices seedé l'est aussi (données de référence, pas
+    /// « tes » données). Le reste — y compris favoris, routines, exos custom et les données
+    /// écrites par Lume dans Santé — est supprimé pour tenir la promesse « tout effacer ».
     private func resetAllData() {
-        for model in [LoggedFood.self] {
-            try? ctx.delete(model: model)
-        }
+        try? ctx.delete(model: LoggedFood.self)
         try? ctx.delete(model: WaterLog.self)
         try? ctx.delete(model: WeightSample.self)
         try? ctx.delete(model: WorkoutSessionModel.self)
         try? ctx.delete(model: BadgeUnlock.self)
+        try? ctx.delete(model: FavoriteFood.self)
+        try? ctx.delete(model: RoutineModel.self) // cascade → RoutineExerciseModel
+        // Exercices : on ne retire que ceux ajoutés par l'utilisateur (le catalogue seedé reste).
+        try? ctx.delete(model: ExerciseModel.self, where: #Predicate { $0.isCustom })
+        // Données écrites par Lume dans Santé (poids, séances), sinon le poids se repeuplerait.
+        Task { await health.deleteLumeData() }
     }
 
     var body: some View {
@@ -105,7 +112,7 @@ struct ProfileView: View {
             Button("Tout effacer", role: .destructive) { resetAllData() }
             Button("Annuler", role: .cancel) {}
         } message: {
-            Text("Repas, eau, poids, séances et récompenses seront supprimés. Ton profil et tes réglages sont conservés. Action irréversible.")
+            Text("Repas, eau, poids, séances, routines, favoris et récompenses seront supprimés (y compris dans Apple Santé). Ton profil et tes réglages sont conservés. Action irréversible.")
         }
     }
 

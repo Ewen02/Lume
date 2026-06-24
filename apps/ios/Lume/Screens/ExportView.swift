@@ -8,9 +8,14 @@ struct ExportView: View {
     @Query(sort: \WeightSample.date) private var weights: [WeightSample]
     @Query(sort: \FavoriteFood.addedAt) private var favorites: [FavoriteFood]
     @Query(sort: \WorkoutSessionModel.date) private var sessions: [WorkoutSessionModel]
+    @Query(sort: \RoutineModel.order) private var routines: [RoutineModel]
+    @Query private var exercises: [ExerciseModel]
     @Query private var profiles: [ProfileRecord]
 
     @State private var error: String?
+
+    /// Exercices ajoutés par l'utilisateur (le catalogue seedé n'est pas « tes » données).
+    private var customExercises: [ExerciseModel] { exercises.filter(\.isCustom) }
 
     var body: some View {
         ScrollView {
@@ -23,7 +28,7 @@ struct ExportView: View {
                           subtitle: "\(weights.count) mesures",
                           icon: .weight, tint: LumeColor.fat) { try weightCSVURL() }
                 exportRow(title: "Sauvegarde complète (JSON)",
-                          subtitle: "Profil, repas, poids, favoris, séances",
+                          subtitle: "Profil, repas, poids, favoris, séances, routines, exos",
                           icon: .settings, tint: LumeColor.protein) { try backupJSONURL() }
 
                 if let error {
@@ -50,28 +55,40 @@ struct ExportView: View {
         }
     }
 
-    /// Chaque ligne génère son fichier à la demande et propose un ShareLink dessus.
+    /// Chaque ligne génère son fichier et propose un ShareLink dessus. En cas d'échec d'écriture,
+    /// la ligne reste visible (désactivée) et alimente le message d'erreur — pas de disparition muette.
     @ViewBuilder
     private func exportRow(title: String, subtitle: String, icon: AppIcon, tint: Color,
-                           makeURL: @escaping () throws -> URL) -> some View
+                           makeURL: () throws -> URL) -> some View
     {
-        if let url = try? makeURL() {
-            ShareLink(item: url) {
-                LumeCard {
-                    HStack(spacing: Spacing.md) {
-                        Image(appIcon: icon).lumeIcon(18, weight: .semibold).foregroundStyle(tint)
-                            .frame(width: 40, height: 40).background(tint.opacity(0.14))
-                            .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(title).font(.lumeCallout).foregroundStyle(LumeColor.ink)
-                            Text(subtitle).font(.lumeFootnote).foregroundStyle(LumeColor.muted)
-                        }
-                        Spacer()
-                        Image(appIcon: .forward).lumeIcon(14, weight: .semibold).foregroundStyle(LumeColor.muted)
-                    }
-                }
-            }.buttonStyle(.lumePress)
+        let result = Result { try makeURL() }
+        let card = rowCard(title: title, subtitle: subtitle, icon: icon, tint: tint,
+                           failed: (try? result.get()) == nil)
+        switch result {
+        case let .success(url):
+            ShareLink(item: url) { card }.buttonStyle(.lumePress)
+        case let .failure(err):
+            // Visible mais inactif, et on remonte l'erreur (affichée plus bas).
+            card.onAppear { error = "Export « \(title) » indisponible : \(err.localizedDescription)" }
         }
+    }
+
+    private func rowCard(title: String, subtitle: String, icon: AppIcon, tint: Color, failed: Bool) -> some View {
+        LumeCard {
+            HStack(spacing: Spacing.md) {
+                Image(appIcon: icon).lumeIcon(18, weight: .semibold).foregroundStyle(tint)
+                    .frame(width: 40, height: 40).background(tint.opacity(0.14))
+                    .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.lumeCallout).foregroundStyle(LumeColor.ink)
+                    Text(subtitle).font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                }
+                Spacer()
+                Image(appIcon: failed ? .warning : .forward).lumeIcon(14, weight: .semibold)
+                    .foregroundStyle(failed ? LumeColor.negative : LumeColor.muted)
+            }
+        }
+        .opacity(failed ? 0.55 : 1)
     }
 
     // MARK: Génération des fichiers (dans le dossier temporaire)
@@ -86,7 +103,8 @@ struct ExportView: View {
 
     private func backupJSONURL() throws -> URL {
         let data = try DataExporter.backupJSON(profile: profiles.first, foods: foods,
-                                               weights: weights, favorites: favorites, sessions: sessions)
+                                               weights: weights, favorites: favorites, sessions: sessions,
+                                               routines: routines, customExercises: customExercises)
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("lume-sauvegarde.json")
         try data.write(to: url, options: .atomic)
         return url

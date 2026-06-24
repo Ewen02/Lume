@@ -37,7 +37,9 @@ enum DataExporter {
                            foods: [LoggedFood],
                            weights: [WeightSample],
                            favorites: [FavoriteFood],
-                           sessions: [WorkoutSessionModel]) throws -> Data
+                           sessions: [WorkoutSessionModel],
+                           routines: [RoutineModel],
+                           customExercises: [ExerciseModel]) throws -> Data
     {
         let backup = Backup(
             exportedAt: Self.iso(Date()),
@@ -45,7 +47,9 @@ enum DataExporter {
             foods: foods.map(FoodDTO.init),
             weights: weights.map(WeightDTO.init),
             favorites: favorites.map(FavoriteDTO.init),
-            workouts: sessions.map(SessionDTO.init)
+            workouts: sessions.map(SessionDTO.init),
+            routines: routines.map(RoutineDTO.init),
+            customExercises: customExercises.map(CustomExerciseDTO.init)
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -88,6 +92,8 @@ private struct Backup: Codable {
     let weights: [WeightDTO]
     let favorites: [FavoriteDTO]
     let workouts: [SessionDTO]
+    let routines: [RoutineDTO]
+    let customExercises: [CustomExerciseDTO]
 }
 
 private struct ProfileDTO: Codable {
@@ -143,5 +149,28 @@ private struct SetDTO: Codable {
     let reps: Int, weight: Double, rpe: Int?
     init(_ s: LoggedSetModel) {
         reps = s.reps; weight = s.weight; rpe = s.rpe
+    }
+}
+
+private struct RoutineDTO: Codable {
+    let name: String, order: Int, exercises: [RoutineExerciseDTO]
+    init(_ r: RoutineModel) {
+        name = r.name; order = r.order
+        exercises = r.orderedExercises.map(RoutineExerciseDTO.init)
+    }
+}
+
+private struct RoutineExerciseDTO: Codable {
+    let name: String, muscle: String, equipment: String, targetSets: Int, targetReps: String
+    init(_ e: RoutineExerciseModel) {
+        name = e.exerciseName; muscle = e.muscleRaw; equipment = e.equipment
+        targetSets = e.targetSets; targetReps = e.targetReps
+    }
+}
+
+private struct CustomExerciseDTO: Codable {
+    let name: String, muscle: String, equipment: String
+    init(_ e: ExerciseModel) {
+        name = e.name; muscle = e.muscleRaw; equipment = e.equipment
     }
 }
