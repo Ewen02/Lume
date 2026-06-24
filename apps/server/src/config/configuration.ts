@@ -10,6 +10,10 @@ export interface AppConfig {
   visionTimeoutMs: number;
   /** Origine(s) CORS autorisée(s). '*' par défaut (app native sans cookie). */
   corsOrigin: string;
+  /** Débit global autorisé : requêtes max par minute et par IP (tous endpoints). */
+  rateLimitGlobalPerMin: number;
+  /** Débit de `/analyze` : appels Claude (coûteux) max par minute et par IP. */
+  rateLimitAnalyzePerMin: number;
 }
 
 export default (): AppConfig => ({
@@ -21,4 +25,6 @@ export default (): AppConfig => ({
   nutritionTimeoutMs: parseInt(process.env.NUTRITION_TIMEOUT_MS ?? '8000', 10),
   visionTimeoutMs: parseInt(process.env.VISION_TIMEOUT_MS ?? '30000', 10),
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
+  rateLimitGlobalPerMin: parseInt(process.env.RATE_LIMIT_GLOBAL_PER_MIN ?? '60', 10),
+  rateLimitAnalyzePerMin: parseInt(process.env.RATE_LIMIT_ANALYZE_PER_MIN ?? '10', 10),
 });

@@ -6,7 +6,7 @@ on:
 
 jobs:
   server:
-    name: Serveur (NestJS) — tests
+    name: Serveur (NestJS) — build + tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,25 +18,41 @@ jobs:
           node-version: 20
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - name: Tests serveur (Jest)
+      - name: Build serveur (nest build)
+        run: pnpm --filter @lume/server build
+      - name: Tests serveur (Jest, incl. rate-limiting e2e)
         run: pnpm --filter @lume/server test
 
   ios:
-    name: iOS — build (best effort, nécessite un 1er build vert)
+    name: iOS — build + tests (simulateur)
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
       - name: Installer XcodeGen
         run: brew install xcodegen
+      - name: Préparer la config API (secrets non versionnés → valeurs de démo)
+        working-directory: apps/ios
+        # Secrets.xcconfig est gitignored : la CI le recrée depuis le template
+        # (sans vrai jeton), sinon xcodegen échoue sur un configFile manquant.
+        run: cp Lume/Secrets.xcconfig.example Lume/Secrets.xcconfig
       - name: Générer le projet Xcode
         working-directory: apps/ios
         run: xcodegen generate
-      - name: Build (simulateur, sans signature)
+      - name: Choisir une destination iPhone réelle du scheme
+        id: sim
         working-directory: apps/ios
         run: |
-          xcodebuild \
+          # Lit les destinations RÉELLES du scheme (≠ simctl), prend le 1er iPhone simulateur.
+          # Robuste aux versions de Xcode du runner (iPhone 16 sur macos-15, etc.).
+          ID=$(xcodebuild -project Lume.xcodeproj -scheme Lume -showdestinations 2>/dev/null \
+            | grep 'platform:iOS Simulator' | grep -i 'iPhone' | grep -oE 'id:[0-9A-F-]+' | head -1 | cut -d: -f2)
+          echo "id=$ID" >> "$GITHUB_OUTPUT"
+          echo "Destination simulateur : $ID"
+      - name: Build + tests (sans signature)
+        working-directory: apps/ios
+        run: |
+          xcodebuild test \
             -project Lume.xcodeproj \
             -scheme Lume \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
-            CODE_SIGNING_ALLOWED=NO \
-            build
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.id }}" \
+            CODE_SIGNING_ALLOWED=NO

@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import configuration from './config/configuration';
 import { NutritionModule } from './infrastructure/nutrition.module';
 import { TokenGuard } from './common/auth/token.guard';
@@ -10,9 +12,18 @@ import { HealthController } from './interfaces/http/health.controller';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, load: [configuration] }),
+    // Limite de débit par IP. Deux fenêtres nommées : « global » (tous endpoints)
+    // et « analyze » (stricte, car chaque appel /analyze déclenche Claude — coûteux).
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => [
+        { name: 'global', ttl: 60_000, limit: config.get<number>('rateLimitGlobalPerMin') ?? 60 },
+        { name: 'analyze', ttl: 60_000, limit: config.get<number>('rateLimitAnalyzePerMin') ?? 10 },
+      ],
+    }),
     NutritionModule,
   ],
   controllers: [AnalyzeController, FoodsController, HealthController],
-  providers: [TokenGuard],
+  providers: [TokenGuard, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

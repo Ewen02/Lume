@@ -1,4 +1,5 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { SkipThrottle } from '@nestjs/throttler';
 import { TokenGuard } from '../../common/auth/token.guard';
 import { SearchFoodsUseCase } from '../../application/use-cases/search-foods.usecase';
 import { LookupBarcodeUseCase } from '../../application/use-cases/lookup-barcode.usecase';
@@ -7,8 +8,10 @@ import { LookupBarcodeUseCase } from '../../application/use-cases/lookup-barcode
 const MAX_QUERY_LEN = 120;
 const MAX_BARCODE_LEN = 32;
 
+// Search/barcode ne touchent pas Claude → seule la fenêtre « global » s'applique.
 @Controller('foods')
 @UseGuards(TokenGuard)
+@SkipThrottle({ analyze: true })
 export class FoodsController {
   constructor(
     private readonly searchFoods: SearchFoodsUseCase,

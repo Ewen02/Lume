@@ -149,7 +149,8 @@ struct ActiveSessionView: View {
         .confirmationDialog("Retirer cet exercice ?",
                             isPresented: Binding(get: { exerciseToRemove != nil },
                                                  set: { if !$0 { exerciseToRemove = nil } }),
-                            titleVisibility: .visible) {
+                            titleVisibility: .visible)
+        {
             Button("Retirer", role: .destructive) {
                 if let ex = exerciseToRemove {
                     withAnimation(LumeMotion.snappy) { sessions.removeAll { $0.id == ex.id } }
