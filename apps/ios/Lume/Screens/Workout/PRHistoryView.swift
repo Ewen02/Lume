@@ -3,7 +3,7 @@ import SwiftUI
 
 struct PRHistoryView: View {
     @Environment(\.dismiss) private var dismiss
-    @Query private var sessions: [WorkoutSessionModel]
+    @Query(sort: \WorkoutSessionModel.date) private var sessions: [WorkoutSessionModel]
 
     /// Meilleur 1RM estimé par exercice, à partir des séances persistées (aucun repli démo).
     private var prs: [(String, String, String)] {

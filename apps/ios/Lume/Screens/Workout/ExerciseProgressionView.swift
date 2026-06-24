@@ -1,4 +1,3 @@
-import Charts
 import SwiftData
 import SwiftUI
 
@@ -21,6 +20,11 @@ struct ExerciseProgressionView: View {
         }.sorted { $0.date < $1.date }
     }
 
+    /// Points 1RM en points de graphe (pour InteractiveLineChart : scrub + axe + valeur).
+    private var oneRMPoints: [ChartPoint] {
+        data.map { ChartPoint(date: $0.date, value: Int($0.oneRM.rounded())) }
+    }
+
     /// Dernières séries réellement enregistrées pour cet exercice (vide si aucune).
     private var lastSets: [String] {
         guard let ex = sessions.sorted(by: { $0.date > $1.date })
@@ -29,12 +33,6 @@ struct ExerciseProgressionView: View {
         return ex.orderedSets.map { s in
             "\(WeightFormat.loadDecimal(s.weight, imperial: useImperial)) × \(s.reps)" + (s.rpe.map { " · RPE \($0)" } ?? "")
         }
-    }
-
-    private var domain: ClosedRange<Double> {
-        let v = data.map(\.oneRM)
-        guard let lo = v.min(), let hi = v.max() else { return 0 ... 1 }
-        return (lo - 4) ... (hi + 4)
     }
 
     var body: some View {
@@ -74,17 +72,9 @@ struct ExerciseProgressionView: View {
         LumeCard {
             VStack(alignment: .leading, spacing: Spacing.md) {
                 Text("Courbe 1RM").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
-                Chart(data) { p in
-                    AreaMark(x: .value("Date", p.date), y: .value("kg", p.oneRM))
-                        .interpolationMethod(.catmullRom)
-                        .foregroundStyle(LinearGradient(colors: [LumeColor.protein.opacity(0.2), .clear], startPoint: .top, endPoint: .bottom))
-                    LineMark(x: .value("Date", p.date), y: .value("kg", p.oneRM))
-                        .interpolationMethod(.catmullRom)
-                        .foregroundStyle(LumeColor.protein).lineStyle(.init(lineWidth: 2.5))
-                }
-                .chartYScale(domain: domain)
-                .chartXAxis(.hidden)
-                .frame(height: 180)
+                InteractiveLineChart(points: oneRMPoints,
+                                     format: { WeightFormat.load($0, imperial: useImperial) })
+                    .accessibilityLabel("Progression du 1RM estimé")
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
 
@@ -94,7 +84,6 @@ struct ExerciseProgressionView: View {
                 HStack {
                     Text(s).font(.lumeCallout).foregroundStyle(LumeColor.ink)
                     Spacer()
-                    Text("récent").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
                 }
                 .padding(Spacing.lg - 2).background(LumeColor.surface)
                 .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)).lumeShadow(.soft)

@@ -10,13 +10,22 @@ enum WeightFormat {
     static let defaultsKey = "lume.useImperialUnits"
 
     /// Lit le réglage courant (pour le code hors-vue : exports, etc.).
-    static var isImperial: Bool { UserDefaults.standard.bool(forKey: defaultsKey) }
+    static var isImperial: Bool {
+        UserDefaults.standard.bool(forKey: defaultsKey)
+    }
 
-    static func kgToLb(_ kg: Double) -> Double { kg * lbPerKg }
-    static func lbToKg(_ lb: Double) -> Double { lb / lbPerKg }
+    static func kgToLb(_ kg: Double) -> Double {
+        kg * lbPerKg
+    }
+
+    static func lbToKg(_ lb: Double) -> Double {
+        lb / lbPerKg
+    }
 
     /// Unité courte affichée ("kg" / "lb").
-    static func unit(imperial: Bool) -> String { imperial ? "lb" : "kg" }
+    static func unit(imperial: Bool) -> String {
+        imperial ? "lb" : "kg"
+    }
 
     /// Poids corporel formaté ("74,5 kg" / "164,2 lb"), 1 décimale.
     static func body(_ kg: Double, imperial: Bool, decimals: Int = 1) -> String {

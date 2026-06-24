@@ -5,6 +5,7 @@ import SwiftUI
 /// (routines types / créer la sienne / partir à vide). Évite tout seed « en douce ».
 struct WorkoutSetupView: View {
     @Environment(\.modelContext) private var ctx
+    @Query private var routines: [RoutineModel]
     /// Bascule à true quand l'utilisateur a fait son choix (gère l'affichage côté WorkoutHomeView).
     @Binding var done: Bool
     @State private var showEditor = false
@@ -50,8 +51,8 @@ struct WorkoutSetupView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
-        // Créer une routine vaut comme choix : on quitte le setup à la fermeture de l'éditeur.
-        .sheet(isPresented: $showEditor, onDismiss: { finish() }) { RoutineEditorView() }
+        // On ne quitte le setup que si une routine a VRAIMENT été créée (pas si on annule l'éditeur).
+        .sheet(isPresented: $showEditor, onDismiss: { if !routines.isEmpty { finish() } }) { RoutineEditorView() }
     }
 
     private func finish() {

@@ -14,15 +14,19 @@ struct StreakFlame: View {
         min(CGFloat(max(streak, 0)) / 21, 1)
     }
 
+    // Pointes de flamme (highlights décoratifs du dégradé, hors palette sémantique).
+    private static let flameTipHot = Color(hex: 0xFFD24A)
+    private static let flameTipWarm = Color(hex: 0xFFC857)
+
     /// Dégradé de feu : base chaude (rouge/orange) → pointe jaune, qui s'intensifie avec la série.
     private var fireGradient: LinearGradient {
         let base: Color = switch streak {
         case 0 ..< 3: LumeColor.warning
-        case 3 ..< 7: Color(hex: 0xF5A623)
+        case 3 ..< 7: LumeColor.carbs
         case 7 ..< 14: LumeColor.protein
         default: LumeColor.negative
         }
-        let tip: Color = streak >= 7 ? Color(hex: 0xFFD24A) : Color(hex: 0xFFC857)
+        let tip = streak >= 7 ? Self.flameTipHot : Self.flameTipWarm
         return LinearGradient(colors: [base, base.opacity(0.95), tip],
                               startPoint: .bottom, endPoint: .top)
     }
@@ -74,7 +78,7 @@ struct StreakFlame: View {
         let rise = CGFloat(phase) // 0 (bas) → 1 (haut)
         let xJitter = sin((t + Double(index)) * 3) * size * 0.18
         return Circle()
-            .fill(Color(hex: 0xFFD24A))
+            .fill(Self.flameTipHot)
             .frame(width: size * 0.1, height: size * 0.1)
             .offset(x: xJitter, y: -size * 0.4 - rise * size * 0.9)
             .opacity((1 - rise) * 0.9)

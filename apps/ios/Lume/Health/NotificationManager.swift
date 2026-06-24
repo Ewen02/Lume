@@ -77,6 +77,28 @@ enum NotificationManager {
         center.removePendingNotificationRequests(withIdentifiers: ours)
     }
 
+    // MARK: - Minuteur de repos
+
+    private static let restID = "lume.rest.timer"
+
+    /// Notifie la fin du repos dans `seconds` (survit à l'app en arrière-plan / fermée).
+    static func scheduleRestEnd(in seconds: Int) {
+        cancelRestEnd()
+        guard seconds > 0 else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Repos terminé"
+        content.body = "C'est reparti — série suivante 💪"
+        content.sound = .default
+        content.interruptionLevel = .timeSensitive
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: TimeInterval(seconds), repeats: false)
+        center.add(UNNotificationRequest(identifier: restID, content: content, trigger: trigger))
+    }
+
+    /// Annule la notification de repos (repos passé / ajusté).
+    static func cancelRestEnd() {
+        center.removePendingNotificationRequests(withIdentifiers: [restID])
+    }
+
     // MARK: - Privé
 
     /// Planifie une notification répétitive. `weekday == nil` → tous les jours à `minute`.

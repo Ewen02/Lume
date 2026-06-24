@@ -65,8 +65,8 @@ utilisateur), VisionKit (code-barres + OCR étiquette), AVFoundation (caméra). 
 ## Muscu (persistance v2)
 - `ActiveSessionView.finish()` écrit une `WorkoutSessionModel` (exercices + séries reps>0) puis un `HKWorkout` (HealthManager.saveWorkout).
 - Création de routine : `RoutineEditorView` (nom + exercices via `ExercisePickerView`, séries/répétitions) → insère `RoutineModel`/`RoutineExerciseModel`. Ouvert depuis « Nouvelle routine » (RoutineListView).
-- Routines persistées : `RoutineModel` → `RoutineExerciseModel` (+ `seedDefaultRoutinesIfNeeded` au 1er lancement). `RoutineModel.asRoutine` mappe vers la struct UI. Lecture dans `WorkoutHomeView` / `RoutineListView` (repli `Mock.routines` si vide).
-- Lecture via `@Query` : `WorkoutHomeView` (séances récentes), `ExerciseProgressionView` (courbe 1RM par exercice, repli démo si <2 points), `PRHistoryView` (meilleur 1RM/exercice).
+- Routines persistées : `RoutineModel` → `RoutineExerciseModel` (`seedDefaultRoutines` seedé à la demande depuis l'onboarding muscu, pas « en douce » au lancement). `RoutineModel.asRoutine` mappe vers la struct UI. Lecture dans `WorkoutHomeView` / `RoutineListView` (repli `Mock.routines` si vide).
+- Lecture via `@Query` : `WorkoutHomeView` (séances récentes), `ExerciseProgressionView` (courbe 1RM par exercice, **état vide honnête** si <2 points — aucun mock), `PRHistoryView` (meilleur 1RM/exercice).
 - 1RM via `OneRepMax.estimate` (moyenne Epley/Brzycki). 100 % local — aucun backend muscu.
 
 ## Optimisations & best practices (refactor)

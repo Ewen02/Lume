@@ -133,6 +133,11 @@ struct ProgressDashboardView: View {
         WorkoutStats.weeklyVolume(from: sessions)
     }
 
+    /// Volume hebdo en points de graphe (pour InteractiveBarChart : scrub + axe + valeur).
+    private var volumePoints: [ChartPoint] {
+        weeklyVolume.map { ChartPoint(date: $0.weekStart, value: $0.volumeKg) }
+    }
+
     private var bestOneRM: Int {
         sessions.flatMap { $0.orderedExercises.map(\.bestOneRM) }.max() ?? 0
     }
@@ -254,20 +259,13 @@ struct ProgressDashboardView: View {
                     Text("Volume muscu").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
                     Spacer()
                     if bestOneRM > 0 {
-                        Text("1RM max \(bestOneRM) kg").font(.lumeFootnote).foregroundStyle(LumeColor.muted).monospacedDigit()
+                        Text("1RM max \(WeightFormat.load(bestOneRM, imperial: useImperial))").font(.lumeFootnote).foregroundStyle(LumeColor.muted).monospacedDigit()
                     }
                 }
-                Text("kg soulevés par semaine").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
-                Chart(weeklyVolume) { p in
-                    BarMark(x: .value("Semaine", p.weekStart, unit: .weekOfYear),
-                            y: .value("kg", p.volumeKg), width: .fixed(16))
-                        .foregroundStyle(p.volumeKg == 0 ? LumeColor.faint : LumeColor.protein)
-                        .cornerRadius(5)
-                }
-                .chartYAxis(.hidden)
-                .chartXAxis { AxisMarks(values: .stride(by: .weekOfYear, count: 2)) }
-                .frame(height: 150)
-                .accessibilityLabel("Volume de musculation par semaine")
+                Text("soulevés par semaine").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                InteractiveBarChart(points: volumePoints, tint: LumeColor.protein,
+                                    format: { WeightFormat.load($0, imperial: useImperial) })
+                    .accessibilityLabel("Volume de musculation par semaine")
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
         .overlay(alignment: .topTrailing) {

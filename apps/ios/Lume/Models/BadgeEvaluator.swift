@@ -11,14 +11,9 @@ enum BadgeEvaluator {
         let bestOneRM = sessions
             .flatMap { $0.orderedExercises.map(\.bestOneRM) }
             .max() ?? 0
-        let totalVolume = sessions.reduce(0) { acc, s in
-            acc + s.orderedExercises.reduce(0) { exAcc, ex in
-                exAcc + ex.orderedSets.reduce(0) { $0 + Int($1.weight) * $1.reps }
-            }
-        }
         let longest = WorkoutStreak.longestStreak(from: sessions.map(\.date), goal: max(1, goal), calendar: calendar)
         return BadgeStats(totalSessions: sessions.count, bestOneRM: bestOneRM,
-                          longestWeeklyStreak: longest, totalVolume: totalVolume)
+                          longestWeeklyStreak: longest)
     }
 
     /// Stats nutrition : jours logués, plus long streak quotidien, jours équilibrés (3 macros ≥ 90 % cible).

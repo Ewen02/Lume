@@ -14,6 +14,8 @@ struct ActiveSessionView: View {
     @State private var showRest = false
     @State private var showPlate = false
     @State private var showAddExercise = false
+    /// Exercice en attente de confirmation de retrait (évite la perte accidentelle en pleine séance).
+    @State private var exerciseToRemove: ExerciseSession?
     @State private var startedAt = Date()
     @State private var finished = false
     @State private var summary: WorkoutSummary?
@@ -52,30 +54,43 @@ struct ActiveSessionView: View {
         return out
     }
 
+    /// Une série compte si elle a des répétitions (la coche `done` n'est qu'un confort visuel).
+    /// Critère unique partout : live, persistance, récap, PR, badges.
+    private func loggedSets(_ session: ExerciseSession) -> [SetEntry] {
+        session.sets.filter { $0.reps > 0 }
+    }
+
+    /// Exercices ayant au moins une série remplie — base de la persistance et du gate Terminer.
+    private var loggedExercises: [ExerciseSession] {
+        sessions.filter { !loggedSets($0).isEmpty }
+    }
+
     private func finish() {
+        // Garde-fou : aucune série remplie → pas de séance fantôme persistée.
+        let exercises = loggedExercises
+        guard !exercises.isEmpty else { return }
+
         // Records battus : calculés AVANT l'insertion (comparaison avec l'historique).
         newPRs = detectNewPRs()
 
-        let model = WorkoutSessionModel(date: startedAt,
-                                        durationSec: Int(Date().timeIntervalSince(startedAt)),
+        let start = startedAt, end = Date()
+        let model = WorkoutSessionModel(date: start,
+                                        durationSec: Int(end.timeIntervalSince(start)),
                                         title: title,
                                         note: note.trimmingCharacters(in: .whitespacesAndNewlines))
         ctx.insert(model)
-        for (i, sess) in sessions.enumerated() {
-            let logged = sess.sets.filter { $0.reps > 0 }
-            guard !logged.isEmpty else { continue }
+        for (i, sess) in exercises.enumerated() {
             let ex = LoggedExerciseModel(name: sess.exercise.name,
                                          muscleRaw: sess.exercise.primary.code,
                                          equipment: sess.exercise.equipment, order: i)
             ex.session = model
             ctx.insert(ex)
-            for (j, set) in logged.enumerated() {
+            for (j, set) in loggedSets(sess).enumerated() {
                 let m = LoggedSetModel(reps: set.reps, weight: set.weight, rpe: set.rpe, order: j)
                 m.exercise = ex
                 ctx.insert(m)
             }
         }
-        let start = startedAt, end = Date()
         Task { await health.saveWorkout(start: start, end: end) }
 
         // Réconcilie les badges (la séance vient d'être insérée → re-fetch frais inclus).
@@ -89,14 +104,14 @@ struct ActiveSessionView: View {
         summary = WorkoutSummary(from: sessions, durationSec: Int(end.timeIntervalSince(start)))
     }
 
-    /// Stats live de la séance en cours.
+    /// Stats live de la séance en cours — basées sur `reps>0` (cohérent avec le récap).
     private var doneSetCount: Int {
-        sessions.reduce(0) { $0 + $1.sets.filter(\.done).count }
+        sessions.reduce(0) { $0 + loggedSets($1).count }
     }
 
     private var liveVolume: Int {
         sessions.reduce(0) { acc, s in
-            acc + s.sets.filter(\.done).reduce(0) { $0 + Int($1.weight) * $1.reps }
+            acc + loggedSets(s).reduce(0) { $0 + Int($1.weight) * $1.reps }
         }
     }
 
@@ -110,7 +125,7 @@ struct ActiveSessionView: View {
                         ForEach($sessions) { $session in
                             ExerciseSessionCard(
                                 session: $session,
-                                onRemove: { withAnimation(LumeMotion.snappy) { sessions.removeAll { $0.id == session.id } } },
+                                onRemove: { exerciseToRemove = session },
                                 lastPerformance: LastPerformance.summary(for: session.exercise.name, in: pastSessions)
                             )
                         }
@@ -131,6 +146,20 @@ struct ActiveSessionView: View {
             RestTimerView(seconds: restSeconds) { restSeconds = $0 }.presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showPlate) { PlateCalculatorView() }
+        .confirmationDialog("Retirer cet exercice ?",
+                            isPresented: Binding(get: { exerciseToRemove != nil },
+                                                 set: { if !$0 { exerciseToRemove = nil } }),
+                            titleVisibility: .visible) {
+            Button("Retirer", role: .destructive) {
+                if let ex = exerciseToRemove {
+                    withAnimation(LumeMotion.snappy) { sessions.removeAll { $0.id == ex.id } }
+                }
+                exerciseToRemove = nil
+            }
+            Button("Annuler", role: .cancel) { exerciseToRemove = nil }
+        } message: {
+            Text(exerciseToRemove.map { "« \($0.exercise.name) » et ses séries seront retirés de la séance." } ?? "")
+        }
         .sheet(isPresented: $showAddExercise) {
             ExercisePickerView { exercise in
                 sessions.append(ExerciseSession(exercise: exercise,

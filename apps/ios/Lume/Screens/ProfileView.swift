@@ -57,7 +57,9 @@ struct ProfileView: View {
 
     /// Efface tout le journal et réinitialise (avec confirmation préalable).
     private func resetAllData() {
-        for model in [LoggedFood.self] { try? ctx.delete(model: model) }
+        for model in [LoggedFood.self] {
+            try? ctx.delete(model: model)
+        }
         try? ctx.delete(model: WaterLog.self)
         try? ctx.delete(model: WeightSample.self)
         try? ctx.delete(model: WorkoutSessionModel.self)

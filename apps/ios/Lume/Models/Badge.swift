@@ -14,7 +14,7 @@ struct Badge: Identifiable {
 
     enum Category: String, CaseIterable, Identifiable {
         /// Muscu
-        case volume, force, regularity
+        case attendance, force, regularity
         // Nutrition
         case logging, streak, balance
         var id: String {
@@ -23,7 +23,7 @@ struct Badge: Identifiable {
 
         var label: String {
             switch self {
-            case .volume: "Assiduité"
+            case .attendance: "Assiduité"
             case .force: "Force"
             case .regularity: "Régularité"
             case .logging: "Suivi"
@@ -45,8 +45,6 @@ struct BadgeStats {
     var bestOneRM: Int = 0
     /// Plus long streak hebdomadaire historique (semaines).
     var longestWeeklyStreak: Int = 0
-    /// Volume total cumulé sur toutes les séances (kg).
-    var totalVolume: Int = 0
 
     /// — Nutrition —
     /// Nombre de jours distincts où au moins un repas a été logué.
@@ -62,15 +60,15 @@ enum BadgeCatalog {
     static let all: [Badge] = [
         // — Assiduité (nombre de séances) —
         Badge(id: "sessions_1", title: "Première séance", detail: "Tu as enregistré ta toute première séance.",
-              icon: .workout, tint: LumeColor.success, category: .volume),
+              icon: .workout, tint: LumeColor.success, category: .attendance),
         Badge(id: "sessions_10", title: "10 séances", detail: "10 séances au compteur. L'habitude s'installe.",
-              icon: .workout, tint: LumeColor.success, category: .volume),
+              icon: .workout, tint: LumeColor.success, category: .attendance),
         Badge(id: "sessions_25", title: "25 séances", detail: "25 séances. Régularité confirmée.",
-              icon: .workout, tint: LumeColor.protein, category: .volume),
+              icon: .workout, tint: LumeColor.protein, category: .attendance),
         Badge(id: "sessions_50", title: "50 séances", detail: "50 séances. Une vraie discipline.",
-              icon: .workout, tint: LumeColor.protein, category: .volume),
+              icon: .workout, tint: LumeColor.protein, category: .attendance),
         Badge(id: "sessions_100", title: "100 séances", detail: "100 séances. Du sérieux.",
-              icon: .pr, tint: LumeColor.warning, category: .volume),
+              icon: .pr, tint: LumeColor.warning, category: .attendance),
 
         // — Force (1RM estimé) —
         Badge(id: "force_60", title: "60 kg", detail: "Tu as estimé un 1RM à 60 kg ou plus.",

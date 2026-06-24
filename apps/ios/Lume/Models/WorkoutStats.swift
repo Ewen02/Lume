@@ -22,21 +22,24 @@ struct WeekTraining {
 }
 
 enum WorkoutStats {
-    /// Résumé des 7 derniers jours.
+    /// Volume (kg·reps) d'une séance — somme entière par série (arrondi unifié avec `weeklyVolume`).
+    static func volume(of session: WorkoutSessionModel) -> Int {
+        session.orderedExercises.reduce(0) { exAcc, ex in
+            exAcc + ex.orderedSets.reduce(0) { $0 + Int($1.weight) * $1.reps }
+        }
+    }
+
+    /// Résumé de la **semaine calendaire courante** (cohérent avec le streak et l'anneau objectif).
     static func lastSevenDays(from sessions: [WorkoutSessionModel],
                               reference: Date = Date(),
                               calendar: Calendar = .current) -> WeekTraining
     {
-        let today0 = calendar.startOfDay(for: reference)
-        let weekStart = calendar.date(byAdding: .day, value: -6, to: today0) ?? today0
+        let weekStart = calendar.dateInterval(of: .weekOfYear, for: reference)?.start
+            ?? calendar.startOfDay(for: reference)
         let inWeek = sessions.filter { $0.date >= weekStart }
-        let volume = inWeek.reduce(0.0) { acc, s in
-            acc + s.orderedExercises.reduce(0.0) { exAcc, ex in
-                exAcc + ex.orderedSets.reduce(0.0) { $0 + $1.weight * Double($1.reps) }
-            }
-        }
+        let totalVolume = inWeek.reduce(0) { $0 + volume(of: $1) }
         let secs = inWeek.reduce(0) { $0 + $1.durationSec }
-        return WeekTraining(sessions: inWeek.count, volumeKg: Int(volume), minutes: secs / 60)
+        return WeekTraining(sessions: inWeek.count, volumeKg: totalVolume, minutes: secs / 60)
     }
 
     /// Meilleur 1RM estimé par exercice, trié du plus lourd au plus léger.
@@ -48,14 +51,18 @@ enum WorkoutStats {
         for session in sessions {
             for ex in session.orderedExercises where ex.bestOneRM > 0 {
                 if let cur = best[ex.name] {
-                    if ex.bestOneRM > cur.oneRM { best[ex.name] = (ex.bestOneRM, session.date) }
+                    // Meilleur 1RM ; à égalité, on retient la date la plus RÉCENTE (déterministe).
+                    if ex.bestOneRM > cur.oneRM || (ex.bestOneRM == cur.oneRM && session.date > cur.date) {
+                        best[ex.name] = (ex.bestOneRM, session.date)
+                    }
                 } else {
                     best[ex.name] = (ex.bestOneRM, session.date)
                 }
             }
         }
         return best
-            .sorted { $0.value.oneRM > $1.value.oneRM }
+            // Tri stable : 1RM décroissant, puis nom pour départager (ordre constant).
+            .sorted { $0.value.oneRM != $1.value.oneRM ? $0.value.oneRM > $1.value.oneRM : $0.key < $1.key }
             .map { PersonalRecord(exercise: $0.key, oneRM: $0.value.oneRM, date: $0.value.date) }
     }
 
@@ -67,14 +74,10 @@ enum WorkoutStats {
         return (0 ..< weeks).reversed().compactMap { offset -> VolumePoint? in
             guard let weekStart = calendar.date(byAdding: .weekOfYear, value: -offset, to: thisWeek),
                   let next = calendar.date(byAdding: .weekOfYear, value: 1, to: weekStart) else { return nil }
-            let volume = sessions
+            let weekVolume = sessions
                 .filter { $0.date >= weekStart && $0.date < next }
-                .reduce(0) { acc, s in
-                    acc + s.orderedExercises.reduce(0) { exAcc, ex in
-                        exAcc + ex.orderedSets.reduce(0) { $0 + Int($1.weight) * $1.reps }
-                    }
-                }
-            return VolumePoint(weekStart: weekStart, volumeKg: volume)
+                .reduce(0) { $0 + volume(of: $1) }
+            return VolumePoint(weekStart: weekStart, volumeKg: weekVolume)
         }
     }
 }

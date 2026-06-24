@@ -60,7 +60,7 @@ struct WorkoutStreakDetailView: View {
             VStack(spacing: Spacing.md) {
                 infoRow(icon: .streak, tint: LumeColor.protein,
                         title: "Comment ça marche",
-                        value: "Chaque semaine où tu atteins ton objectif de \(goal) séances prolonge ta série.")
+                        value: "Chaque semaine où tu atteins ton objectif de \(currentGoal) séances prolonge ta série.")
                 Divider().background(LumeColor.border)
                 infoRow(icon: .pr, tint: LumeColor.warning,
                         title: "Ton record",

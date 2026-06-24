@@ -17,4 +17,6 @@ extension Font {
     static let lumeSubhead = Font.system(.footnote, design: .default, weight: .medium)
     static let lumeFootnote = Font.system(.caption, design: .default, weight: .regular)
     static let lumeCaption = Font.system(.caption2, design: .default, weight: .semibold)
+    /// Micro-label (ex. poids gravé sur un disque). Plus petit que caption, suit Dynamic Type.
+    static let lumeMicro = Font.system(.caption2, design: .default, weight: .bold)
 }

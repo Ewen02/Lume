@@ -94,12 +94,4 @@ extension Mock {
             SetEntry(reps: 12, weight: 22, rpe: nil, done: false),
         ])]
     }
-
-    static var benchPR: [PRPoint] {
-        let cal = Calendar.current
-        let vals: [Double] = [78, 80, 82, 85, 86, 88, 90, 92, 94]
-        return vals.enumerated().map { i, v in
-            PRPoint(date: cal.date(byAdding: .weekOfYear, value: -(vals.count - 1 - i), to: Date())!, oneRM: v)
-        }
-    }
 }

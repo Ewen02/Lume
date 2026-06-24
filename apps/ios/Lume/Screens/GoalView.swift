@@ -15,7 +15,9 @@ struct GoalView: View {
     }
 
     /// Pas de saisie du poids (0,5 kg en métrique, ≈1 lb en impérial), exprimé en kg.
-    private var step: Double { WeightFormat.stepKg(imperial: useImperial) }
+    private var step: Double {
+        WeightFormat.stepKg(imperial: useImperial)
+    }
 
     private func save() {
         if let r = profiles.first { r.update(from: profile) }

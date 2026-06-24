@@ -5,6 +5,7 @@ import SwiftUI
 struct ExerciseEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
+    @Query private var existing: [ExerciseModel]
 
     @State private var name = ""
     @State private var muscle: MuscleGroup = .chest
@@ -14,7 +15,14 @@ struct ExerciseEditorView: View {
         name.trimmingCharacters(in: .whitespaces)
     }
 
+    /// Un exercice du même nom existe déjà (insensible à la casse) → évite les doublons.
+    private var isDuplicate: Bool {
+        let key = trimmedName.lowercased()
+        return !key.isEmpty && existing.contains { $0.name.lowercased() == key }
+    }
+
     private func save() {
+        guard !isDuplicate else { dismiss(); return }
         let eq = equipment.trimmingCharacters(in: .whitespaces)
         ctx.insert(ExerciseModel(name: trimmedName, muscleRaw: muscle.code,
                                  equipment: eq.isEmpty ? "Libre" : eq, isCustom: true))
@@ -61,10 +69,16 @@ struct ExerciseEditorView: View {
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
         .safeAreaInset(edge: .bottom) {
-            PrimaryButton(title: "Ajouter", icon: .validate) { save() }
-                .disabled(trimmedName.isEmpty)
-                .opacity(trimmedName.isEmpty ? 0.5 : 1)
-                .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
+            VStack(spacing: Spacing.xs) {
+                if isDuplicate {
+                    Text("« \(trimmedName) » existe déjà dans ta bibliothèque.")
+                        .font(.lumeFootnote).foregroundStyle(LumeColor.warning)
+                }
+                PrimaryButton(title: "Ajouter", icon: .validate) { save() }
+                    .disabled(trimmedName.isEmpty || isDuplicate)
+                    .opacity(trimmedName.isEmpty || isDuplicate ? 0.5 : 1)
+            }
+            .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
     }
 

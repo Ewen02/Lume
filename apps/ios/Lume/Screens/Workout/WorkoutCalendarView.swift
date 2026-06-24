@@ -83,7 +83,7 @@ struct WorkoutCalendarView: View {
     private func dayCell(_ day: Date) -> some View {
         let daySessions = sessionsByDay[calendar.startOfDay(for: day)] ?? []
         let isToday = calendar.isDateInToday(day)
-        let tint = daySessions.first.map(dominantTint) ?? LumeColor.faint
+        let tint = daySessions.isEmpty ? LumeColor.faint : dominantTint(daySessions)
 
         return Button {
             if let first = daySessions.first { routeSession = first }
@@ -96,6 +96,13 @@ struct WorkoutCalendarView: View {
                     .fill(daySessions.isEmpty ? Color.clear : tint)
                     .frame(width: 7, height: 7)
                     .scaleEffect(daySessions.isEmpty || appeared ? 1 : 0)
+                    // Indicateur de jour à plusieurs séances.
+                    .overlay(alignment: .topTrailing) {
+                        if daySessions.count > 1 {
+                            Text("\(daySessions.count)").font(.lumeMicro).foregroundStyle(LumeColor.muted)
+                                .offset(x: 7, y: -4)
+                        }
+                    }
             }
             .frame(maxWidth: .infinity).frame(height: 44)
             .background(isToday ? LumeColor.faint : Color.clear, in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
@@ -120,9 +127,16 @@ struct WorkoutCalendarView: View {
         }
     }
 
-    /// Couleur dominante d'une séance = groupe du 1er exercice (ordre conservé).
-    private func dominantTint(_ session: WorkoutSessionModel) -> Color {
-        session.orderedExercises.first?.muscle.tint ?? LumeColor.ink
+    /// Couleur dominante d'un jour = groupe musculaire le plus travaillé (par nombre de séries),
+    /// toutes séances du jour confondues — plus représentatif que le 1er exercice.
+    private func dominantTint(_ sessions: [WorkoutSessionModel]) -> Color {
+        var setsByGroup: [MuscleGroup: Int] = [:]
+        for session in sessions {
+            for ex in session.orderedExercises {
+                setsByGroup[ex.muscle, default: 0] += ex.orderedSets.count
+            }
+        }
+        return setsByGroup.max { $0.value < $1.value }?.key.tint ?? LumeColor.ink
     }
 }
 

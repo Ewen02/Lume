@@ -1,20 +1,30 @@
 import SwiftUI
 
+/// Minuteur de repos robuste : ancré sur une `endDate`, donc juste même si l'app passe en
+/// arrière-plan ou est fermée (le décompte se recalcule depuis l'heure réelle), et notifie
+/// la fin via une notification locale `time-sensitive`.
 struct RestTimerView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var remaining: Int
     @State private var total: Int
+    @State private var endDate: Date
     @State private var finished = false
-    @State private var running = true
+    @State private var now = Date()
     /// Remonte la durée choisie pour la réutiliser à la prochaine série.
     var onDurationChange: (Int) -> Void = { _ in }
 
     private static let presets = [60, 90, 120, 180]
+    /// Tick d'affichage (le temps réel vient de `endDate`, pas de l'accumulation de ticks).
+    private let tick = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
 
     init(seconds: Int = 90, onDurationChange: @escaping (Int) -> Void = { _ in }) {
-        _remaining = State(initialValue: seconds)
         _total = State(initialValue: seconds)
+        _endDate = State(initialValue: Date().addingTimeInterval(TimeInterval(seconds)))
         self.onDurationChange = onDurationChange
+    }
+
+    /// Secondes restantes, calculées depuis l'heure réelle (jamais en retard/avance).
+    private var remaining: Int {
+        max(0, Int(endDate.timeIntervalSince(now).rounded(.up)))
     }
 
     private var mmss: String {
@@ -25,7 +35,6 @@ struct RestTimerView: View {
         VStack(spacing: Spacing.lg) {
             Text("Repos").font(.lumeHeadline).foregroundStyle(LumeColor.muted).padding(.top, Spacing.xl)
 
-            // Présélections de durée.
             HStack(spacing: Spacing.sm) {
                 ForEach(Self.presets, id: \.self) { sec in
                     let active = total == sec
@@ -51,7 +60,7 @@ struct RestTimerView: View {
 
             HStack(spacing: Spacing.xl) {
                 pill("−15 s") { adjust(-15) }
-                Button { dismiss() } label: {
+                Button { stopAndDismiss() } label: {
                     Text(remaining == 0 ? "Terminé" : "Passer").font(.lumeCallout).foregroundStyle(LumeColor.surface)
                         .padding(.vertical, Spacing.md).padding(.horizontal, Spacing.xxl)
                         .background(LumeColor.ink).clipShape(Capsule())
@@ -64,14 +73,11 @@ struct RestTimerView: View {
         .background(LumeColor.cream.ignoresSafeArea())
         .sensoryFeedback(.success, trigger: finished)
         .sensoryFeedback(.selection, trigger: total)
-        // Décompte réel : un tick par seconde tant qu'il reste du temps.
-        .task {
-            while running, remaining > 0 {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                guard !Task.isCancelled else { return }
-                withAnimation(LumeMotion.smooth) { remaining = max(0, remaining - 1) }
-                if remaining == 0 { finished = true }
-            }
+        .onAppear { NotificationManager.scheduleRestEnd(in: remaining) }
+        .onDisappear { NotificationManager.cancelRestEnd() }
+        .onReceive(tick) { date in
+            now = date
+            if remaining == 0, !finished { finished = true }
         }
     }
 
@@ -79,22 +85,31 @@ struct RestTimerView: View {
         seconds % 60 == 0 ? "\(seconds / 60) min" : "\(seconds)s"
     }
 
-    /// Choisit une durée préréglée : réinitialise le décompte et mémorise le choix.
+    /// Choisit une durée préréglée : réancre la fin et reprogramme la notification.
     private func setDuration(_ seconds: Int) {
         withAnimation(LumeMotion.snappy) {
             total = seconds
-            remaining = seconds
+            endDate = Date().addingTimeInterval(TimeInterval(seconds))
             finished = false
         }
+        NotificationManager.scheduleRestEnd(in: seconds)
         onDurationChange(seconds)
     }
 
     private func adjust(_ delta: Int) {
+        let newRemaining = max(0, remaining + delta)
         withAnimation(LumeMotion.snappy) {
-            remaining = max(0, remaining + delta)
-            total = max(total, remaining)
-            if remaining > 0 { finished = false }
+            endDate = Date().addingTimeInterval(TimeInterval(newRemaining))
+            total = max(total, newRemaining)
+            if newRemaining > 0 { finished = false }
         }
+        NotificationManager.scheduleRestEnd(in: newRemaining)
+        onDurationChange(total)
+    }
+
+    private func stopAndDismiss() {
+        NotificationManager.cancelRestEnd()
+        dismiss()
     }
 
     private func pill(_ t: String, _ a: @escaping () -> Void) -> some View {

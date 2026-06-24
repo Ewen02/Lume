@@ -18,6 +18,7 @@ struct SetHeaderRow: View {
 struct SetRow: View {
     var index: Int
     @Binding var set: SetEntry
+    @FocusState private var focused: Bool
 
     var body: some View {
         HStack(spacing: 0) {
@@ -26,18 +27,18 @@ struct SetRow: View {
                 .frame(width: 44, alignment: .leading)
             // Poids (kg) — éditable, décimales autorisées.
             TextField("0", value: $set.weight, format: .number)
-                .keyboardType(.decimalPad).multilineTextAlignment(.center)
+                .keyboardType(.decimalPad).multilineTextAlignment(.center).focused($focused)
                 .font(.lumeCallout).foregroundStyle(LumeColor.ink).monospacedDigit().frame(maxWidth: .infinity)
             // Répétitions — éditable, entier.
             TextField("0", value: $set.reps, format: .number)
-                .keyboardType(.numberPad).multilineTextAlignment(.center)
+                .keyboardType(.numberPad).multilineTextAlignment(.center).focused($focused)
                 .font(.lumeCallout).foregroundStyle(LumeColor.ink).monospacedDigit().frame(maxWidth: .infinity)
-            // RPE — éditable, optionnel (0 = non renseigné, affiché "—").
+            // RPE — optionnel, borné 1…10 (0 = non renseigné, affiché "—").
             TextField("—", value: Binding(
                 get: { set.rpe ?? 0 },
-                set: { set.rpe = $0 == 0 ? nil : $0 }
+                set: { set.rpe = $0 <= 0 ? nil : min(10, $0) }
             ), format: .number)
-                .keyboardType(.numberPad).multilineTextAlignment(.center)
+                .keyboardType(.numberPad).multilineTextAlignment(.center).focused($focused)
                 .font(.lumeCallout).foregroundStyle(LumeColor.muted).monospacedDigit().frame(maxWidth: .infinity)
             Button { withAnimation(LumeMotion.bouncy) { set.done.toggle() } } label: {
                 Image(appIcon: .validate)
@@ -52,10 +53,16 @@ struct SetRow: View {
         }
         .padding(.vertical, Spacing.sm)
         .padding(.horizontal, Spacing.xs)
-        // Série validée : fond vert doux, pour la repérer d'un coup d'œil.
-        .background(set.done ? LumeColor.success.opacity(0.10) : .clear,
+        // Série renseignée (reps > 0) ou validée : fond vert doux, repérable d'un coup d'œil.
+        .background(set.done || set.reps > 0 ? LumeColor.success.opacity(0.10) : .clear,
                     in: RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
         .animation(LumeMotion.bouncy, value: set.done)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("OK") { focused = false }.font(.lumeCallout.weight(.semibold))
+            }
+        }
     }
 }
 
@@ -219,7 +226,7 @@ struct PlateView: View {
                 RoundedRectangle(cornerRadius: 3)
                     .fill(Self.color(w))
                     .frame(width: 14, height: 36 + CGFloat(min(w, 25)) * 2.2)
-                    .overlay(Text(w.clean).font(.system(size: 8, weight: .bold)).foregroundStyle(.white).rotationEffect(.degrees(-90)))
+                    .overlay(Text(w.clean).font(.lumeMicro).foregroundStyle(LumeColor.surface).rotationEffect(.degrees(-90)))
             }
             Spacer()
         }
