@@ -62,4 +62,30 @@ struct WeightTrendTests {
     @Test func remainingToTargetNilWhenNoCurrent() {
         #expect(WeightTrend.remainingToTarget(current: nil, target: 75) == nil)
     }
+
+    // MARK: targetLabel (directionnel + epsilon)
+
+    @Test func targetLabelReachedWithinEpsilon() {
+        // À 0.1 kg de la cible (< epsilon 0.25) → objectif atteint, peu importe le sens.
+        #expect(WeightTrend.targetLabel(current: 75.1, target: 75, goal: .lose) == "Objectif atteint")
+    }
+
+    @Test func targetLabelLoseStillAbove() {
+        // Objectif perte, encore au-dessus → « Reste X kg ».
+        #expect(WeightTrend.targetLabel(current: 78, target: 75, goal: .lose) == "Reste 3.0 kg")
+    }
+
+    @Test func targetLabelLoseBelowTarget() {
+        // Objectif perte, passé sous la cible → distinct de « Reste ».
+        #expect(WeightTrend.targetLabel(current: 73, target: 75, goal: .lose) == "2.0 kg sous l'objectif")
+    }
+
+    @Test func targetLabelGainStillBelow() {
+        // Objectif prise, encore en-dessous → « Reste X kg ».
+        #expect(WeightTrend.targetLabel(current: 72, target: 75, goal: .gain) == "Reste 3.0 kg")
+    }
+
+    @Test func targetLabelNilWithoutTarget() {
+        #expect(WeightTrend.targetLabel(current: 75, target: 0, goal: .lose) == nil)
+    }
 }

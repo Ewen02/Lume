@@ -25,7 +25,7 @@ enum WeightTrend {
     /// (plus honnête que `dernier - premier` brut). `nil` si la série est insuffisante.
     static func movingAverageDelta(_ entries: [WeightEntry],
                                    days: Int = 7,
-                                   reference: Date = Date(),
+                                   reference _: Date = Date(),
                                    calendar: Calendar = .current) -> Double?
     {
         guard entries.count > 1 else { return nil }
@@ -43,5 +43,29 @@ enum WeightTrend {
     static func remainingToTarget(current: Double?, target: Double) -> Double? {
         guard let current, current > 0, target > 0 else { return nil }
         return current - target
+    }
+
+    /// Tolérance (kg) en-dessous de laquelle on considère l'objectif atteint.
+    static let targetEpsilon = 0.25
+
+    /// Libellé directionnel de l'écart à l'objectif, tenant compte du sens de l'objectif
+    /// (perte vs prise de poids). `nil` si pas d'objectif ou pas de poids courant.
+    ///
+    /// - `goal` : sens de l'objectif. `.lose` → on descend vers la cible ; `.gain` → on monte ;
+    ///   `.maintain` → on vise l'égalité (le plus proche, dans les deux sens).
+    static func targetLabel(current: Double?, target: Double, goal: Goal) -> String? {
+        guard let remaining = remainingToTarget(current: current, target: target) else { return nil }
+        if abs(remaining) < targetEpsilon { return "Objectif atteint" }
+        let kg = String(format: "%.1f kg", abs(remaining))
+        switch goal {
+        case .lose:
+            // current > target → encore à perdre ; current < target → sous la cible.
+            return remaining > 0 ? "Reste \(kg)" : "\(kg) sous l'objectif"
+        case .gain:
+            // current < target → encore à prendre ; current > target → au-dessus.
+            return remaining < 0 ? "Reste \(kg)" : "\(kg) au-dessus"
+        case .maintain:
+            return remaining > 0 ? "\(kg) au-dessus" : "\(kg) sous l'objectif"
+        }
     }
 }

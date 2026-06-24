@@ -44,4 +44,44 @@ enum WeeklyCalories {
         let deltaPct = lastWeek > 0 ? (Double(thisWeek) - Double(lastWeek)) / Double(lastWeek) : nil
         return (thisWeek, lastWeek, deltaPct)
     }
+
+    /// Agrège les calories par **semaine** depuis `start` jusqu'à `reference` : une barre
+    /// par semaine (moyenne kcal/jour renseigné de la semaine). Utilisé pour les périodes
+    /// > 7 j où un graphe jour-par-jour serait illisible. Ordonné du plus ancien au courant.
+    static func byWeek(from entries: [LoggedFood],
+                       since start: Date,
+                       reference: Date = Date(),
+                       calendar: Calendar = .current) -> [DayCalories]
+    {
+        let from = calendar.startOfDay(for: start)
+        let to = calendar.startOfDay(for: reference)
+        /// Borne de semaine (lundi) de chaque date, pour grouper.
+        func weekStart(_ date: Date) -> Date {
+            calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? calendar.startOfDay(for: date)
+        }
+        // Somme + nombre de jours actifs par semaine.
+        var sumByWeek: [Date: Int] = [:]
+        var daysByWeek: [Date: Set<Date>] = [:]
+        for f in entries where f.date >= from {
+            let day = calendar.startOfDay(for: f.date)
+            let wk = weekStart(day)
+            sumByWeek[wk, default: 0] += f.kcal
+            daysByWeek[wk, default: []].insert(day)
+        }
+        // Génère toutes les semaines de la fenêtre (même vides) pour un axe continu.
+        var weeks: [Date] = []
+        var cursor = weekStart(from)
+        let lastWeek = weekStart(to)
+        while cursor <= lastWeek {
+            weeks.append(cursor)
+            cursor = calendar.date(byAdding: .weekOfYear, value: 1, to: cursor) ?? lastWeek.addingTimeInterval(1)
+        }
+        return weeks.map { wk in
+            let days = daysByWeek[wk]?.count ?? 0
+            let avg = days > 0 ? (sumByWeek[wk] ?? 0) / days : 0
+            let day = calendar.component(.day, from: wk)
+            let month = calendar.component(.month, from: wk)
+            return DayCalories(label: "\(day)/\(month)", kcal: avg)
+        }
+    }
 }

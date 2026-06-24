@@ -4,6 +4,7 @@ import SwiftUI
 struct RootView: View {
     @AppStorage("lume.hasOnboarded") private var hasOnboarded = false
     @Query private var profiles: [ProfileRecord]
+    @Query(sort: \WeightSample.date, order: .reverse) private var weightSamples: [WeightSample]
     @State private var tab: LumeTab = .today
     @State private var showCapture = false
     @State private var showSession = false
@@ -70,7 +71,8 @@ struct RootView: View {
             ActiveSessionView()
         }
         .sheet(isPresented: $showWeight) {
-            WeightEntryView(current: nil)
+            // Pré-rempli au dernier poids connu (local), sinon l'init retombe sur 70 kg.
+            WeightEntryView(current: weightSamples.first?.kg)
         }
         .sensoryFeedback(.selection, trigger: tab)
         .sensoryFeedback(.success, trigger: justLoggedID)

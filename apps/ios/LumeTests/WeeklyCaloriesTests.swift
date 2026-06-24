@@ -60,4 +60,15 @@ struct WeeklyCaloriesTests {
         #expect(wow.lastWeek == 0)
         #expect(wow.deltaPct == nil)
     }
+
+    @Test func byWeekAggregatesAndCoversEmptyWeeks() {
+        // Fenêtre 30 j ; repas seulement aujourd'hui (2000) et il y a 14 j (1000).
+        let start = cal.date(byAdding: .day, value: -29, to: cal.startOfDay(for: ref))!
+        let foods = [food(0, kcal: 2000), food(-14, kcal: 1000)]
+        let weeks = WeeklyCalories.byWeek(from: foods, since: start, reference: ref, calendar: cal)
+        // Au moins 4 semaines couvertes (axe continu), et les kcal max correspondent à une semaine active.
+        #expect(weeks.count >= 4)
+        #expect(weeks.map(\.kcal).max() == 2000)
+        #expect(weeks.contains { $0.kcal == 1000 })
+    }
 }
