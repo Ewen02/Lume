@@ -20,6 +20,11 @@ targets:
     platform: iOS
     sources:
       - path: Lume
+    # Secrets API (URL + jeton) lus depuis un .xcconfig NON versionné.
+    # Copie Lume/Secrets.xcconfig.example → Lume/Secrets.xcconfig avant de générer.
+    configFiles:
+      Debug: Lume/Secrets.xcconfig
+      Release: Lume/Secrets.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.ewen.lume     # ← adapte si besoin
@@ -43,11 +48,9 @@ targets:
         # CloudKit : notifications distantes en arrière-plan
         # ⚠️ Désactivé pour Personal Team (compte gratuit) — réactiver avec un compte payant.
         # UIBackgroundModes: [remote-notification]
-        # Config API (lue par LumeConfig depuis Info.plist)
-        # Backend déployé sur Railway (HTTPS public) — marche partout, y compris en 5G.
-        LUME_API_BASE_URL: "https://lumeserver-production.up.railway.app"
-        # Doit être identique à API_TOKEN dans les variables d'env Railway.
-        LUME_API_TOKEN: "6a2c72d98f6671d3a3488fc6f419a39775a0295a95d56f21d60956e150c734da"
+        # Config API : valeurs injectées depuis Secrets.xcconfig (non versionné), pas en clair ici.
+        LUME_API_BASE_URL: "$(LUME_API_BASE_URL)"
+        LUME_API_TOKEN: "$(LUME_API_TOKEN)"
 
   LumeTests:
     type: bundle.unit-test

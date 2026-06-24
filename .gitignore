@@ -11,7 +11,9 @@ xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 # Projet Xcode généré par XcodeGen (régénérer avec `pnpm ios:generate`)
 apps/ios/Lume.xcodeproj/
-# Info.plist généré par XcodeGen (contient le token API en clair → ne pas versionner)
+# Info.plist généré par XcodeGen (injecte le token API → ne pas versionner)
 apps/ios/Lume/Info.plist
+# Secrets API (URL + jeton) — non versionnés ; voir Secrets.xcconfig.example
+apps/ios/Lume/Secrets.xcconfig
 # logs locaux
 *.log
