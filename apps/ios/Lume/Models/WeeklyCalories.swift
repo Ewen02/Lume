@@ -84,4 +84,27 @@ enum WeeklyCalories {
             return DayCalories(label: "\(day)/\(month)", kcal: avg)
         }
     }
+
+    /// Calories consommées par jour, datées, de `start` au jour de `reference` inclus.
+    /// Tous les jours de la fenêtre sont présents (vides à 0) pour un axe continu — sert
+    /// au graphe « balance énergétique » qui joint la conso à la dépense par date.
+    static func consumedByDay(from entries: [LoggedFood],
+                              since start: Date,
+                              reference: Date = Date(),
+                              calendar: Calendar = .current) -> [DayValue]
+    {
+        let from = calendar.startOfDay(for: start)
+        let to = calendar.startOfDay(for: reference)
+        var sumByDay: [Date: Int] = [:]
+        for f in entries where f.date >= from {
+            sumByDay[calendar.startOfDay(for: f.date), default: 0] += f.kcal
+        }
+        var out: [DayValue] = []
+        var cursor = from
+        while cursor <= to {
+            out.append(DayValue(date: cursor, value: sumByDay[cursor] ?? 0))
+            cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? to.addingTimeInterval(1)
+        }
+        return out
+    }
 }

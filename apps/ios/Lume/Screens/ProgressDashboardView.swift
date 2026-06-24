@@ -107,7 +107,9 @@ struct ProgressDashboardView: View {
         return series.filter { $0.date >= start }
     }
 
-    private var stepsForPeriod: [DayValue] { forPeriod(health.stepsSeries) }
+    private var stepsForPeriod: [DayValue] {
+        forPeriod(health.stepsSeries)
+    }
 
     /// Cible kcal cohérente avec l'écran Aujourd'hui : dynamique (BMR + calories actives
     /// réelles) si Santé est autorisé, sinon TDEE fixe.
@@ -165,8 +167,9 @@ struct ProgressDashboardView: View {
                 periodPicker.lumeEntrance(3)
                 weightCard.lumeEntrance(4)
                 caloriesCard.lumeEntrance(5)
-                if health.isAuthorized, !stepsForPeriod.isEmpty { activityCard.lumeEntrance(6) }
-                if !sessions.isEmpty { muscleCard.lumeEntrance(7) }
+                if hasBalanceData { energyBalanceCard.lumeEntrance(6) }
+                if health.isAuthorized, !stepsForPeriod.isEmpty { activityCard.lumeEntrance(7) }
+                if !sessions.isEmpty { muscleCard.lumeEntrance(8) }
             }
             .padding(.horizontal, Spacing.xl).padding(.top, Spacing.sm).padding(.bottom, 130)
         }
@@ -390,6 +393,87 @@ struct ProgressDashboardView: View {
 
     private var caloriesTitle: String {
         period.aggregatesByWeek ? "Calories / semaine" : "Calories cette semaine"
+    }
+
+    /// Métabolisme de repos (BMR) du profil — base de la dépense quotidienne.
+    private var bmr: Int {
+        profiles.first.map { Int(TDEECalculator.bmr($0.profile).rounded()) } ?? 0
+    }
+
+    /// Début de la fenêtre balance : début de période, sinon 1ʳᵉ pesée/repas réel (évite « Tout » infini).
+    private var balanceStart: Date {
+        if let start = period.start() { return start }
+        let earliest = [allFoods.map(\.date).min(), health.activeEnergySeries.first?.date].compactMap { $0 }.min()
+        return earliest ?? Calendar.current.date(byAdding: .day, value: -29, to: Date())!
+    }
+
+    /// Série jour-par-jour conso vs dépense (BMR + calories actives Santé).
+    private var balanceSeries: [DayBalance] {
+        let consumed = WeeklyCalories.consumedByDay(from: allFoods, since: balanceStart)
+        return EnergyBalance.series(consumed: consumed,
+                                    activeEnergy: forPeriod(health.activeEnergySeries),
+                                    bmr: bmr)
+    }
+
+    /// On affiche la balance dès qu'on a un BMR et au moins un jour de conso ou de dépense.
+    private var hasBalanceData: Bool {
+        bmr > 0 && balanceSeries.contains { $0.consumed > 0 }
+    }
+
+    private var energyBalanceCard: some View {
+        let series = balanceSeries
+        let avgNet = EnergyBalance.averageNet(series)
+        let maxVal = series.flatMap { [$0.consumed, $0.expended] }.max() ?? 1
+        return LumeCard {
+            VStack(alignment: .leading, spacing: Spacing.md) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Balance énergétique").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+                    Spacer()
+                    // Net moyen : déficit (vert, on perd) vs surplus (rouge, on prend).
+                    Text(avgNet <= 0 ? "déficit \(abs(avgNet)) kcal/j" : "surplus \(avgNet) kcal/j")
+                        .font(.lumeFootnote.weight(.semibold)).monospacedDigit()
+                        .foregroundStyle(avgNet <= 0 ? LumeColor.success : LumeColor.protein)
+                }
+                Chart(series) { d in
+                    // Consommé et dépensé côte à côte, un couple de barres par jour.
+                    BarMark(x: .value("Jour", d.date, unit: .day),
+                            y: .value("kcal", Double(d.consumed) * chartGrow), width: .fixed(6))
+                        .foregroundStyle(LumeColor.ink)
+                        .position(by: .value("Type", "Consommé"))
+                        .cornerRadius(3)
+                    BarMark(x: .value("Jour", d.date, unit: .day),
+                            y: .value("kcal", Double(d.expended) * chartGrow), width: .fixed(6))
+                        .foregroundStyle(LumeColor.carbs)
+                        .position(by: .value("Type", "Dépensé"))
+                        .cornerRadius(3)
+                }
+                .chartYScale(domain: 0 ... Double(max(maxVal, 1)))
+                .chartYAxis(.hidden)
+                .chartXAxis {
+                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                        AxisGridLine()
+                        AxisValueLabel(format: .dateTime.day().month(.abbreviated)).font(.lumeFootnote)
+                    }
+                }
+                .frame(height: 150)
+                .accessibilityLabel("Balance énergétique : consommé vs dépensé par jour")
+                // Légende + honnêteté sur la source de la dépense.
+                HStack(spacing: Spacing.md) {
+                    legendDot(LumeColor.ink, "Consommé")
+                    legendDot(LumeColor.carbs, "Dépensé")
+                    Spacer()
+                }
+                Text(health.isAuthorized ? "Dépense = repos + activité (Santé)." : "Dépense au repos seul — active Apple Santé pour inclure ton activité.")
+                    .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private func legendDot(_ color: Color, _ label: String) -> some View {
+        HStack(spacing: Spacing.xs) {
+            Circle().fill(color).frame(width: 8, height: 8)
+            Text(label).font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+        }
     }
 
     private var caloriesCard: some View {

@@ -71,4 +71,17 @@ struct WeeklyCaloriesTests {
         #expect(weeks.map(\.kcal).max() == 2000)
         #expect(weeks.contains { $0.kcal == 1000 })
     }
+
+    @Test func consumedByDayIsDatedAndCoversEmptyDays() {
+        // Repas aujourd'hui (300+200=500) et il y a 2 jours (400). Fenêtre = 3 jours.
+        let start = cal.date(byAdding: .day, value: -2, to: cal.startOfDay(for: ref))!
+        let foods = [food(0, kcal: 300), food(0, kcal: 200), food(-2, kcal: 400)]
+        let days = WeeklyCalories.consumedByDay(from: foods, since: start, reference: ref, calendar: cal)
+        #expect(days.count == 3) // jours datés, fenêtre continue
+        #expect(days.first?.value == 400) // J-2
+        #expect(days[1].value == 0) // J-1 vide
+        #expect(days.last?.value == 500) // aujourd'hui (somme)
+        // Les dates sont bien ordonnées et croissantes.
+        #expect(days[0].date < days[1].date && days[1].date < days[2].date)
+    }
 }
