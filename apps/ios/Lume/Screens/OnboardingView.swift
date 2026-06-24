@@ -28,7 +28,15 @@ struct OnboardingView: View {
         var saved = profile
         saved.name = trimmedName
         if let r = profiles.first { r.update(from: saved) }
-        else { ctx.insert(ProfileRecord(from: saved)) }
+        else {
+            ctx.insert(ProfileRecord(from: saved))
+            // 1er point de poids réel : le graphe Progrès démarre avec une vraie donnée
+            // (pas de courbe de démo) dès la fin de l'onboarding.
+            if saved.weightKg > 0 {
+                ctx.insert(WeightSample(date: Date(), kg: saved.weightKg))
+                Task { await health.saveWeight(kg: saved.weightKg) }
+            }
+        }
         onFinish()
     }
 

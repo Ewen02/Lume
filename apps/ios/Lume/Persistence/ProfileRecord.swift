@@ -38,6 +38,9 @@ final class ProfileRecord {
     /// Objectif d'hydratation quotidien, en verres de 250 ml (8 ≈ 2 L).
     var waterGoalGlasses: Int = 8
 
+    /// Objectif de poids en kg. `0` = non défini (CloudKit exige une valeur par défaut).
+    var targetWeightKg: Double = 0
+
     init(name: String = "Ewen", sexRaw: String = "male", age: Int = 24, heightCm: Int = 178,
          weightKg: Double = 74, activityRaw: String = "moderate", goalRaw: String = "maintain")
     {
@@ -49,18 +52,21 @@ final class ProfileRecord {
         self.init(name: p.name, sexRaw: p.sex == .male ? "male" : "female", age: p.age,
                   heightCm: p.heightCm, weightKg: p.weightKg,
                   activityRaw: Self.raw(p.activity), goalRaw: Self.raw(p.goal))
+        targetWeightKg = p.targetWeightKg
     }
 
     func update(from p: UserProfile) {
         name = p.name; sexRaw = p.sex == .male ? "male" : "female"; age = p.age
         heightCm = p.heightCm; weightKg = p.weightKg
         activityRaw = Self.raw(p.activity); goalRaw = Self.raw(p.goal)
+        targetWeightKg = p.targetWeightKg
     }
 
     var profile: UserProfile {
         UserProfile(name: name, sex: sexRaw == "female" ? .female : .male, age: age,
                     heightCm: heightCm, weightKg: weightKg,
-                    activity: Self.activity(activityRaw), goal: Self.goal(goalRaw))
+                    activity: Self.activity(activityRaw), goal: Self.goal(goalRaw),
+                    targetWeightKg: targetWeightKg)
     }
 
     /// Mapping enum <-> string (les enums n'ont pas de rawValue stockable)

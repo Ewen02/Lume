@@ -21,16 +21,34 @@ struct ProgressDashboardView: View {
                            sort: \LoggedFood.date, order: .reverse)
     }
 
-    /// Priorité : HealthKit → poids saisis localement (WeightSample) → démo.
+    /// Priorité : HealthKit → poids saisis localement (WeightSample). Vide si aucune donnée
+    /// réelle (la vue affiche alors un état vide, jamais de courbe de démo).
     private var weights: [WeightEntry] {
         if !health.weightSeries.isEmpty { return health.weightSeries }
-        if !weightSamples.isEmpty { return weightSamples.map { WeightEntry(date: $0.date, kg: $0.kg) } }
-        return Mock.weights
+        return weightSamples.map { WeightEntry(date: $0.date, kg: $0.kg) }
     }
 
-    /// Calories par jour sur 7 jours : repli démo seulement si aucun repas enregistré.
+    private var hasWeightData: Bool { !weights.isEmpty }
+
+    /// Série de poids lissée (moyenne glissante) pour une tendance lisible.
+    private var smoothedWeights: [WeightEntry] {
+        WeightTrend.smoothed(weights)
+    }
+
+    /// Calories par jour sur 7 jours. Vide si aucun repas enregistré (→ état vide).
     private var week: [DayCalories] {
-        weekFoods.isEmpty ? Mock.weekCalories : WeeklyCalories.lastSevenDays(from: weekFoods)
+        weekFoods.isEmpty ? [] : WeeklyCalories.lastSevenDays(from: weekFoods)
+    }
+
+    private var hasWeekData: Bool { week.contains { $0.kcal > 0 } }
+
+    /// Comparaison kcal moyenne semaine courante vs précédente.
+    private var weekComparison: (thisWeek: Int, lastWeek: Int, deltaPct: Double?) {
+        WeeklyCalories.weekOverWeek(from: allFoods)
+    }
+
+    private var targetWeightKg: Double {
+        profiles.first?.targetWeightKg ?? 0
     }
 
     private var streak: Int {
@@ -45,8 +63,10 @@ struct ProgressDashboardView: View {
         weights.last?.kg ?? 0
     }
 
-    private var delta: Double {
-        (weights.last?.kg ?? 0) - (weights.first?.kg ?? 0)
+    /// Variation sur 7 jours basée sur la tendance lissée (plus honnête que dernier−premier).
+    /// `nil` tant qu'il n'y a pas assez de points pour une tendance.
+    private var delta: Double? {
+        WeightTrend.movingAverageDelta(weights)
     }
 
     private var avgKcal: Int {
@@ -70,9 +90,11 @@ struct ProgressDashboardView: View {
         sessions.flatMap { $0.orderedExercises.map(\.bestOneRM) }.max() ?? 0
     }
 
-    /// Bornes de l'axe Y du graphe poids (défensif si la série venait à être vide).
+    /// Bornes de l'axe Y du graphe poids. Inclut l'objectif s'il est défini (pour que la
+    /// ligne pointillée reste visible). Défensif si la série venait à être vide.
     private var weightDomain: ClosedRange<Double> {
-        let kgs = weights.map(\.kg)
+        var kgs = weights.map(\.kg)
+        if targetWeightKg > 0 { kgs.append(targetWeightKg) }
         guard let lo = kgs.min(), let hi = kgs.max() else { return 0 ... 1 }
         return (lo - 1) ... (hi + 1)
     }
@@ -82,14 +104,18 @@ struct ProgressDashboardView: View {
             VStack(spacing: Spacing.lg) {
                 HStack(spacing: Spacing.md) {
                     Button { showWeightEntry = true } label: {
-                        StatTile(icon: .weight, tint: LumeColor.fat, value: String(format: "%.1f kg", current), label: "Poids actuel")
+                        StatTile(icon: .weight, tint: LumeColor.fat,
+                                 value: hasWeightData ? String(format: "%.1f kg", current) : "—",
+                                 label: "Poids actuel")
                     }.buttonStyle(.lumePress)
-                    StatTile(icon: .progress, tint: delta <= 0 ? LumeColor.success : LumeColor.protein,
-                             value: String(format: "%+.1f kg", delta), label: "Variation")
+                    StatTile(icon: .progress,
+                             tint: (delta ?? 0) <= 0 ? LumeColor.success : LumeColor.protein,
+                             value: delta.map { String(format: "%+.1f kg", $0) } ?? "—",
+                             label: "Variation")
                 }
                 .lumeEntrance(0)
                 HStack(spacing: Spacing.md) {
-                    StatTile(icon: .calories, tint: LumeColor.carbs, value: "\(avgKcal)", label: "Moy. kcal / jour")
+                    StatTile(icon: .calories, tint: LumeColor.carbs, value: avgKcal > 0 ? "\(avgKcal)" : "—", label: "Moy. kcal / jour")
                     Button { if streak > 0 { showStreak = true } } label: {
                         StatTile(icon: .streak, tint: LumeColor.protein, value: streak > 0 ? "\(streak) j" : "—", label: "Série en cours")
                     }.buttonStyle(.lumePress)
@@ -167,34 +193,97 @@ struct ProgressDashboardView: View {
     private var weightCard: some View {
         LumeCard {
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("Poids").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
-                Chart(weights) { e in
-                    AreaMark(x: .value("Date", e.date), y: .value("kg", e.kg))
-                        .interpolationMethod(.catmullRom)
-                        .foregroundStyle(LinearGradient(colors: [LumeColor.ink.opacity(0.18), .clear], startPoint: .top, endPoint: .bottom))
-                    LineMark(x: .value("Date", e.date), y: .value("kg", e.kg))
-                        .interpolationMethod(.catmullRom)
-                        .foregroundStyle(LumeColor.ink).lineStyle(.init(lineWidth: 2.5))
+                HStack {
+                    Text("Poids").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+                    Spacer()
+                    if hasWeightData, targetWeightKg > 0,
+                       let remaining = WeightTrend.remainingToTarget(current: current, target: targetWeightKg)
+                    {
+                        Text(remaining == 0 ? "Objectif atteint" : String(format: "Reste %.1f kg", abs(remaining)))
+                            .font(.lumeFootnote).foregroundStyle(LumeColor.muted).monospacedDigit()
+                    }
                 }
-                .chartYScale(domain: weightDomain)
-                .chartXAxis(.hidden)
-                .frame(height: 170)
+                if hasWeightData {
+                    weightChart
+                } else {
+                    VStack(spacing: Spacing.md) {
+                        LumeEmptyState(icon: .weight, title: "Ajoute ton poids",
+                                       message: "Suis ton évolution au fil des semaines.")
+                        SecondaryButton(title: "Ajouter", icon: .add) { showWeightEntry = true }
+                    }
+                }
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    private var weightChart: some View {
+        Chart {
+            // Points réels (discrets) — la vérité brute.
+            ForEach(weights) { e in
+                PointMark(x: .value("Date", e.date), y: .value("kg", e.kg))
+                    .foregroundStyle(LumeColor.muted.opacity(0.5))
+                    .symbolSize(18)
+            }
+            // Tendance lissée (ligne nette + aire douce).
+            ForEach(smoothedWeights) { e in
+                AreaMark(x: .value("Date", e.date), y: .value("kg", e.kg))
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(LinearGradient(colors: [LumeColor.ink.opacity(0.18), .clear], startPoint: .top, endPoint: .bottom))
+                LineMark(x: .value("Date", e.date), y: .value("kg", e.kg))
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(LumeColor.ink).lineStyle(.init(lineWidth: 2.5))
+            }
+            // Ligne d'objectif (pointillée) si défini.
+            if targetWeightKg > 0 {
+                RuleMark(y: .value("Objectif", targetWeightKg))
+                    .lineStyle(.init(lineWidth: 1.5, dash: [5, 4]))
+                    .foregroundStyle(LumeColor.success)
+                    .annotation(position: .top, alignment: .trailing) {
+                        Text(String(format: "Objectif %.0f kg", targetWeightKg))
+                            .font(.lumeFootnote).foregroundStyle(LumeColor.success)
+                    }
+            }
+        }
+        .chartYScale(domain: weightDomain)
+        .chartXAxis {
+            AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                AxisGridLine()
+                AxisValueLabel(format: .dateTime.day().month(.abbreviated))
+                    .font(.lumeFootnote)
+            }
+        }
+        .frame(height: 170)
+        .accessibilityLabel("Évolution du poids")
+        .accessibilityValue(hasWeightData ? String(format: "Actuel %.1f kilos", current) : "Aucune donnée")
     }
 
     private var caloriesCard: some View {
         LumeCard {
             VStack(alignment: .leading, spacing: Spacing.md) {
-                Text("Calories cette semaine").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
-                Chart(week) { d in
-                    BarMark(x: .value("Jour", d.label), y: .value("kcal", Double(d.kcal) * chartGrow), width: .fixed(22))
-                        .foregroundStyle(d.kcal == 0 ? LumeColor.faint : LumeColor.ink)
-                        .cornerRadius(6)
+                HStack(alignment: .firstTextBaseline) {
+                    Text("Calories cette semaine").font(.lumeHeadline).foregroundStyle(LumeColor.ink)
+                    Spacer()
+                    if hasWeekData, let pct = weekComparison.deltaPct {
+                        let up = pct >= 0
+                        Text(String(format: "%@%.0f %% vs S-1", up ? "+" : "−", abs(pct) * 100))
+                            .font(.lumeFootnote.weight(.semibold)).monospacedDigit()
+                            .foregroundStyle(up ? LumeColor.protein : LumeColor.success)
+                    }
                 }
-                .chartYScale(domain: 0 ... Double(max(week.map(\.kcal).max() ?? 1, 1)))
-                .chartYAxis(.hidden)
-                .frame(height: 150)
+                if hasWeekData {
+                    Chart(week) { d in
+                        BarMark(x: .value("Jour", d.label), y: .value("kcal", Double(d.kcal) * chartGrow), width: .fixed(22))
+                            .foregroundStyle(d.kcal == 0 ? LumeColor.faint : LumeColor.ink)
+                            .cornerRadius(6)
+                    }
+                    .chartYScale(domain: 0 ... Double(max(week.map(\.kcal).max() ?? 1, 1)))
+                    .chartYAxis(.hidden)
+                    .frame(height: 150)
+                    .accessibilityLabel("Calories des 7 derniers jours")
+                } else {
+                    LumeEmptyState(icon: .calories, title: "Aucun repas cette semaine",
+                                   message: "Journalise tes repas pour suivre tes calories.")
+                }
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }

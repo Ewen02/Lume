@@ -43,4 +43,21 @@ struct WeeklyCaloriesTests {
         let week = [DayCalories(label: "L", kcal: 0), DayCalories(label: "M", kcal: 0)]
         #expect(WeeklyCalories.dailyAverage(of: week) == 0)
     }
+
+    @Test func weekOverWeekComputesDelta() {
+        // Cette semaine : 2000 kcal (aujourd'hui). Semaine dernière : 1000 (il y a 8 jours).
+        let foods = [food(0, kcal: 2000), food(-8, kcal: 1000)]
+        let wow = WeeklyCalories.weekOverWeek(from: foods, reference: ref, calendar: cal)
+        #expect(wow.thisWeek == 2000)
+        #expect(wow.lastWeek == 1000)
+        #expect(wow.deltaPct == 1.0) // +100 %
+    }
+
+    @Test func weekOverWeekNilWhenNoPriorWeek() {
+        // Aucune donnée la semaine précédente → deltaPct indéfini.
+        let wow = WeeklyCalories.weekOverWeek(from: [food(0, kcal: 1500)], reference: ref, calendar: cal)
+        #expect(wow.thisWeek == 1500)
+        #expect(wow.lastWeek == 0)
+        #expect(wow.deltaPct == nil)
+    }
 }

@@ -65,6 +65,10 @@ struct GoalView: View {
                 stepperRow(title: "Âge", value: "\(profile.age) ans") { profile.age = max(14, profile.age - 1) } plus: { profile.age += 1 }
                 stepperRow(title: "Taille", value: "\(profile.heightCm) cm") { profile.heightCm -= 1 } plus: { profile.heightCm += 1 }
                 stepperRow(title: "Poids", value: String(format: "%.1f kg", profile.weightKg)) { profile.weightKg -= 0.5 } plus: { profile.weightKg += 0.5 }
+                stepperRow(title: "Objectif de poids",
+                           value: profile.targetWeightKg > 0 ? String(format: "%.1f kg", profile.targetWeightKg) : "—",
+                           minus: { profile.targetWeightKg = profile.targetWeightKg > 0 ? max(0, profile.targetWeightKg - 0.5) : 0 },
+                           plus: { profile.targetWeightKg = profile.targetWeightKg > 0 ? min(250, profile.targetWeightKg + 0.5) : (profile.weightKg * 2).rounded() / 2 })
                 rowPicker(title: "Activité") {
                     Picker("", selection: $profile.activity) {
                         ForEach(ActivityLevel.allCases, id: \.self) { Text($0.label).tag($0) }

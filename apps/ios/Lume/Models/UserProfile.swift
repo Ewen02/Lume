@@ -42,4 +42,6 @@ struct UserProfile {
     var weightKg: Double
     var activity: ActivityLevel
     var goal: Goal
+    /// Objectif de poids en kg. `0` = non défini (le graphe Progrès masque la ligne d'objectif).
+    var targetWeightKg: Double = 0
 }
