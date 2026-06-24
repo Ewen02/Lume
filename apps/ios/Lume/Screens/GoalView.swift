@@ -6,12 +6,16 @@ struct GoalView: View {
     @Environment(\.modelContext) private var ctx
     @Query private var profiles: [ProfileRecord]
     @Environment(HealthManager.self) private var health
+    @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
     @State private var profile = Mock.profile
     @State private var loaded = false
 
     private var target: Macros {
         TDEECalculator.target(profile)
     }
+
+    /// Pas de saisie du poids (0,5 kg en métrique, ≈1 lb en impérial), exprimé en kg.
+    private var step: Double { WeightFormat.stepKg(imperial: useImperial) }
 
     private func save() {
         if let r = profiles.first { r.update(from: profile) }
@@ -64,11 +68,11 @@ struct GoalView: View {
                 }
                 stepperRow(title: "Âge", value: "\(profile.age) ans") { profile.age = max(14, profile.age - 1) } plus: { profile.age += 1 }
                 stepperRow(title: "Taille", value: "\(profile.heightCm) cm") { profile.heightCm -= 1 } plus: { profile.heightCm += 1 }
-                stepperRow(title: "Poids", value: String(format: "%.1f kg", profile.weightKg)) { profile.weightKg -= 0.5 } plus: { profile.weightKg += 0.5 }
+                stepperRow(title: "Poids", value: WeightFormat.body(profile.weightKg, imperial: useImperial)) { profile.weightKg -= step } plus: { profile.weightKg += step }
                 stepperRow(title: "Objectif de poids",
-                           value: profile.targetWeightKg > 0 ? String(format: "%.1f kg", profile.targetWeightKg) : "—",
-                           minus: { profile.targetWeightKg = profile.targetWeightKg > 0 ? max(0, profile.targetWeightKg - 0.5) : 0 },
-                           plus: { profile.targetWeightKg = profile.targetWeightKg > 0 ? min(250, profile.targetWeightKg + 0.5) : (profile.weightKg * 2).rounded() / 2 })
+                           value: profile.targetWeightKg > 0 ? WeightFormat.body(profile.targetWeightKg, imperial: useImperial) : "—",
+                           minus: { profile.targetWeightKg = profile.targetWeightKg > 0 ? max(0, profile.targetWeightKg - step) : 0 },
+                           plus: { profile.targetWeightKg = profile.targetWeightKg > 0 ? min(250, profile.targetWeightKg + step) : (profile.weightKg * 2).rounded() / 2 })
                 rowPicker(title: "Activité") {
                     Picker("", selection: $profile.activity) {
                         ForEach(ActivityLevel.allCases, id: \.self) { Text($0.label).tag($0) }

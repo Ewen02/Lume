@@ -1,10 +1,11 @@
+import PhotosUI
 import SwiftData
 import SwiftUI
 
 struct ProfileView: View {
     @Query private var profiles: [ProfileRecord]
     @Environment(HealthManager.self) private var health
-    @AppStorage("lume.useImperialUnits") private var useImperial = false
+    @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
     @Environment(\.modelContext) private var ctx
     @State private var showGoal = false
     @State private var showAbout = false
@@ -12,6 +13,9 @@ struct ProfileView: View {
     @State private var showReminders = false
     @State private var showExport = false
     @State private var showBadges = false
+    @State private var showResetConfirm = false
+    @State private var showHealthUnavailable = false
+    @State private var photoItem: PhotosPickerItem?
 
     private var record: ProfileRecord? {
         profiles.first
@@ -22,12 +26,42 @@ struct ProfileView: View {
         return name.isEmpty ? "Toi" : name
     }
 
-    private var target: Macros {
-        record.map { TDEECalculator.target($0.profile) } ?? Mock.target
+    /// Cible « de base » (BMR + objectif, hors activité) — stable, cohérente sur un écran
+    /// de réglages. L'activité du jour s'y ajoute sur Aujourd'hui (cible dynamique).
+    private var baseTarget: Macros {
+        record.map { TDEECalculator.restingTarget($0.profile) } ?? Mock.target
     }
 
     private var goalLabel: String {
         (record?.profile.goal ?? .maintain).label.lowercased()
+    }
+
+    /// Connecte Apple Santé ; si indisponible (compte gratuit), prévient l'utilisateur.
+    private func connectHealth() {
+        Task {
+            await health.requestAuthorization()
+            if !health.isAuthorized { showHealthUnavailable = true }
+        }
+    }
+
+    /// Charge la photo choisie et la persiste dans le profil.
+    private func loadPhoto(_ item: PhotosPickerItem?) {
+        guard let item else { return }
+        Task {
+            if let data = try? await item.loadTransferable(type: Data.self) {
+                if let r = record { r.avatarData = data }
+                else { let r = ProfileRecord(); r.avatarData = data; ctx.insert(r) }
+            }
+        }
+    }
+
+    /// Efface tout le journal et réinitialise (avec confirmation préalable).
+    private func resetAllData() {
+        for model in [LoggedFood.self] { try? ctx.delete(model: model) }
+        try? ctx.delete(model: WaterLog.self)
+        try? ctx.delete(model: WeightSample.self)
+        try? ctx.delete(model: WorkoutSessionModel.self)
+        try? ctx.delete(model: BadgeUnlock.self)
     }
 
     var body: some View {
@@ -59,20 +93,47 @@ struct ProfileView: View {
         .sheet(isPresented: $showReminders) { RemindersView() }
         .sheet(isPresented: $showBadges) { BadgesView(domain: .nutrition) }
         .sheet(isPresented: $showExport) { ExportView() }
+        .onChange(of: photoItem) { _, item in loadPhoto(item) }
+        .alert("Apple Santé indisponible", isPresented: $showHealthUnavailable) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("La synchronisation Santé nécessite un compte Apple Developer (la fonctionnalité est désactivée sur ce build). Tes données restent enregistrées dans Lume.")
+        }
+        .alert("Effacer toutes les données ?", isPresented: $showResetConfirm) {
+            Button("Tout effacer", role: .destructive) { resetAllData() }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Repas, eau, poids, séances et récompenses seront supprimés. Ton profil et tes réglages sont conservés. Action irréversible.")
+        }
     }
 
     private var headerCard: some View {
         LumeCard {
             HStack(spacing: Spacing.lg) {
-                Text(String(displayName.prefix(1)))
-                    .font(.lumeTitle).foregroundStyle(LumeColor.surface)
-                    .frame(width: 60, height: 60).background(LumeColor.ink).clipShape(Circle())
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    avatar
+                }.buttonStyle(.lumePress)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(displayName).font(.lumeTitle).foregroundStyle(LumeColor.ink)
                     Text("Objectif : \(goalLabel)").font(.lumeSubhead).foregroundStyle(LumeColor.muted)
                 }
                 Spacer()
             }
+        }
+    }
+
+    @ViewBuilder private var avatar: some View {
+        if let data = record?.avatarData, let img = UIImage(data: data) {
+            Image(uiImage: img).resizable().scaledToFill()
+                .frame(width: 60, height: 60).clipShape(Circle())
+        } else {
+            Text(String(displayName.prefix(1)))
+                .font(.lumeTitle).foregroundStyle(LumeColor.surface)
+                .frame(width: 60, height: 60).background(LumeColor.ink).clipShape(Circle())
+                .overlay(alignment: .bottomTrailing) {
+                    Image(appIcon: .camera).lumeIcon(11, weight: .bold).foregroundStyle(LumeColor.ink)
+                        .padding(5).background(LumeColor.surface, in: Circle()).lumeShadow(.soft)
+                }
         }
     }
 
@@ -84,15 +145,17 @@ struct ProfileView: View {
                     Spacer()
                     Text("Modifier").font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.muted)
                 }
-                HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    Text("\(target.kcal)").font(.lumeNumberL).foregroundStyle(LumeColor.ink).monospacedDigit()
+                HStack(alignment: .firstTextBaseline, spacing: Spacing.xs + 2) {
+                    Text("\(baseTarget.kcal)").font(.lumeNumberL).foregroundStyle(LumeColor.ink).monospacedDigit()
                     Text("kcal").font(.lumeHeadline).foregroundStyle(LumeColor.muted)
                 }
                 HStack(spacing: Spacing.sm) {
-                    Chip(color: LumeColor.protein, text: "\(target.protein) g")
-                    Chip(color: LumeColor.carbs, text: "\(target.carbs) g")
-                    Chip(color: LumeColor.fat, text: "\(target.fat) g")
+                    Chip(color: LumeColor.protein, text: "\(baseTarget.protein) g")
+                    Chip(color: LumeColor.carbs, text: "\(baseTarget.carbs) g")
+                    Chip(color: LumeColor.fat, text: "\(baseTarget.fat) g")
                 }
+                // Cohérence avec Aujourd'hui : cette cible de repos s'ajuste à ton activité du jour.
+                Text("Cible au repos · ton activité du jour s'y ajoute").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -101,14 +164,14 @@ struct ProfileView: View {
         LumeCard(padding: Spacing.xs) {
             VStack(spacing: 0) {
                 Button { showName = true } label: {
-                    SettingsRow(icon: .person, tint: LumeColor.ink, title: "Prénom", value: displayName)
+                    SettingsRow(icon: .profile, tint: LumeColor.ink, title: "Prénom", value: displayName)
                 }.buttonStyle(.lumePress)
                 divider
                 Button { showGoal = true } label: {
                     SettingsRow(icon: .progress, tint: LumeColor.protein, title: "Objectif & calories")
                 }.buttonStyle(.lumePress)
                 divider
-                Button { Task { await health.requestAuthorization() } } label: {
+                Button { connectHealth() } label: {
                     SettingsRow(icon: .weight, tint: LumeColor.success, title: "Apple Santé",
                                 value: health.isAuthorized ? "Connecté" : "Connecter", showsChevron: false)
                 }.buttonStyle(.lumePress)
@@ -130,10 +193,26 @@ struct ProfileView: View {
                     SettingsRow(icon: .gallery, tint: LumeColor.success, title: "Exporter mes données")
                 }.buttonStyle(.lumePress)
                 divider
+                Button { contactSupport() } label: {
+                    SettingsRow(icon: .label, tint: LumeColor.fat, title: "Nous contacter", showsChevron: true)
+                }.buttonStyle(.lumePress)
+                divider
                 Button { showAbout = true } label: {
                     SettingsRow(icon: .person, tint: LumeColor.muted, title: "À propos", showsChevron: true)
                 }.buttonStyle(.lumePress)
+                divider
+                Button { showResetConfirm = true } label: {
+                    SettingsRow(icon: .trash, tint: LumeColor.negative, title: "Effacer mes données", showsChevron: false)
+                }.buttonStyle(.lumePress)
             }
+        }
+    }
+
+    /// Ouvre l'app mail avec un brouillon pré-rempli (feedback / bug).
+    private func contactSupport() {
+        let subject = "Lume — retour".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+        if let url = URL(string: "mailto:ewen@favikon.com?subject=\(subject)") {
+            UIApplication.shared.open(url)
         }
     }
 

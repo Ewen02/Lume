@@ -69,6 +69,7 @@ extension Double {
 // MARK: - Carte exercice (séance active)
 
 struct ExerciseSessionCard: View {
+    @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
     @Binding var session: ExerciseSession
     /// Retrait de l'exercice de la séance (optionnel).
     var onRemove: (() -> Void)? = nil
@@ -98,7 +99,7 @@ struct ExerciseSessionCard: View {
                     Spacer()
                     if oneRM > 0 {
                         VStack(alignment: .trailing, spacing: 1) {
-                            Text("\(oneRM) kg").font(.lumeCallout.weight(.bold)).foregroundStyle(LumeColor.ink)
+                            Text(WeightFormat.load(oneRM, imperial: useImperial)).font(.lumeCallout.weight(.bold)).foregroundStyle(LumeColor.ink)
                             Text("1RM est.").font(.lumeCaption).foregroundStyle(LumeColor.muted)
                         }
                     }

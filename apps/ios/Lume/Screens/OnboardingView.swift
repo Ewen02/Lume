@@ -5,6 +5,7 @@ struct OnboardingView: View {
     @Environment(\.modelContext) private var ctx
     @Environment(HealthManager.self) private var health
     @Query private var profiles: [ProfileRecord]
+    @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
 
     @State private var step = 0
     /// Valeurs de départ neutres (prénom vide → saisi à l'étape profil).
@@ -115,7 +116,7 @@ struct OnboardingView: View {
                     }
                     stepper("Âge", "\(profile.age) ans", { profile.age = max(14, profile.age - 1) }, { profile.age = min(100, profile.age + 1) })
                     stepper("Taille", "\(profile.heightCm) cm", { profile.heightCm = max(120, profile.heightCm - 1) }, { profile.heightCm = min(230, profile.heightCm + 1) })
-                    stepper("Poids", String(format: "%.1f kg", profile.weightKg), { profile.weightKg = max(35, profile.weightKg - 0.5) }, { profile.weightKg = min(250, profile.weightKg + 0.5) })
+                    stepper("Poids", WeightFormat.body(profile.weightKg, imperial: useImperial), { profile.weightKg = max(35, profile.weightKg - WeightFormat.stepKg(imperial: useImperial)) }, { profile.weightKg = min(250, profile.weightKg + WeightFormat.stepKg(imperial: useImperial)) })
                     HStack {
                         Text("Activité").font(.lumeBodyMed).foregroundStyle(LumeColor.ink)
                         Spacer()

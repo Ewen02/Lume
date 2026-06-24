@@ -6,6 +6,7 @@ struct WorkoutSummaryView: View {
     var newBadges: [Badge] = []
     var newPRs: [PRBeaten] = []
     var onClose: () -> Void
+    @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
     @State private var appeared = false
 
     var body: some View {
@@ -29,9 +30,9 @@ struct WorkoutSummaryView: View {
             }
             HStack(spacing: Spacing.md) {
                 StatTile(icon: .oneRepMax, tint: LumeColor.carbs,
-                         value: "\(summary.totalVolume) kg", label: "Volume total")
+                         value: WeightFormat.load(summary.totalVolume, imperial: useImperial), label: "Volume total")
                 StatTile(icon: .pr, tint: LumeColor.success,
-                         value: summary.bestOneRM > 0 ? "\(summary.bestOneRM) kg" : "—",
+                         value: summary.bestOneRM > 0 ? WeightFormat.load(summary.bestOneRM, imperial: useImperial) : "—",
                          label: "Meilleur 1RM")
             }
 
@@ -65,7 +66,7 @@ struct WorkoutSummaryView: View {
                 HStack {
                     Text(pr.exercise).font(.lumeSubhead).foregroundStyle(LumeColor.ink).lineLimit(1)
                     Spacer()
-                    Text("\(pr.oneRM) kg").font(.lumeSubhead.weight(.bold)).foregroundStyle(LumeColor.ink).monospacedDigit()
+                    Text(WeightFormat.load(pr.oneRM, imperial: useImperial)).font(.lumeSubhead.weight(.bold)).foregroundStyle(LumeColor.ink).monospacedDigit()
                     if pr.previous > 0 {
                         Text("+\(pr.oneRM - pr.previous)").font(.lumeCaption.weight(.semibold))
                             .foregroundStyle(LumeColor.success).monospacedDigit()

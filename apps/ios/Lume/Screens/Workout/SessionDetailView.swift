@@ -6,6 +6,7 @@ struct SessionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     @Query(sort: \WorkoutSessionModel.date, order: .reverse) private var allSessions: [WorkoutSessionModel]
+    @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
     let session: WorkoutSessionModel
     @State private var confirmDelete = false
 
@@ -30,7 +31,7 @@ struct SessionDetailView: View {
                 header
                 HStack(spacing: Spacing.md) {
                     StatTile(icon: .restTimer, tint: LumeColor.fat, value: "\(session.durationSec / 60)", label: "minutes")
-                    StatTile(icon: .oneRepMax, tint: LumeColor.carbs, value: "\(totalVolume)", label: "kg soulevés")
+                    StatTile(icon: .oneRepMax, tint: LumeColor.carbs, value: WeightFormat.load(totalVolume, imperial: useImperial), label: "soulevés")
                     StatTile(icon: .addSet, tint: LumeColor.success, value: "\(setCount)", label: setCount > 1 ? "séries" : "série")
                 }
                 if !session.note.isEmpty { noteCard }
@@ -79,18 +80,23 @@ struct SessionDetailView: View {
                 HStack {
                     Text("Volume").font(.lumeSubhead).foregroundStyle(LumeColor.textSecondary)
                     Spacer()
-                    deltaLabel(c.volumeDelta, unit: "kg")
+                    deltaLabel(convertLoad(c.volumeDelta), unit: WeightFormat.unit(imperial: useImperial))
                 }
                 // 1RM par exercice (limité aux 3 plus marquants).
                 ForEach(c.oneRMDeltas.sorted { abs($0.delta) > abs($1.delta) }.prefix(3), id: \.exercise) { item in
                     HStack {
                         Text(item.exercise).font(.lumeSubhead).foregroundStyle(LumeColor.textSecondary).lineLimit(1)
                         Spacer()
-                        deltaLabel(item.delta, unit: "kg 1RM")
+                        deltaLabel(convertLoad(item.delta), unit: "\(WeightFormat.unit(imperial: useImperial)) 1RM")
                     }
                 }
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// Convertit une charge (kg → unité d'affichage), en gardant le signe.
+    private func convertLoad(_ kg: Int) -> Int {
+        useImperial ? Int((Double(kg) * WeightFormat.lbPerKg).rounded()) : kg
     }
 
     /// Pastille de variation : verte si gain, rouge si baisse, neutre si égal.
@@ -112,7 +118,7 @@ struct SessionDetailView: View {
                     Spacer()
                     if ex.bestOneRM > 0 {
                         VStack(alignment: .trailing, spacing: 1) {
-                            Text("\(ex.bestOneRM) kg").font(.lumeCallout.weight(.bold)).foregroundStyle(LumeColor.ink)
+                            Text(WeightFormat.load(ex.bestOneRM, imperial: useImperial)).font(.lumeCallout.weight(.bold)).foregroundStyle(LumeColor.ink)
                             Text("1RM est.").font(.lumeCaption).foregroundStyle(LumeColor.muted)
                         }
                     }
@@ -121,7 +127,7 @@ struct SessionDetailView: View {
                     HStack {
                         Text("Série \(i + 1)").font(.lumeSubhead).foregroundStyle(LumeColor.textSecondary)
                         Spacer()
-                        Text("\(set.weight.clean) kg × \(set.reps)" + (set.rpe.map { " · RPE \($0)" } ?? ""))
+                        Text("\(WeightFormat.loadDecimal(set.weight, imperial: useImperial)) × \(set.reps)" + (set.rpe.map { " · RPE \($0)" } ?? ""))
                             .font(.lumeCallout).foregroundStyle(LumeColor.ink).monospacedDigit()
                     }
                     if i < ex.orderedSets.count - 1 { Divider().background(LumeColor.border) }

@@ -41,6 +41,10 @@ final class ProfileRecord {
     /// Objectif de poids en kg. `0` = non défini (CloudKit exige une valeur par défaut).
     var targetWeightKg: Double = 0
 
+    /// Photo de profil (JPEG/PNG). `nil` = initiale affichée. `.externalStorage` garde
+    /// le blob hors de la base pour ne pas alourdir les requêtes ; CloudKit-safe.
+    @Attribute(.externalStorage) var avatarData: Data?
+
     init(name: String = "Ewen", sexRaw: String = "male", age: Int = 24, heightCm: Int = 178,
          weightKg: Double = 74, activityRaw: String = "moderate", goalRaw: String = "maintain")
     {

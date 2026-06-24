@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ExerciseProgressionView: View {
     @Environment(\.dismiss) private var dismiss
+    @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
     @Query(sort: \WorkoutSessionModel.date) private var sessions: [WorkoutSessionModel]
 
     let exerciseName: String
@@ -26,7 +27,7 @@ struct ExerciseProgressionView: View {
             .compactMap({ $0.orderedExercises.first(where: { $0.name == exerciseName }) }).first
         else { return [] }
         return ex.orderedSets.map { s in
-            "\(Int(s.weight)) kg × \(s.reps)" + (s.rpe.map { " · RPE \($0)" } ?? "")
+            "\(WeightFormat.loadDecimal(s.weight, imperial: useImperial)) × \(s.reps)" + (s.rpe.map { " · RPE \($0)" } ?? "")
         }
     }
 
@@ -64,9 +65,9 @@ struct ExerciseProgressionView: View {
     private var chartContent: some View {
         if let first = data.first, let last = data.last {
             HStack(spacing: Spacing.md) {
-                StatTile(icon: .pr, tint: LumeColor.protein, value: "\(Int(last.oneRM)) kg", label: "1RM actuel")
+                StatTile(icon: .pr, tint: LumeColor.protein, value: WeightFormat.load(Int(last.oneRM), imperial: useImperial), label: "1RM actuel")
                 StatTile(icon: .progress, tint: LumeColor.success,
-                         value: "+\(Int(last.oneRM - first.oneRM)) kg", label: "Depuis le début")
+                         value: "+" + WeightFormat.load(Int(last.oneRM - first.oneRM), imperial: useImperial), label: "Depuis le début")
             }
         }
 

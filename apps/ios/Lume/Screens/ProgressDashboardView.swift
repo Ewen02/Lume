@@ -10,6 +10,7 @@ struct ProgressDashboardView: View {
     @Query(sort: \WeightSample.date) private var weightSamples: [WeightSample]
     @Query(sort: \WorkoutSessionModel.date, order: .reverse) private var sessions: [WorkoutSessionModel]
     @Query private var profiles: [ProfileRecord]
+    @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showStreak = false
     @State private var showWeightEntry = false
@@ -151,12 +152,12 @@ struct ProgressDashboardView: View {
                 HStack(spacing: Spacing.md) {
                     Button { showWeightEntry = true } label: {
                         StatTile(icon: .weight, tint: LumeColor.fat,
-                                 value: allWeights.isEmpty ? "—" : String(format: "%.1f kg", current),
+                                 value: allWeights.isEmpty ? "—" : WeightFormat.body(current, imperial: useImperial),
                                  label: "Poids actuel")
                     }.buttonStyle(.lumePress)
                     StatTile(icon: .progress,
                              tint: delta.map { $0 <= 0 ? LumeColor.success : LumeColor.protein } ?? LumeColor.muted,
-                             value: delta.map { String(format: "%+.1f kg", $0) } ?? "—",
+                             value: delta.map { WeightFormat.bodyDelta($0, imperial: useImperial) } ?? "—",
                              label: "Variation")
                 }
                 .lumeEntrance(0)
@@ -214,7 +215,7 @@ struct ProgressDashboardView: View {
         .sheet(item: $deletingSample) { sample in
             LumeConfirmSheet(icon: .minusCircle, tint: LumeColor.negative,
                              title: "Supprimer cette pesée ?",
-                             message: "\(String(format: "%.1f kg", sample.kg)) le \(Formatters.dayMonthFR.string(from: sample.date)). Gère tes données Apple Santé depuis l'app Santé.",
+                             message: "\(WeightFormat.body(sample.kg, imperial: useImperial)) le \(Formatters.dayMonthFR.string(from: sample.date)). Gère tes données Apple Santé depuis l'app Santé.",
                              confirmTitle: "Supprimer")
             {
                 ctx.delete(sample)
@@ -326,14 +327,14 @@ struct ProgressDashboardView: View {
                 if weights.count >= 2 {
                     weightChart
                     if let p = targetProgress {
-                        GoalBar(label: "Vers l'objectif", value: String(format: "%.0f kg", targetWeightKg),
+                        GoalBar(label: "Vers l'objectif", value: WeightFormat.body(targetWeightKg, imperial: useImperial, decimals: 0),
                                 progress: p, tint: LumeColor.success)
                     }
                 } else if weights.count == 1, let only = weights.first {
                     // Un seul point : pas de courbe (rien à interpoler), on invite à peser à nouveau.
                     VStack(spacing: Spacing.sm) {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
-                            Text(String(format: "%.1f kg", only.kg)).font(.lumeNumberL).foregroundStyle(LumeColor.ink).monospacedDigit()
+                            Text(WeightFormat.body(only.kg, imperial: useImperial)).font(.lumeNumberL).foregroundStyle(LumeColor.ink).monospacedDigit()
                         }
                         Text("Ajoute une 2ᵉ pesée pour voir ta tendance.")
                             .font(.lumeFootnote).foregroundStyle(LumeColor.muted).multilineTextAlignment(.center)
@@ -373,7 +374,7 @@ struct ProgressDashboardView: View {
                     .lineStyle(.init(lineWidth: 1.5, dash: [5, 4]))
                     .foregroundStyle(LumeColor.success)
                     .annotation(position: .top, alignment: .trailing) {
-                        Text(String(format: "Objectif %.0f kg", targetWeightKg))
+                        Text("Objectif \(WeightFormat.body(targetWeightKg, imperial: useImperial, decimals: 0))")
                             .font(.lumeFootnote).foregroundStyle(LumeColor.success)
                     }
             }
@@ -410,7 +411,7 @@ struct ProgressDashboardView: View {
 
     @ViewBuilder private var selectionLollipop: some View {
         if let e = selectedEntry {
-            ChartLollipop(title: String(format: "%.1f kg", e.kg),
+            ChartLollipop(title: WeightFormat.body(e.kg, imperial: useImperial),
                           subtitle: Formatters.dayMonthFR.string(from: e.date))
             {
                 if let sample = selectedSample {
@@ -587,6 +588,7 @@ struct WeightEntryView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
     @Environment(HealthManager.self) private var health
+    @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
     @State private var kg: Double
     /// Pesée locale en cours d'édition (sinon nouvelle saisie).
     private let editing: WeightSample?
@@ -633,10 +635,10 @@ struct WeightEntryView: View {
             Spacer()
             Text(editing == nil ? "Ton poids" : "Modifier la pesée").font(.lumeTitle).foregroundStyle(LumeColor.ink)
             HStack(spacing: Spacing.lg) {
-                RoundIconButton(icon: .minus) { kg = max(35, kg - 0.5) }
-                Text(String(format: "%.1f kg", kg))
+                RoundIconButton(icon: .minus) { kg = max(35, kg - WeightFormat.stepKg(imperial: useImperial)) }
+                Text(WeightFormat.body(kg, imperial: useImperial))
                     .font(.lumeNumberL).foregroundStyle(LumeColor.ink).monospacedDigit().frame(minWidth: 140)
-                RoundIconButton(icon: .add, filled: true) { kg = min(250, kg + 0.5) }
+                RoundIconButton(icon: .add, filled: true) { kg = min(250, kg + WeightFormat.stepKg(imperial: useImperial)) }
             }
             Spacer()
             PrimaryButton(title: "Enregistrer", icon: .validate) { save() }

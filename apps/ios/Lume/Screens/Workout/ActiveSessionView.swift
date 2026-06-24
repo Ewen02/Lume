@@ -27,6 +27,7 @@ struct ActiveSessionView: View {
     @AppStorage("lume.restSeconds") private var restSeconds = 90
     /// Démarrage auto du repos quand on coche une série.
     @AppStorage("lume.autoRest") private var autoRest = true
+    @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
 
     init(title: String = "Séance libre", prefill: [ExerciseSession] = []) {
         self.title = title
@@ -166,7 +167,8 @@ struct ActiveSessionView: View {
             if !sessions.isEmpty {
                 HStack(spacing: Spacing.sm) {
                     liveStat(value: doneSetCount, label: doneSetCount > 1 ? "séries" : "série")
-                    liveStat(value: liveVolume, label: "kg")
+                    liveStat(value: useImperial ? Int((Double(liveVolume) * WeightFormat.lbPerKg).rounded()) : liveVolume,
+                             label: WeightFormat.unit(imperial: useImperial))
                     liveStat(value: sessions.count, label: sessions.count > 1 ? "exos" : "exo")
                 }
                 .animation(LumeMotion.snappy, value: doneSetCount)
