@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 struct AnalyzeView: View {
-    enum Phase { case loading, loaded, failed }
+    enum Phase: Equatable { case loading, loaded, empty, failed }
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var ctx
@@ -19,6 +19,10 @@ struct AnalyzeView: View {
     @State private var showFullImage = false
     @State private var didStart = false
     @State private var dish: String?
+    /// Message d'erreur réel (depuis APIError), affiché tel quel à l'utilisateur.
+    @State private var errorMessage: String?
+    /// Nombre d'aliments non résolus ignorés au dernier ajout (toast d'avertissement).
+    @State private var skippedCount = 0
     private let onLogged: () -> Void
 
     /// Mode démo / preview : aliments fournis directement.
@@ -41,9 +45,11 @@ struct AnalyzeView: View {
         items.reduce(.zero) { $0 + $1.macros }
     }
 
-    /// Macros ramenées à 100 g (base pour recalculer à l'édition de portion).
+    /// Base pour 100 g servant à recalculer une portion à l'édition.
+    /// Priorité à la valeur exacte du serveur ; repli (mode démo) sur une estimation
+    /// dérivée des macros de la portion, qui dérive d'une valeur déjà arrondie.
     private func basis(_ it: FoodItem) -> Macros {
-        it.macros.scaled(100.0 / Double(max(it.grams, 1)))
+        it.per100g ?? it.macros.scaled(100.0 / Double(max(it.grams, 1)))
     }
 
     private func captureBasisIfNeeded() {
@@ -62,6 +68,12 @@ struct AnalyzeView: View {
 
     private func runAnalyze() async {
         guard let data = imageData else { return }
+        // Garde-fou : image illisible → on ne gaspille pas 3 tentatives réseau.
+        guard UIImage(data: data) != nil else {
+            errorMessage = "Cette image est illisible. Reprends une photo."
+            phase = .failed
+            return
+        }
         phase = .loading
         // Jusqu'à 3 tentatives : 1er appel parfois lent (cold start / grosse image).
         for attempt in 0 ..< 3 {
@@ -70,28 +82,41 @@ struct AnalyzeView: View {
                 items = result.items
                 dish = result.dish
                 per100g = Dictionary(uniqueKeysWithValues: result.items.map { ($0.id, basis($0)) })
-                phase = result.items.isEmpty ? .failed : .loaded
+                // 0 aliment ≠ erreur réseau : la photo ne contient simplement pas de plat reconnu.
+                phase = result.items.isEmpty ? .empty : .loaded
                 return
             } catch {
                 #if DEBUG
                     print("Analyse échouée (essai \(attempt + 1)) : \(error)")
                 #endif
-                if attempt < 2 {
+                errorMessage = (error as? LocalizedError)?.errorDescription
+                // On ne ré-essaie pas une erreur définitive (4xx, jeton, image refusée).
+                let retriable = (error as? APIError)?.isRetriable ?? true
+                if retriable, attempt < 2 {
                     try? await Task.sleep(nanoseconds: 1_500_000_000)
                     continue
                 }
                 phase = .failed
+                return
             }
         }
+        // Défensif : jamais atteint (chaque chemin de la boucle `return`), mais évite de rester
+        // figé sur `.loading` si la borne de tentatives et la condition divergeaient un jour.
+        phase = .failed
     }
 
     private func addToJournal() {
         let meal = mealForNow()
         // Tous les aliments de ce scan partagent un même identifiant de repas → carte groupée.
         let groupID = UUID()
-        // On ignore les aliments non résolus (macros à 0) pour ne pas polluer le journal.
+        // Les aliments non résolus (macros à 0) ne sont pas journalisés faute de chiffres fiables.
         let kept = items.filter { $0.matched }
-        guard !kept.isEmpty else { dismiss(); return }
+        let skipped = items.count - kept.count
+        // Aucun aliment résolu : on ne ferme PAS en silence — l'utilisateur reste pour corriger.
+        guard !kept.isEmpty else {
+            withAnimation(LumeMotion.snappy) { skippedCount = items.count }
+            return
+        }
         let title = dish?.trimmingCharacters(in: .whitespaces)
         for it in kept {
             ctx.insert(LoggedFood(meal: meal, name: it.name, grams: it.grams,
@@ -102,6 +127,8 @@ struct AnalyzeView: View {
         let t = kept.reduce(Macros.zero) { $0 + $1.macros }
         Task { await health.logMeal(kcal: t.kcal, protein: t.protein, carbs: t.carbs, fat: t.fat) }
         added = true
+        // S'il restait des aliments non résolus, on prévient (pas de disparition silencieuse).
+        if skipped > 0 { skippedCount = skipped }
         dismiss()
         onLogged()
     }
@@ -114,8 +141,10 @@ struct AnalyzeView: View {
                     switch phase {
                     case .loading: loadingCard
                     case .failed: failedCard
+                    case .empty: emptyCard
                     case .loaded:
                         VStack(spacing: Spacing.lg) {
+                            if skippedCount > 0 { skippedBanner }
                             totalCard.lumeEntrance(0)
                             SectionHeader(title: "Aliments détectés", actionTitle: "Ajouter", actionIcon: .add)
                                 .lumeEntrance(1)
@@ -213,8 +242,29 @@ struct AnalyzeView: View {
 
     private var failedCard: some View {
         LumeErrorState(title: "Analyse impossible",
-                       message: "Vérifie ta connexion et l'URL de l'API.",
+                       message: errorMessage ?? "Réessaie dans un instant.",
                        retry: { Task { await runAnalyze() } })
+    }
+
+    /// La photo n'a pas de plat reconnaissable — distinct d'une panne réseau.
+    private var emptyCard: some View {
+        VStack(spacing: Spacing.md) {
+            LumeEmptyState(icon: .camera, title: "Aucun aliment détecté",
+                           message: "La photo ne montre pas de plat reconnaissable. Reprends une photo plus nette, ou ajoute ton aliment via la recherche.")
+            SecondaryButton(title: "Reprendre une photo", icon: .camera) { dismiss() }
+        }
+    }
+
+    /// Avertit que des aliments non résolus ont été ignorés (pas de disparition silencieuse).
+    private var skippedBanner: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(appIcon: .warning).lumeIcon(15, weight: .semibold).foregroundStyle(LumeColor.warning)
+            Text("\(skippedCount) aliment\(skippedCount > 1 ? "s" : "") sans macros — touche son nom pour le corriger avant d'ajouter.")
+                .font(.lumeFootnote).foregroundStyle(LumeColor.textSecondary)
+            Spacer()
+        }
+        .padding(Spacing.md)
+        .background(LumeColor.warning.opacity(0.12), in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
     }
 
     private var totalCard: some View {

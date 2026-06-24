@@ -11,7 +11,7 @@ final class CameraController: ObservableObject {
     let session = AVCaptureSession()
     private let photoOutput = AVCapturePhotoOutput()
     private var configured = false
-    private var captureHandler: ((Data) -> Void)?
+    private var captureHandler: ((Result<Data, CaptureError>) -> Void)?
     private let delegate = PhotoCaptureDelegate()
 
     /// Une vraie caméra arrière est-elle disponible (false en simulateur) ?
@@ -36,13 +36,17 @@ final class CameraController: ObservableObject {
         Task.detached { session.stopRunning() }
     }
 
-    /// Déclenche une capture. Le JPEG compressé arrive dans `completion`.
-    func capturePhoto(_ completion: @escaping (Data) -> Void) {
-        guard configured else { return }
+    /// Déclenche une capture. Succès (JPEG) ou échec arrive dans `completion`, sur le main actor.
+    func capturePhoto(_ completion: @escaping (Result<Data, CaptureError>) -> Void) {
+        guard configured else { completion(.failure(.notReady)); return }
         captureHandler = completion
-        delegate.onPhoto = { [weak self] data in
-            self?.captureHandler?(data)
-            self?.captureHandler = nil
+        // Le delegate AVFoundation rappelle sur une queue interne → on repasse sur le main
+        // avant de toucher l'état SwiftUI de l'appelant.
+        delegate.onResult = { [weak self] result in
+            Task { @MainActor in
+                self?.captureHandler?(result)
+                self?.captureHandler = nil
+            }
         }
         let settings = AVCapturePhotoSettings()
         photoOutput.capturePhoto(with: settings, delegate: delegate)
@@ -66,18 +70,26 @@ final class CameraController: ObservableObject {
     }
 }
 
-/// Delegate de capture : convertit la photo en JPEG et la remonte.
+/// Échec possible d'une capture photo.
+enum CaptureError: Error { case notReady, failed }
+
+/// Delegate de capture : convertit la photo en JPEG et la remonte (succès ou échec).
 private final class PhotoCaptureDelegate: NSObject, AVCapturePhotoCaptureDelegate {
-    var onPhoto: ((Data) -> Void)?
+    var onResult: ((Result<Data, CaptureError>) -> Void)?
 
     func photoOutput(_: AVCapturePhotoOutput,
                      didFinishProcessingPhoto photo: AVCapturePhoto,
-                     error _: Error?)
+                     error: Error?)
     {
-        guard let data = photo.fileDataRepresentation(),
+        guard error == nil,
+              let data = photo.fileDataRepresentation(),
               let image = UIImage(data: data),
-              let jpeg = image.jpegData(compressionQuality: 0.7) else { return }
-        onPhoto?(jpeg)
+              let jpeg = image.jpegData(compressionQuality: 0.7)
+        else {
+            onResult?(.failure(.failed))
+            return
+        }
+        onResult?(.success(jpeg))
     }
 }
 

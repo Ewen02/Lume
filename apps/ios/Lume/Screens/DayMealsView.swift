@@ -24,7 +24,7 @@ struct DayMealsView: View {
     }
 
     private var target: Macros {
-        profiles.first.map { TDEECalculator.target($0.profile) } ?? Mock.target
+        profiles.first.map { TDEECalculator.target($0.profile) } ?? TDEECalculator.defaultTarget
     }
 
     /// Repas groupés par créneau (petit-déj, déj…), aliments triés.

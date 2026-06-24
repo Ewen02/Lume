@@ -21,7 +21,7 @@ struct MealCalendarView: View {
     }
 
     private var targetKcal: Int {
-        profiles.first.map { TDEECalculator.target($0.profile).kcal } ?? Mock.target.kcal
+        profiles.first.map { TDEECalculator.target($0.profile).kcal } ?? TDEECalculator.defaultTarget.kcal
     }
 
     /// Calories par jour (début de jour → kcal).

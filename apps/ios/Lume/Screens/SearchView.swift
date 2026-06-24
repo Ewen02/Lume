@@ -13,6 +13,8 @@ struct SearchView: View {
     @State private var tab = 0
     @State private var results: [ScannedProduct] = []
     @State private var loading = false
+    @State private var searchError = false
+    @State private var searchTask: Task<Void, Never>?
     @State private var routeFood: FoodItem?
     /// Traduction native iOS 18+ : la session est fournie par .translationTask.
     @State private var translationSession: TranslationSession?
@@ -39,9 +41,11 @@ struct SearchView: View {
     var body: some View {
         VStack(spacing: Spacing.lg) {
             SearchBar(text: $query, placeholder: "Rechercher un aliment")
-                .onSubmit { Task { await runSearch() } }
+                .onSubmit { startSearch(debounced: false) }
                 .onChange(of: query) { _, v in
-                    if v.isEmpty { results = [] } else { Task { await debouncedSearch(v) } }
+                    searchTask?.cancel() // annule la requête en vol avant d'en lancer une autre
+                    if v.trimmingCharacters(in: .whitespaces).count < 3 { results = []; searchError = false }
+                    else { startSearch(debounced: true) }
                 }
             SegmentedPicker(options: ["Recherche", "Récents", "Favoris"], selection: $tab)
 
@@ -112,6 +116,10 @@ struct SearchView: View {
                            message: "Tape un nom puis valide. Astuce : pour la base mondiale, l'anglais marche mieux (ex. « chicken »).")
         } else if loading, items.isEmpty {
             LumeSkeletonList(count: 6)
+        } else if searchError, items.isEmpty {
+            LumeErrorState(title: "Recherche indisponible",
+                           message: "Impossible de joindre la base d'aliments. Vérifie ta connexion.",
+                           retry: { startSearch(debounced: false) })
         } else if items.isEmpty {
             LumeEmptyState(icon: .search, title: "Aucun résultat",
                            message: "Essaie en anglais (ex. « lettuce » pour laitue).")
@@ -177,25 +185,37 @@ struct SearchView: View {
         }
     }
 
-    /// Recherche API automatique après une pause de frappe (debounce), pour ≥ 3 lettres.
-    private func debouncedSearch(_ typed: String) async {
-        try? await Task.sleep(nanoseconds: 500_000_000)
-        // Annule si le texte a changé entre-temps.
-        guard typed == query, typed.trimmingCharacters(in: .whitespaces).count >= 3 else { return }
-        await runSearch()
+    /// Lance une recherche annulable. `debounced` ajoute une pause de frappe (500 ms).
+    /// Un seul Task à la fois : on annule le précédent dans `.onChange`.
+    private func startSearch(debounced: Bool) {
+        let q = query.trimmingCharacters(in: .whitespaces)
+        guard q.count >= 3 else { results = []; return }
+        searchTask = Task { await runSearch(q, debounced: debounced) }
     }
 
-    private func runSearch() async {
-        let q = query.trimmingCharacters(in: .whitespaces)
-        guard !q.isEmpty else { results = []; return }
-        loading = true
-        defer { loading = false }
-        var found = (try? await api.search(q)) ?? []
-        // Rien trouvé en français → on traduit en anglais et on réessaie (USDA/OFF anglophones).
-        if found.isEmpty, let en = await englishTerm(for: q), en.lowercased() != q.lowercased() {
-            found = (try? await api.search(en)) ?? []
+    private func runSearch(_ q: String, debounced: Bool) async {
+        if debounced {
+            try? await Task.sleep(nanoseconds: 500_000_000)
+            guard !Task.isCancelled else { return }
         }
-        results = found
+        loading = true
+        searchError = false
+        defer { loading = false }
+        do {
+            var found = try await api.search(q)
+            // Rien en français → on traduit en anglais et on réessaie (USDA/OFF anglophones).
+            if found.isEmpty, let en = await englishTerm(for: q), en.lowercased() != q.lowercased() {
+                guard !Task.isCancelled else { return }
+                found = try await api.search(en)
+            }
+            // Garde anti-périmé : n'écrit que si la requête est toujours d'actualité.
+            guard !Task.isCancelled, q == query.trimmingCharacters(in: .whitespaces) else { return }
+            results = found
+        } catch {
+            guard !Task.isCancelled else { return }
+            results = []
+            searchError = true
+        }
     }
 
     /// Traduction FR→EN : dictionnaire embarqué d'abord (instantané), puis Translation iOS.

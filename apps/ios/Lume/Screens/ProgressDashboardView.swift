@@ -119,7 +119,7 @@ struct ProgressDashboardView: View {
     /// Cible kcal cohérente avec l'écran Aujourd'hui : dynamique (BMR + calories actives
     /// réelles) si Santé est autorisé, sinon TDEE fixe.
     private var targetKcal: Int {
-        guard let p = profiles.first?.profile else { return Mock.target.kcal }
+        guard let p = profiles.first?.profile else { return TDEECalculator.defaultTarget.kcal }
         let active = health.isAuthorized && health.activeEnergyToday > 0 ? health.activeEnergyToday : nil
         return EnergyBudget.targetKcal(p, activeKcal: active, healthAuthorized: health.isAuthorized)
     }

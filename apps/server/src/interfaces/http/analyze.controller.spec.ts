@@ -20,8 +20,8 @@ describe('AnalyzeController', () => {
   it('sérialise { dish, items, total } et calcule le total', async () => {
     const meal = new AnalyzedMeal(
       [
-        { name: 'Poulet', grams: 150, macros: new Macros(248, 46, 0, 5), source: 'USDA', matched: true, confidence: 0.9 },
-        { name: 'Inconnu', grams: 50, macros: Macros.zero(), source: null, matched: false, confidence: 0.4 },
+        { name: 'Poulet', grams: 150, macros: new Macros(248, 46, 0, 5), per100g: new Macros(165, 31, 0, 4), source: 'USDA', matched: true, confidence: 0.9 },
+        { name: 'Inconnu', grams: 50, macros: Macros.zero(), per100g: null, source: null, matched: false, confidence: 0.4 },
       ],
       'Poulet riz',
     );
@@ -34,9 +34,12 @@ describe('AnalyzeController', () => {
     // Le total agrège les macros (l'item non trouvé = 0).
     expect(res.total.kcal).toBe(248);
     expect(res.total.protein).toBe(46);
-    // L'item non trouvé garde source null + matched false (cohérence du fix).
+    // La base per100g exacte est exposée au client (recalcul de portion sans dérive).
+    expect(res.items[0].per100g).toEqual(new Macros(165, 31, 0, 4));
+    // L'item non trouvé garde source null + matched false + per100g null (cohérence du fix).
     expect(res.items[1].source).toBeNull();
     expect(res.items[1].matched).toBe(false);
+    expect(res.items[1].per100g).toBeNull();
   });
 
   it('transmet l\'image au use-case', async () => {

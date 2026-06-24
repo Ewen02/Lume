@@ -43,7 +43,10 @@ struct WaterDetailView: View {
         let prev = filled
         if let log = todayLog { log.glasses = clamped }
         else { ctx.insert(WaterLog(day: cal.startOfDay(for: Date()), glasses: clamped)) }
-        if clamped > prev { Task { await health.logWater(milliliters: Double(clamped - prev) * 250) } }
+        let deltaMl = Double(abs(clamped - prev)) * 250
+        // Écrit/retire dans Santé puis re-lit (garde `externalWaterMl` cohérent après mutation).
+        if clamped > prev { Task { await health.logWater(milliliters: deltaMl); await health.refreshWaterToday() } }
+        else if clamped < prev { Task { await health.removeWater(milliliters: deltaMl); await health.refreshWaterToday() } }
     }
 
     /// Met à jour l'objectif d'hydratation (persisté dans le profil).

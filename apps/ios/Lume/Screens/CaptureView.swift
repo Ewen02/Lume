@@ -169,7 +169,12 @@ struct CaptureView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
             withAnimation(LumeMotion.flashOut) { flash = false }
         }
-        camera.capturePhoto { data in analyzePayload = AnalyzePayload(data: data) }
+        camera.capturePhoto { result in
+            switch result {
+            case let .success(data): analyzePayload = AnalyzePayload(data: data)
+            case .failure: errorMessage = "La photo n'a pas pu être prise. Réessaie."
+            }
+        }
     }
 
     /// Un aliment a été ajouté au journal depuis Analyse/Code-barres : on ferme la capture

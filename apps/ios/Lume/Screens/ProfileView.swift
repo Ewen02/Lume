@@ -29,7 +29,7 @@ struct ProfileView: View {
     /// Cible « de base » (BMR + objectif, hors activité) — stable, cohérente sur un écran
     /// de réglages. L'activité du jour s'y ajoute sur Aujourd'hui (cible dynamique).
     private var baseTarget: Macros {
-        record.map { TDEECalculator.restingTarget($0.profile) } ?? Mock.target
+        record.map { TDEECalculator.restingTarget($0.profile) } ?? TDEECalculator.defaultTarget
     }
 
     private var goalLabel: String {

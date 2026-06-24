@@ -57,7 +57,7 @@ struct TodayView: View {
     /// Cible du jour : dynamique (BMR + objectif + calories actives réelles) si Santé est
     /// disponible, sinon TDEE fixe historique. Calculée seulement pour aujourd'hui.
     private var target: Macros {
-        guard let p = profiles.first?.profile else { return Mock.target }
+        guard let p = profiles.first?.profile else { return TDEECalculator.defaultTarget }
         guard isToday else { return TDEECalculator.target(p) }
         return EnergyBudget.target(p, activeKcal: activeKcal, healthAuthorized: health.isAuthorized)
     }

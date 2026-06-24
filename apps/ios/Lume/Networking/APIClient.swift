@@ -28,13 +28,26 @@ struct ScannedProduct: Identifiable, Equatable {
 }
 
 enum APIError: LocalizedError {
-    case badURL, http(Int), decoding, unauthorized
+    case badURL, http(Int), decoding, unauthorized, offline
+
     var errorDescription: String? {
         switch self {
-        case .badURL: "URL invalide."
-        case .unauthorized: "Jeton invalide (401)."
-        case let .http(c): "Erreur serveur (\(c))."
-        case .decoding: "Réponse illisible."
+        case .badURL: "Configuration de l'app invalide."
+        case .unauthorized: "Accès refusé par le serveur."
+        case .offline: "Pas de connexion internet."
+        case let .http(c) where c == 429: "Trop de requêtes. Réessaie dans un instant."
+        case let .http(c) where (400 ..< 500).contains(c): "Requête invalide."
+        case .http: "Le serveur est momentanément indisponible."
+        case .decoding: "Réponse du serveur illisible."
+        }
+    }
+
+    /// Une nouvelle tentative a-t-elle du sens ? (non sur une erreur client 4xx définitive).
+    var isRetriable: Bool {
+        switch self {
+        case .offline: true
+        case let .http(c): c >= 500 || c == 429 || c < 0
+        case .badURL, .unauthorized, .decoding: false
         }
     }
 }
@@ -75,6 +88,8 @@ struct APIClient: FoodAPI {
 
     private struct AnalyzedItemDTO: Decodable {
         let name: String; let grams: Int; let macros: MacrosDTO
+        /// Base exacte pour 100 g renvoyée par le serveur (`null` si aliment non trouvé).
+        let per100g: MacrosDTO?
         let matched: Bool?
         let confidence: Double?
     }
@@ -99,7 +114,12 @@ struct APIClient: FoodAPI {
     }
 
     private func send<T: Decodable>(_ req: URLRequest, as _: T.Type) async throws -> T {
-        let (data, resp) = try await session.data(for: req)
+        let data: Data, resp: URLResponse
+        do {
+            (data, resp) = try await session.data(for: req)
+        } catch let err as URLError where err.code == .notConnectedToInternet || err.code == .networkConnectionLost {
+            throw APIError.offline
+        }
         guard let http = resp as? HTTPURLResponse else { throw APIError.http(-1) }
         if http.statusCode == 401 { throw APIError.unauthorized }
         guard (200 ..< 300).contains(http.statusCode) else { throw APIError.http(http.statusCode) }
@@ -119,6 +139,7 @@ struct APIClient: FoodAPI {
         let req = try makeRequest("analyze", method: "POST", body: body)
         let res = try await send(req, as: AnalyzeResponse.self)
         let items = res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model,
+                                             per100g: $0.per100g?.model,
                                              matched: $0.matched ?? true, confidence: $0.confidence ?? 1) }
         return AnalyzedMeal(dish: res.dish, items: items)
     }

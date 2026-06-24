@@ -26,6 +26,8 @@ describe('NutritionResolver', () => {
     expect(it.source).toBe('USDA');
     // 130/100 * 200 = 260 kcal, etc. (déterministe)
     expect([it.macros.kcal, it.macros.protein, it.macros.carbs, it.macros.fat]).toEqual([260, 6, 56, 0]);
+    // La base per100g exacte est exposée (le client recalcule sans dériver d'un arrondi).
+    expect(it.per100g).toEqual(new Macros(130, 3, 28, 0));
   });
 
   it('aliment non trouvé → macros à zéro + matched:false', async () => {
@@ -33,6 +35,7 @@ describe('NutritionResolver', () => {
     const it = result.items[0];
     expect(it.matched).toBe(false);
     expect([it.macros.kcal, it.macros.protein, it.macros.carbs, it.macros.fat]).toEqual([0, 0, 0, 0]);
+    expect(it.per100g).toBeNull();
   });
 
   it('total ne plante pas avec un item non reconnu (régression du bug as any)', async () => {

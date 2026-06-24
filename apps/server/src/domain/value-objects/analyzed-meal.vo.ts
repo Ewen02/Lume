@@ -5,6 +5,11 @@ export interface AnalyzedItem {
   name: string;
   grams: number;
   macros: Macros;
+  /**
+   * Macros exactes pour 100 g (base de référence). Permet au client de recalculer une
+   * portion sans dériver d'une valeur déjà arrondie. `null` si l'aliment n'a pas été trouvé.
+   */
+  per100g: Macros | null;
   /** Base d'où viennent les macros, ou `null` si l'aliment n'a pas été trouvé (`matched: false`). */
   source: Food['source'] | null;
   matched: boolean;

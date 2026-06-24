@@ -110,24 +110,27 @@ final class HealthManager {
     private var lumeSources: Set<HKSource> = []
     private var sourcesResolved = false
 
-    /// Trouve les sources dont le bundle identifier correspond à l'app courante (énergie diététique
-    /// suffit : Lume écrit toujours l'énergie). Idempotent : ne re-résout pas une fois fait.
+    /// Trouve les sources dont le bundle identifier correspond à l'app courante. On interroge
+    /// **chaque** type que Lume écrit (énergie ET eau) : un utilisateur qui ne loggue que de l'eau
+    /// n'apparaît pas dans les sources d'énergie → sans cette union, son eau Lume serait recomptée.
+    /// Idempotent : ne re-résout pas une fois fait.
     /// Appelé en tête de chaque lecture qui exclut Lume, pour garantir l'exclusion quel que soit
     /// l'ordre d'appel (une vue peut rafraîchir l'eau/les séances avant `refreshAll`).
     private func resolveLumeSources(force: Bool = false) async {
         guard force || !sourcesResolved else { return }
         let bundleID = Bundle.main.bundleIdentifier
-        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
-            let query = HKSourceQuery(sampleType: energyType, samplePredicate: nil) { [weak self] _, sources, _ in
-                let mine = (sources ?? []).filter { $0.bundleIdentifier == bundleID }
-                Task { @MainActor in
-                    self?.lumeSources = Set(mine)
-                    self?.sourcesResolved = true
-                    cont.resume()
+        var mine: Set<HKSource> = []
+        for type in [energyType, waterType] {
+            let found = await withCheckedContinuation { (cont: CheckedContinuation<Set<HKSource>, Never>) in
+                let query = HKSourceQuery(sampleType: type, samplePredicate: nil) { _, sources, _ in
+                    cont.resume(returning: Set((sources ?? []).filter { $0.bundleIdentifier == bundleID }))
                 }
+                store.execute(query)
             }
-            store.execute(query)
+            mine.formUnion(found)
         }
+        lumeSources = mine
+        sourcesResolved = true
     }
 
     /// Prédicat d'exclusion des échantillons écrits par Lume (vide si sources non résolues → n'exclut rien).
@@ -296,6 +299,42 @@ final class HealthManager {
                                       quantity: HKQuantity(unit: .literUnit(with: .milli), doubleValue: milliliters),
                                       start: date, end: date)
         try? await store.save(sample)
+    }
+
+    /// Retire ~`milliliters` d'eau écrite par Lume aujourd'hui (supprime les échantillons les plus
+    /// récents jusqu'à atteindre la quantité). Sans ça, baisser le compteur dans l'app laisserait
+    /// l'eau dans Santé (sur-comptage côté Apple Santé et autres apps).
+    func removeWater(milliliters: Double, date: Date = Date()) async {
+        guard available, milliliters > 0 else { return }
+        await resolveLumeSources()
+        guard let notLume = excludingLumePredicate() else { return } // sources Lume inconnues → rien à retirer
+        let onlyLume = NSCompoundPredicate(notPredicateWithSubpredicate: notLume)
+        let start = Calendar.current.startOfDay(for: date)
+        let datePred = HKQuery.predicateForSamples(withStart: start, end: date, options: .strictStartDate)
+        let pred = NSCompoundPredicate(andPredicateWithSubpredicates: [datePred, onlyLume])
+        let samples = await waterSamples(predicate: pred)
+        var remaining = milliliters
+        for s in samples { // plus récents d'abord
+            let ml = s.quantity.doubleValue(for: .literUnit(with: .milli))
+            // On ne peut pas retirer une fraction d'échantillon : on s'arrête avant d'en supprimer
+            // un qui dépasserait nettement la cible (borne l'erreur de sur-suppression).
+            if ml > remaining + 1 { break }
+            try? await store.delete(s)
+            remaining -= ml
+            if remaining <= 1 { break }
+        }
+    }
+
+    /// Échantillons d'eau (dietaryWater) du prédicat, du plus récent au plus ancien.
+    private func waterSamples(predicate: NSPredicate) async -> [HKQuantitySample] {
+        await withCheckedContinuation { (cont: CheckedContinuation<[HKQuantitySample], Never>) in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+            let query = HKSampleQuery(sampleType: waterType, predicate: predicate,
+                                      limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, results, _ in
+                cont.resume(returning: (results as? [HKQuantitySample]) ?? [])
+            }
+            store.execute(query)
+        }
     }
 
     /// Enregistre un poids saisi manuellement puis recharge la série.
