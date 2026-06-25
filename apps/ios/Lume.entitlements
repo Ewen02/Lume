@@ -7,6 +7,10 @@
       HealthKit, CloudKit et Push Notifications nécessitent un compte Apple Developer payant (99 €/an).
       La version complète est sauvegardée dans Lume.entitlements.full-account.bak — à restaurer
       (et à remettre UIBackgroundModes + le seed CloudKit) une fois le compte payant en place.
+
+      ⚠️ En restaurant l'entitlement HealthKit, ajouter aussi le flag de compilation
+      HEALTHKIT_ENABLED dans Build Settings → Active Compilation Conditions du target Lume.
+      Sans ce flag, HealthManager.entitled reste false et l'UI affiche Apple Santé en « Bientôt ».
     -->
 </dict>
 </plist>

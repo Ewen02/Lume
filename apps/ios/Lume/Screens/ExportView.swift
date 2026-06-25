@@ -15,7 +15,9 @@ struct ExportView: View {
     @State private var error: String?
 
     /// Exercices ajoutés par l'utilisateur (le catalogue seedé n'est pas « tes » données).
-    private var customExercises: [ExerciseModel] { exercises.filter(\.isCustom) }
+    private var customExercises: [ExerciseModel] {
+        exercises.filter(\.isCustom)
+    }
 
     var body: some View {
         ScrollView {

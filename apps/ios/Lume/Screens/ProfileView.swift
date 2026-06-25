@@ -15,7 +15,10 @@ struct ProfileView: View {
     @State private var showBadges = false
     @State private var showResetConfirm = false
     @State private var showHealthUnavailable = false
+    @State private var showEmailCopied = false
     @State private var photoItem: PhotosPickerItem?
+
+    private static let supportEmail = "ewen@favikon.com"
 
     private var record: ProfileRecord? {
         profiles.first
@@ -26,14 +29,40 @@ struct ProfileView: View {
         return name.isEmpty ? "Toi" : name
     }
 
-    /// Cible « de base » (BMR + objectif, hors activité) — stable, cohérente sur un écran
-    /// de réglages. L'activité du jour s'y ajoute sur Aujourd'hui (cible dynamique).
+    /// Calories actives mesurées par Santé aujourd'hui (`nil` si non autorisé/indispo) —
+    /// même source que l'écran Aujourd'hui, pour afficher exactement la même cible.
+    private var activeKcal: Int? {
+        health.isAuthorized && health.activeEnergyToday > 0 ? health.activeEnergyToday : nil
+    }
+
+    /// Cible affichée : **identique à celle d'Aujourd'hui** via `EnergyBudget`.
+    /// - Santé inactif (cas actuel, « Bientôt ») → cible complète (TDEE + objectif).
+    /// - Santé actif → cible au repos + activité réelle (dynamique).
+    /// On ne montre plus une cible « au repos » seule, qui divergeait des autres écrans.
     private var baseTarget: Macros {
-        record.map { TDEECalculator.restingTarget($0.profile) } ?? TDEECalculator.defaultTarget
+        guard let p = record?.profile else { return TDEECalculator.defaultTarget }
+        return EnergyBudget.target(p, activeKcal: activeKcal, healthAuthorized: health.isAuthorized)
+    }
+
+    /// La cible affichée inclut-elle l'activité réelle (mode dynamique Santé) ?
+    private var isDynamicTarget: Bool {
+        EnergyBudget.isDynamic(activeKcal: activeKcal, healthAuthorized: health.isAuthorized)
     }
 
     private var goalLabel: String {
         (record?.profile.goal ?? .maintain).label.lowercased()
+    }
+
+    /// HealthKit n'est entitlé que sur un compte Apple Developer payant (cf. Lume.entitlements).
+    /// Sur le build actuel (compte gratuit, entitlements vidés), l'autorisation échoue toujours :
+    /// on présente alors la ligne en « Bientôt » (désactivée) plutôt qu'un « Connecter » trompeur.
+    private var healthConnectable: Bool {
+        health.isAuthorized || health.entitled
+    }
+
+    private var healthValue: String {
+        if health.isAuthorized { return "Connecté" }
+        return health.entitled ? "Connecter" : "Bientôt"
     }
 
     /// Connecte Apple Santé ; si indisponible (compte gratuit), prévient l'utilisateur.
@@ -108,6 +137,11 @@ struct ProfileView: View {
         } message: {
             Text("La synchronisation Santé nécessite un compte Apple Developer (la fonctionnalité est désactivée sur ce build). Tes données restent enregistrées dans Lume.")
         }
+        .alert("Adresse copiée", isPresented: $showEmailCopied) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Aucune app mail n'est configurée. Écris-nous à \(Self.supportEmail) (adresse copiée dans le presse-papier).")
+        }
         .alert("Effacer toutes les données ?", isPresented: $showResetConfirm) {
             Button("Tout effacer", role: .destructive) { resetAllData() }
             Button("Annuler", role: .cancel) {}
@@ -163,8 +197,11 @@ struct ProfileView: View {
                     Chip(color: LumeColor.carbs, text: "\(baseTarget.carbs) g")
                     Chip(color: LumeColor.fat, text: "\(baseTarget.fat) g")
                 }
-                // Cohérence avec Aujourd'hui : cette cible de repos s'ajuste à ton activité du jour.
-                Text("Cible au repos · ton activité du jour s'y ajoute").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                // Le libellé reflète la cible RÉELLEMENT affichée (identique à Aujourd'hui), pas une
+                // promesse : on ne mentionne l'ajout d'activité que si Santé l'alimente vraiment.
+                Text(isDynamicTarget ? "Cible au repos · ton activité du jour s'y ajoute"
+                    : "Cible quotidienne · activité incluse (estimée)")
+                    .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -182,8 +219,11 @@ struct ProfileView: View {
                 divider
                 Button { connectHealth() } label: {
                     SettingsRow(icon: .weight, tint: LumeColor.success, title: "Apple Santé",
-                                value: health.isAuthorized ? "Connecté" : "Connecter", showsChevron: false)
-                }.buttonStyle(.lumePress)
+                                value: healthValue, showsChevron: false)
+                }
+                .buttonStyle(.lumePress)
+                .disabled(!healthConnectable)
+                .opacity(healthConnectable ? 1 : 0.5)
                 divider
                 Button { withAnimation(LumeMotion.snappy) { useImperial.toggle() } } label: {
                     SettingsRow(icon: .settings, tint: LumeColor.fat, title: "Unités",
@@ -203,7 +243,7 @@ struct ProfileView: View {
                 }.buttonStyle(.lumePress)
                 divider
                 Button { contactSupport() } label: {
-                    SettingsRow(icon: .label, tint: LumeColor.fat, title: "Nous contacter", showsChevron: true)
+                    SettingsRow(icon: .envelope, tint: LumeColor.fat, title: "Nous contacter", showsChevron: true)
                 }.buttonStyle(.lumePress)
                 divider
                 Button { showAbout = true } label: {
@@ -217,12 +257,21 @@ struct ProfileView: View {
         }
     }
 
-    /// Ouvre l'app mail avec un brouillon pré-rempli (feedback / bug).
+    /// Ouvre l'app Mail avec un brouillon pré-rempli (feedback / bug). Si aucune app mail ne peut
+    /// l'ouvrir (compte mail absent, simulateur), on copie l'adresse et on prévient — pas de silence.
     private func contactSupport() {
         let subject = "Lume — retour".addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
-        if let url = URL(string: "mailto:ewen@favikon.com?subject=\(subject)") {
-            UIApplication.shared.open(url)
+        guard let url = URL(string: "mailto:\(Self.supportEmail)?subject=\(subject)") else {
+            copyEmailFallback(); return
         }
+        UIApplication.shared.open(url) { success in
+            if !success { copyEmailFallback() }
+        }
+    }
+
+    private func copyEmailFallback() {
+        UIPasteboard.general.string = Self.supportEmail
+        showEmailCopied = true
     }
 
     private var divider: some View {

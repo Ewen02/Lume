@@ -36,6 +36,21 @@ final class HealthManager {
         HKHealthStore.isHealthDataAvailable()
     }
 
+    /// L'app a-t-elle l'entitlement HealthKit ? `isHealthDataAvailable()` reste `true` sur device
+    /// même sans entitlement (le matériel est capable) ; seul l'entitlement détermine si la
+    /// demande d'autorisation peut aboutir. On ne l'introspecte PAS au runtime (API non fiable) :
+    /// on se cale sur un flag de compilation `HEALTHKIT_ENABLED`, posé dans les « Active Compilation
+    /// Conditions » du target en même temps qu'on restaure Lume.entitlements (compte payant).
+    /// Sur le build actuel (compte gratuit, entitlements vidés), le flag est absent → `false`,
+    /// et l'UI présente Santé en « Bientôt » plutôt qu'en « Connecter » trompeur.
+    var entitled: Bool {
+        #if HEALTHKIT_ENABLED
+            return available
+        #else
+            return false
+        #endif
+    }
+
     private let weightType = HKQuantityType(.bodyMass)
     private let energyType = HKQuantityType(.dietaryEnergyConsumed)
     private let proteinType = HKQuantityType(.dietaryProtein)
@@ -332,7 +347,8 @@ final class HealthManager {
         await withCheckedContinuation { (cont: CheckedContinuation<[HKQuantitySample], Never>) in
             let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
             let query = HKSampleQuery(sampleType: waterType, predicate: predicate,
-                                      limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, results, _ in
+                                      limit: HKObjectQueryNoLimit, sortDescriptors: [sort])
+            { _, results, _ in
                 cont.resume(returning: (results as? [HKQuantitySample]) ?? [])
             }
             store.execute(query)

@@ -67,6 +67,7 @@ enum AppIcon: String {
     case weight = "scalemass.fill"
     case search = "magnifyingglass"
     case wifiError = "wifi.exclamationmark"
+    case envelope = "envelope.fill"
 
     // MARK: Muscu (v2)
 

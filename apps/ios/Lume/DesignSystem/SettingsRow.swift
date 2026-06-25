@@ -17,5 +17,8 @@ struct SettingsRow: View {
             if showsChevron { Image(appIcon: .forward).lumeIcon(14, weight: .semibold).foregroundStyle(LumeColor.muted) }
         }
         .padding(.horizontal, Spacing.lg - 2).padding(.vertical, Spacing.md)
+        // Toute la ligne (Spacer inclus) capte le tap : sans ça, le vide entre le titre et le
+        // chevron n'est pas hit-testé et l'utilisateur doit viser le texte ou la flèche.
+        .contentShape(Rectangle())
     }
 }
