@@ -19,6 +19,11 @@ struct GoalView: View {
         TDEECalculator.target(profile)
     }
 
+    /// Avertissement (non bloquant) si le rythme implicite dépasse ~1 % du poids/semaine.
+    private var objectiveWarning: String? {
+        TDEECalculator.objectiveWarning(profile)
+    }
+
     /// Pas de saisie du poids (0,5 kg en métrique, ≈1 lb en impérial), exprimé en kg.
     private var step: Double {
         WeightFormat.stepKg(imperial: useImperial)
@@ -34,6 +39,7 @@ struct GoalView: View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 targetCard
+                if let objectiveWarning { warningBanner(objectiveWarning) }
                 formCard
                 PrimaryButton(title: "Enregistrer l'objectif", icon: .validate) { save() }
             }
@@ -49,6 +55,17 @@ struct GoalView: View {
         .task {
             await health.requestAuthorization()
             if !weightEdited, let kg = health.latestWeightKg { profile.weightKg = (kg * 2).rounded() / 2 }
+        }
+    }
+
+    /// Bandeau d'alerte (non bloquant) : informe sans empêcher d'enregistrer l'objectif.
+    private func warningBanner(_ text: String) -> some View {
+        LumeCard {
+            HStack(alignment: .top, spacing: Spacing.md) {
+                Image(appIcon: .warning).lumeIcon(18, weight: .semibold).foregroundStyle(LumeColor.warning)
+                Text(text).font(.lumeFootnote).foregroundStyle(LumeColor.ink)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 

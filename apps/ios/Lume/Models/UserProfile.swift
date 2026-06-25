@@ -25,8 +25,17 @@ enum ActivityLevel: CaseIterable {
 }
 
 enum Goal { case lose, maintain, gain
-    var kcalDelta: Int {
-        switch self { case .lose: -400; case .maintain: 0; case .gain: 350 }
+    /// Ajustement énergétique exprimé en **fraction du TDEE** (pas un kcal fixe) : un déficit
+    /// proportionnel donne une vitesse de perte/prise cohérente quel que soit le gabarit.
+    /// −15 % en perte, +10 % en prise — repères usuels et sûrs.
+    var tdeeFactor: Double {
+        switch self { case .lose: 0.85; case .maintain: 1.0; case .gain: 1.10 }
+    }
+
+    /// Cible protéique (g par kg de poids corporel), modulée selon l'objectif :
+    /// sèche → plus de protéines pour préserver le muscle en déficit ; maintien → modéré.
+    var proteinPerKg: Double {
+        switch self { case .lose: 2.0; case .maintain: 1.6; case .gain: 1.8 }
     }
 
     var label: String {
