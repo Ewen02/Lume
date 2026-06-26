@@ -31,6 +31,22 @@ enum DataExporter {
         return rows.joined(separator: "\n")
     }
 
+    /// Journal financier : montant en décimal sans symbole (importable en tableur).
+    static func transactionsCSV(_ transactions: [FinanceTransaction]) -> String {
+        var rows = ["date,type,categorie,montant_eur,note"]
+        for t in transactions.sorted(by: { $0.date < $1.date }) {
+            let cols = [
+                Self.iso(t.date),
+                t.kind.title,
+                t.category.title,
+                Money.plainDecimal(t.amountCents),
+                t.note,
+            ]
+            rows.append(cols.map(escape).joined(separator: ","))
+        }
+        return rows.joined(separator: "\n")
+    }
+
     // MARK: JSON — sauvegarde complète
 
     static func backupJSON(profile: ProfileRecord?,
@@ -39,7 +55,10 @@ enum DataExporter {
                            favorites: [FavoriteFood],
                            sessions: [WorkoutSessionModel],
                            routines: [RoutineModel],
-                           customExercises: [ExerciseModel]) throws -> Data
+                           customExercises: [ExerciseModel],
+                           transactions: [FinanceTransaction] = [],
+                           recurring: [RecurringTransaction] = [],
+                           budgets: [CategoryBudget] = []) throws -> Data
     {
         let backup = Backup(
             exportedAt: Self.iso(Date()),
@@ -49,7 +68,10 @@ enum DataExporter {
             favorites: favorites.map(FavoriteDTO.init),
             workouts: sessions.map(SessionDTO.init),
             routines: routines.map(RoutineDTO.init),
-            customExercises: customExercises.map(CustomExerciseDTO.init)
+            customExercises: customExercises.map(CustomExerciseDTO.init),
+            transactions: transactions.map(TransactionDTO.init),
+            recurring: recurring.map(RecurringDTO.init),
+            budgets: budgets.map(BudgetDTO.init)
         )
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
@@ -94,6 +116,9 @@ private struct Backup: Codable {
     let workouts: [SessionDTO]
     let routines: [RoutineDTO]
     let customExercises: [CustomExerciseDTO]
+    let transactions: [TransactionDTO]
+    let recurring: [RecurringDTO]
+    let budgets: [BudgetDTO]
 }
 
 private struct ProfileDTO: Codable {
@@ -172,5 +197,31 @@ private struct CustomExerciseDTO: Codable {
     let name: String, muscle: String, equipment: String
     init(_ e: ExerciseModel) {
         name = e.name; muscle = e.muscleRaw; equipment = e.equipment
+    }
+}
+
+// MARK: - DTOs Finance (montants en centimes Int pour fidélité)
+
+private struct TransactionDTO: Codable {
+    let date: String, kind: String, category: String, amountCents: Int, note: String
+    init(_ t: FinanceTransaction) {
+        date = isoDate(t.date); kind = t.kindRaw; category = t.categoryRaw
+        amountCents = t.amountCents; note = t.note
+    }
+}
+
+private struct RecurringDTO: Codable {
+    let label: String, kind: String, category: String, amountCents: Int
+    let frequency: String, dayOfMonth: Int, isActive: Bool
+    init(_ r: RecurringTransaction) {
+        label = r.label; kind = r.kindRaw; category = r.categoryRaw; amountCents = r.amountCents
+        frequency = r.frequencyRaw; dayOfMonth = r.dayOfMonth; isActive = r.isActive
+    }
+}
+
+private struct BudgetDTO: Codable {
+    let category: String, monthlyLimitCents: Int
+    init(_ b: CategoryBudget) {
+        category = b.categoryRaw; monthlyLimitCents = b.monthlyLimitCents
     }
 }

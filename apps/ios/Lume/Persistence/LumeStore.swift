@@ -12,6 +12,8 @@ enum LumeStore {
         WorkoutSessionModel.self, LoggedExerciseModel.self, LoggedSetModel.self,
         RoutineModel.self, RoutineExerciseModel.self, ExerciseModel.self,
         BadgeUnlock.self,
+        FinanceTransaction.self, RecurringTransaction.self, CategoryBudget.self, FinanceProfile.self,
+        FixedCharge.self,
     ])
 
     static let shared: ModelContainer = {
@@ -50,6 +52,46 @@ enum LumeStore {
         }
         seedDefaultRoutines(ctx)
         seedDefaultExercisesIfNeeded(ctx)
+        seedFinanceDemo(ctx)
         return container
     }()
+
+    /// Données de démo Finance pour les #Preview du module Argent (mois courant).
+    @MainActor private static func seedFinanceDemo(_ ctx: ModelContext) {
+        let cal = Calendar.current
+        let monthStart = cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
+        func day(_ d: Int) -> Date {
+            cal.date(byAdding: .day, value: d - 1, to: monthStart) ?? monthStart
+        }
+        // Modèle enveloppe : seules les DÉPENSES VARIABLES (et le salaire en revenu) sont des
+        // transactions. Loyer/charges/épargne vivent dans le profil (déduits, non matérialisés).
+        let demo: [(Int, Int, TransactionKind, ExpenseCategory, String)] = [
+            (1, 210_000, .income, .salary, "Salaire"),
+            (3, 4290, .expense, .restaurant, "Restaurant midi"),
+            (5, 8750, .expense, .groceries, "Courses"),
+            (9, 3420, .expense, .transport, "Essence"),
+            (12, 5600, .expense, .leisure, "Cinéma + sortie"),
+        ]
+        for (d, cents, kind, cat, note) in demo {
+            ctx.insert(FinanceTransaction(date: day(d), amountCents: cents, kind: kind, category: cat, note: note))
+        }
+        ctx.insert(CategoryBudget(category: .groceries, monthlyLimitCents: 40000))
+        ctx.insert(CategoryBudget(category: .restaurant, monthlyLimitCents: 15000))
+        // Récurrente salaire : on amorce le curseur d'idempotence au salaire déjà seedé (jour 1 du mois
+        // courant), sinon `materializeDue` recréerait une 2e transaction salaire → revenus doublés en preview.
+        let salaryRule = RecurringTransaction(label: "Salaire", amountCents: 210_000, kind: .income,
+                                              category: .salary, frequency: .monthly, dayOfMonth: 1)
+        salaryRule.lastMaterializedDate = day(1)
+        ctx.insert(salaryRule)
+        // Profil de démo : revenu 2 100 €, loyer 650 €, charges 110 €, épargne 300 €.
+        let profile = FinanceProfile(monthlyNetIncomeCents: 210_000, rentCents: 65000,
+                                     fixedChargesCents: 11000, monthlySavingCents: 30000)
+        ctx.insert(profile)
+        // Détail des charges (somme = 110 €) conservé pour un reconfig fidèle.
+        ctx.insert(FixedCharge(label: "Assurance", amountCents: 6000, category: .subscriptions))
+        ctx.insert(FixedCharge(label: "Internet", amountCents: 5000, category: .subscriptions))
+        // Les #Preview montrent l'écran : budget global = dépenses variables, flag posé.
+        UserDefaults.standard.set(profile.variableBudgetCents, forKey: FinanceSettings.globalBudgetKey)
+        UserDefaults.standard.set(true, forKey: FinanceSettings.setupDoneKey)
+    }
 }

@@ -98,6 +98,13 @@ struct ProfileView: View {
         try? ctx.delete(model: RoutineModel.self) // cascade → RoutineExerciseModel
         // Exercices : on ne retire que ceux ajoutés par l'utilisateur (le catalogue seedé reste).
         try? ctx.delete(model: ExerciseModel.self, where: #Predicate { $0.isCustom })
+        // Finances : transactions, récurrentes et budgets par catégorie.
+        try? ctx.delete(model: FinanceTransaction.self)
+        try? ctx.delete(model: RecurringTransaction.self)
+        try? ctx.delete(model: CategoryBudget.self)
+        try? ctx.delete(model: FinanceProfile.self)
+        UserDefaults.standard.removeObject(forKey: FinanceSettings.globalBudgetKey)
+        UserDefaults.standard.removeObject(forKey: FinanceSettings.setupDoneKey)
         // Données écrites par Lume dans Santé (poids, séances), sinon le poids se repeuplerait.
         Task { await health.deleteLumeData() }
     }
@@ -146,7 +153,7 @@ struct ProfileView: View {
             Button("Tout effacer", role: .destructive) { resetAllData() }
             Button("Annuler", role: .cancel) {}
         } message: {
-            Text("Repas, eau, poids, séances, routines, favoris et récompenses seront supprimés (y compris dans Apple Santé). Ton profil et tes réglages sont conservés. Action irréversible.")
+            Text("Repas, eau, poids, séances, routines, favoris, récompenses et finances seront supprimés (y compris dans Apple Santé). Ton profil et tes réglages sont conservés. Action irréversible.")
         }
     }
 

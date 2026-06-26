@@ -11,6 +11,9 @@ struct ExportView: View {
     @Query(sort: \RoutineModel.order) private var routines: [RoutineModel]
     @Query private var exercises: [ExerciseModel]
     @Query private var profiles: [ProfileRecord]
+    @Query(sort: \FinanceTransaction.date) private var transactions: [FinanceTransaction]
+    @Query private var recurring: [RecurringTransaction]
+    @Query private var budgets: [CategoryBudget]
 
     @State private var error: String?
 
@@ -29,8 +32,11 @@ struct ExportView: View {
                 exportRow(title: "Poids (CSV)",
                           subtitle: "\(weights.count) mesures",
                           icon: .weight, tint: LumeColor.fat) { try weightCSVURL() }
+                exportRow(title: "Transactions (CSV)",
+                          subtitle: "\(transactions.count) entrées · dépenses & revenus",
+                          icon: .money, tint: LumeColor.success) { try transactionsCSVURL() }
                 exportRow(title: "Sauvegarde complète (JSON)",
-                          subtitle: "Profil, repas, poids, favoris, séances, routines, exos",
+                          subtitle: "Profil, repas, poids, favoris, séances, routines, exos, finances",
                           icon: .settings, tint: LumeColor.protein) { try backupJSONURL() }
 
                 if let error {
@@ -103,10 +109,15 @@ struct ExportView: View {
         try write(DataExporter.weightCSV(weights), to: "lume-poids.csv")
     }
 
+    private func transactionsCSVURL() throws -> URL {
+        try write(DataExporter.transactionsCSV(transactions), to: "lume-transactions.csv")
+    }
+
     private func backupJSONURL() throws -> URL {
         let data = try DataExporter.backupJSON(profile: profiles.first, foods: foods,
                                                weights: weights, favorites: favorites, sessions: sessions,
-                                               routines: routines, customExercises: customExercises)
+                                               routines: routines, customExercises: customExercises,
+                                               transactions: transactions, recurring: recurring, budgets: budgets)
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("lume-sauvegarde.json")
         try data.write(to: url, options: .atomic)
         return url

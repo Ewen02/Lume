@@ -9,6 +9,7 @@ struct StatTile: View {
         VStack(alignment: .leading, spacing: Spacing.sm) {
             Image(appIcon: icon).lumeIcon(18, weight: .semibold).foregroundStyle(tint)
             Text(value).font(.lumeTitle).foregroundStyle(LumeColor.ink).monospacedDigit()
+                .contentTransition(.numericText()) // chiffres roulants quand la valeur change
             Text(label).font(.lumeFootnote).foregroundStyle(LumeColor.muted)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

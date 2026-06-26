@@ -9,7 +9,9 @@ struct RootView: View {
     @State private var showCapture = false
     @State private var showSession = false
     @State private var showWeight = false
+    @State private var showAddTransaction = false
     @State private var justLoggedID = UUID()
+    @State private var financeLoggedID = UUID()
 
     var body: some View {
         if hasOnboarded {
@@ -25,6 +27,7 @@ struct RootView: View {
         switch tab {
         case .workout: .workout
         case .progress: .weight
+        case .money: .add
         default: .add
         }
     }
@@ -34,6 +37,7 @@ struct RootView: View {
         switch tab {
         case .workout: showSession = true
         case .progress: showWeight = true
+        case .money: showAddTransaction = true
         default: showCapture = true
         }
     }
@@ -45,6 +49,7 @@ struct RootView: View {
             Group {
                 switch tab {
                 case .today: TodayView(highlightTrigger: justLoggedID)
+                case .money: MoneyHomeView(highlightTrigger: financeLoggedID)
                 case .workout: WorkoutHomeView()
                 case .progress: ProgressDashboardView()
                 case .profile: ProfileView()
@@ -53,6 +58,9 @@ struct RootView: View {
             .transition(.opacity)
             .animation(LumeMotion.smooth, value: tab)
 
+            // Le FAB flotte au-dessus de la barre (offset négatif) : il surplombe les onglets sans
+            // « prendre » la place de l'un d'eux. Il reste donc centré sur TOUS les onglets — y
+            // compris Argent — pour préserver la signature visuelle de l'app.
             LumeTabBar(selection: $tab)
                 .padding(.horizontal, Spacing.lg)
                 .overlay(alignment: .top) {
@@ -73,6 +81,12 @@ struct RootView: View {
         .sheet(isPresented: $showWeight) {
             // Pré-rempli au dernier poids connu (local), sinon l'init retombe sur 70 kg.
             WeightEntryView(current: weightSamples.first?.kg)
+        }
+        .sheet(isPresented: $showAddTransaction) {
+            TransactionEditorView {
+                withAnimation(LumeMotion.smooth) { tab = .money }
+                financeLoggedID = UUID() // déclenche pulse + haptique sur l'écran Budget
+            }
         }
         .sensoryFeedback(.selection, trigger: tab)
         .sensoryFeedback(.success, trigger: justLoggedID)

@@ -39,6 +39,28 @@ struct DataExporterTests {
         #expect(out.contains("\"routines\""))
         #expect(out.contains("\"customExercises\""))
         #expect(out.contains("\"favorites\""))
+        #expect(out.contains("\"transactions\""))
+        #expect(out.contains("\"recurring\""))
+        #expect(out.contains("\"budgets\""))
+    }
+
+    @Test func backupIncludesTransactions() throws {
+        let tx = FinanceTransaction(date: Date(), amountCents: 4290, kind: .expense, category: .restaurant, note: "Resto midi")
+        let data = try DataExporter.backupJSON(profile: nil, foods: [], weights: [], favorites: [],
+                                               sessions: [], routines: [], customExercises: [],
+                                               transactions: [tx])
+        let out = String(decoding: data, as: UTF8.self)
+        #expect(out.contains("Resto midi"))
+        #expect(out.contains("4290")) // montant en centimes (fidélité)
+    }
+
+    @Test func transactionsCSVHasHeaderAndRow() {
+        let tx = FinanceTransaction(date: Date(timeIntervalSince1970: 1_700_000_000), amountCents: 1250,
+                             kind: .expense, category: .food, note: "Pain")
+        let csv = DataExporter.transactionsCSV([tx])
+        #expect(csv.hasPrefix("date,type,categorie,montant_eur,note"))
+        #expect(csv.contains("Pain"))
+        #expect(csv.contains("12.50")) // décimal sans symbole
     }
 
     @Test func foodCSVHasHeaderAndRow() {

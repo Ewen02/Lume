@@ -69,6 +69,30 @@ enum AppIcon: String {
     case wifiError = "wifi.exclamationmark"
     case envelope = "envelope.fill"
 
+    // MARK: Finance (v3 — module Argent)
+
+    case money = "banknote.fill"
+    case wallet = "wallet.pass.fill"
+    case creditcard = "creditcard.fill"
+    case pie = "chart.pie.fill"
+    case incomeArrow = "arrow.down.left"
+    case expenseArrow = "arrow.up.right"
+    case recurring = "arrow.triangle.2.circlepath"
+    case receipt = "doc.text.fill" // scan ticket (phase ultérieure)
+    // Catégories de dépenses
+    case food = "carrot.fill"
+    case restaurant = "fork.knife.circle.fill"
+    case transport = "car.fill"
+    case housing = "house.circle.fill"
+    case home = "cart.fill"
+    case health = "cross.case.fill"
+    case leisure = "gamecontroller.fill"
+    case subscription = "repeat.circle.fill"
+    case shopping = "bag.fill"
+    case category = "square.grid.2x2.fill"
+    case salary = "eurosign.circle.fill"
+    case savings = "banknote"
+
     // MARK: Muscu (v2)
 
     case plates = "circle.grid.2x2"

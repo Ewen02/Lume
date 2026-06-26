@@ -23,6 +23,8 @@ struct ProgressRing<Center: View>: View {
                 .trim(from: 0, to: max(0, min(1, animated)))
                 .stroke(color, style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
                 .rotationEffect(.degrees(-90))
+                // Crossfade de teinte (ex. budget vert→ambre→rouge) au lieu d'un saut sec.
+                .animation(reduceMotion ? nil : LumeMotion.smooth, value: color)
             center()
         }
         .onAppear { apply(clamped) }

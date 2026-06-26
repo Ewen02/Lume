@@ -1,10 +1,13 @@
 import SwiftUI
 
-/// État vide homogène (liste ou écran sans contenu).
+/// État vide homogène (liste ou écran sans contenu), avec action optionnelle (CTA).
 struct LumeEmptyState: View {
     var icon: AppIcon
     var title: String
     var message: String? = nil
+    /// Bouton d'action optionnel (titre + closure) : un état vide actionnable plutôt qu'un cul-de-sac.
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
     var body: some View {
         VStack(spacing: Spacing.sm) {
             Image(appIcon: icon).lumeIcon(28, weight: .semibold).foregroundStyle(LumeColor.muted)
@@ -12,6 +15,10 @@ struct LumeEmptyState: View {
             if let message {
                 Text(message).font(.lumeFootnote).foregroundStyle(LumeColor.muted)
                     .multilineTextAlignment(.center)
+            }
+            if let actionTitle, let action {
+                PrimaryButton(title: actionTitle, icon: .add, action: action)
+                    .padding(.top, Spacing.sm).padding(.horizontal, Spacing.xl)
             }
         }
         .frame(maxWidth: .infinity).padding(.vertical, Spacing.xxl)
