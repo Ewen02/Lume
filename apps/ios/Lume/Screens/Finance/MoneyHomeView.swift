@@ -180,7 +180,7 @@ struct MoneyHomeView: View {
         }
     }
 
-    @ViewBuilder private func alertBanner(_ alert: BudgetAlert) -> some View {
+    private func alertBanner(_ alert: BudgetAlert) -> some View {
         let (icon, tint, text): (AppIcon, Color, String) = {
             switch alert {
             case let .overCommitted(c):
