@@ -38,4 +38,16 @@ struct BudgetPlannerTests {
                                fixedChargesCents: 30_000, monthlySavingCents: 0)
         #expect(p.variableBudgetCents == 0) // dépenses fixes > revenu → plancher 0
     }
+
+    @Test func suggestedRentIs30Percent() {
+        // 2 500 € × 30 % = 750 €.
+        #expect(BudgetPlanner.suggestedRent(monthlyIncomeCents: 250_000) == 75_000)
+        #expect(BudgetPlanner.suggestedRent(monthlyIncomeCents: 0) == 0)
+    }
+
+    @Test func suggestedSavingIs20Percent() {
+        // 2 500 € × 20 % = 500 €.
+        #expect(BudgetPlanner.suggestedSaving(monthlyIncomeCents: 250_000) == 50_000)
+        #expect(BudgetPlanner.suggestedSaving(monthlyIncomeCents: -10) == 0) // planché à 0
+    }
 }

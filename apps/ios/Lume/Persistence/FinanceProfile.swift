@@ -69,4 +69,21 @@ enum BudgetPlanner {
     static func resteAVivre(monthlyIncomeCents: Int, fixedMonthlyCents: Int) -> Int {
         monthlyIncomeCents - fixedMonthlyCents
     }
+
+    // MARK: Suggestions de pré-remplissage (règle 50/30/20 — repères, pas des cibles imposées)
+
+    /// Part indicative du revenu allouée au loyer dans la règle « besoins » (≈ 30 %).
+    static let suggestedRentRatio = 30
+    /// Part indicative du revenu mise de côté chaque mois (≈ 20 %).
+    static let suggestedSavingRatio = 20
+
+    /// Loyer suggéré à partir du revenu mensuel net (≈ 30 %, arrondi à l'euro inférieur via les centimes).
+    static func suggestedRent(monthlyIncomeCents: Int) -> Int {
+        max(0, monthlyIncomeCents) * suggestedRentRatio / 100
+    }
+
+    /// Épargne mensuelle suggérée à partir du revenu net (≈ 20 %).
+    static func suggestedSaving(monthlyIncomeCents: Int) -> Int {
+        max(0, monthlyIncomeCents) * suggestedSavingRatio / 100
+    }
 }

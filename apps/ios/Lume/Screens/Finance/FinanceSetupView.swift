@@ -244,7 +244,7 @@ struct FinanceSetupView: View {
         stepScroll {
             stepHead("Ton loyer", "Ta plus grosse dépense fixe du mois.")
             amountCard(cents: $rentCents, tint: LumeColor.ink, touched: $rentTouched,
-                       prefill: monthlyIncomeCents > 0 ? monthlyIncomeCents * 30 / 100 : 0)
+                       prefill: BudgetPlanner.suggestedRent(monthlyIncomeCents: monthlyIncomeCents))
             remainingBanner
         }
     }
@@ -278,7 +278,7 @@ struct FinanceSetupView: View {
         stepScroll {
             stepHead("Ton épargne", "Mets de côté avant de dépenser. Tu peux laisser 0 et l'ajuster plus tard.")
             amountCard(cents: $savingCents, tint: LumeColor.fat, touched: $savingTouched,
-                       prefill: monthlyIncomeCents > 0 ? monthlyIncomeCents * 20 / 100 : 0)
+                       prefill: BudgetPlanner.suggestedSaving(monthlyIncomeCents: monthlyIncomeCents))
             remainingBanner
         }
     }
