@@ -387,8 +387,9 @@ final class HealthManager {
         await resolveLumeSources()
         guard let notLume = excludingLumePredicate() else { return } // sources Lume inconnues → rien à supprimer
         let onlyLume = NSCompoundPredicate(notPredicateWithSubpredicate: notLume)
-        try? await store.deleteObjects(of: weightType, predicate: onlyLume)
-        try? await store.deleteObjects(of: HKObjectType.workoutType(), predicate: onlyLume)
+        // Best-effort : on supprime ce qu'on peut et on continue (le Bool de succès est ignoré exprès).
+        _ = try? await store.deleteObjects(of: weightType, predicate: onlyLume)
+        _ = try? await store.deleteObjects(of: HKObjectType.workoutType(), predicate: onlyLume)
         // Recharge les séries dépendantes pour refléter la suppression immédiatement.
         await refreshWeight()
     }
