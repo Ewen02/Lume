@@ -135,27 +135,6 @@ struct MoneyHomeView: View {
         return fixed + punctual
     }
 
-    /// Engagements fixes du profil (loyer + charges + épargne), déduits du solde réel.
-    /// Ne s'applique qu'au mois courant : un mois passé n'a pas de profil historique fiable.
-    private var committedOutflow: Int {
-        guard isCurrentMonth, let p = profiles.first else { return 0 }
-        return FinanceCalculator.committedOutflow(rentCents: p.rentCents,
-                                                  fixedChargesCents: p.fixedChargesCents,
-                                                  savingCents: p.monthlySavingCents)
-    }
-
-    /// Solde RÉEL « à vivre » : revenus − dépenses variables − engagements fixes (loyer/charges/épargne).
-    /// C'est le chiffre honnête, cohérent avec le hero (qui travaille déjà net des fixes).
-    private var realBalance: Int {
-        FinanceCalculator.realBalance(data, in: selectedMonth, committed: committedOutflow)
-    }
-
-    /// N'affiche le solde réel QUE si un revenu a été encaissé ce mois : sans salaire matérialisé en
-    /// début de mois, le solde serait fortement négatif (engagements sans revenu) et trompeur.
-    private var showsRealBalance: Bool {
-        income > 0
-    }
-
     private var byCategory: [ExpenseCategory: Int] {
         FinanceCalculator.spentByCategory(data, in: selectedMonth)
     }
@@ -400,32 +379,15 @@ struct MoneyHomeView: View {
         .animation(reduceMotion ? nil : LumeMotion.celebrate, value: ringPulse)
     }
 
-    /// 2 tuiles « Revenus / Épargne » (icônes en pastille colorée).
-    /// On n'affiche PLUS un « Solde » net brut ici : sans salaire encore matérialisé en début de mois,
-    /// il devenait fortement négatif et contredisait le « reste à dépenser » du hero. Le dépensé est
-    /// déjà lisible dans le hero (« X sur Y »). Ces deux tuiles restent toujours positives et claires.
+    /// 2 tuiles « Revenus / Épargné » (icônes en pastille), lues du profil.
+    /// Pas de « solde réel à vivre » ici : c'est exactement le « reste à dépenser » du hero (revenu −
+    /// loyer − charges − épargne − dépenses), donc l'afficher en double était redondant et trompeur.
     private var statsRow: some View {
-        VStack(spacing: Spacing.md) {
-            HStack(spacing: Spacing.md) {
-                StatTile(icon: .salary, tint: LumeColor.success, value: Money.format(income),
-                         label: "Revenus du mois", iconInPill: true)
-                StatTile(icon: .savings, tint: LumeColor.fat, value: Money.format(savedThisMonth),
-                         label: "Épargné ce mois", iconInPill: true)
-            }
-            // Solde réel « à vivre » : seulement quand un revenu est tombé (sinon trompeusement négatif).
-            if showsRealBalance {
-                HStack {
-                    Text("Solde réel à vivre").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
-                    Spacer()
-                    Text(Money.format(realBalance, showSign: true))
-                        .font(.lumeCallout.weight(.bold)).monospacedDigit()
-                        .foregroundStyle(realBalance >= 0 ? LumeColor.success : LumeColor.negative)
-                        .contentTransition(.numericText())
-                }
-                .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.md)
-                .background(LumeColor.surface, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
-                .lumeShadow(.soft)
-            }
+        HStack(spacing: Spacing.md) {
+            StatTile(icon: .salary, tint: LumeColor.success, value: Money.format(income),
+                     label: "Revenus du mois", iconInPill: true)
+            StatTile(icon: .savings, tint: LumeColor.fat, value: Money.format(savedThisMonth),
+                     label: "Épargné ce mois", iconInPill: true)
         }
         .animation(reduceMotion ? nil : LumeMotion.smooth, value: income)
     }
