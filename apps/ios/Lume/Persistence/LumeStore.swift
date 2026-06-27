@@ -63,10 +63,9 @@ enum LumeStore {
         func day(_ d: Int) -> Date {
             cal.date(byAdding: .day, value: d - 1, to: monthStart) ?? monthStart
         }
-        // Modèle enveloppe : seules les DÉPENSES VARIABLES (et le salaire en revenu) sont des
-        // transactions. Loyer/charges/épargne vivent dans le profil (déduits, non matérialisés).
+        // Modèle enveloppe : seules les DÉPENSES VARIABLES sont des transactions. Revenu, loyer,
+        // charges et épargne vivent dans le profil (déduits, jamais matérialisés) → pas de doublons.
         let demo: [(Int, Int, TransactionKind, ExpenseCategory, String)] = [
-            (1, 210_000, .income, .salary, "Salaire"),
             (3, 4290, .expense, .restaurant, "Restaurant midi"),
             (5, 8750, .expense, .groceries, "Courses"),
             (9, 3420, .expense, .transport, "Essence"),
@@ -77,12 +76,9 @@ enum LumeStore {
         }
         ctx.insert(CategoryBudget(category: .groceries, monthlyLimitCents: 40000))
         ctx.insert(CategoryBudget(category: .restaurant, monthlyLimitCents: 15000))
-        // Récurrente salaire : on amorce le curseur d'idempotence au salaire déjà seedé (jour 1 du mois
-        // courant), sinon `materializeDue` recréerait une 2e transaction salaire → revenus doublés en preview.
-        let salaryRule = RecurringTransaction(label: "Salaire", amountCents: 210_000, kind: .income,
-                                              category: .salary, frequency: .monthly, dayOfMonth: 1)
-        salaryRule.lastMaterializedDate = day(1)
-        ctx.insert(salaryRule)
+        // Une vraie récurrente légitime : une DÉPENSE fixe manuelle (abonnement), pas le salaire.
+        ctx.insert(RecurringTransaction(label: "Spotify", amountCents: 1099, kind: .expense,
+                                        category: .subscriptions, frequency: .monthly, dayOfMonth: 5))
         // Profil de démo : revenu 2 100 €, loyer 650 €, charges 110 €, épargne 300 €.
         let profile = FinanceProfile(monthlyNetIncomeCents: 210_000, rentCents: 65000,
                                      fixedChargesCents: 11000, monthlySavingCents: 30000)

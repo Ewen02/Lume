@@ -10,7 +10,6 @@ struct RecurringEditorView: View {
 
     @State private var label: String
     @State private var cents: Int
-    @State private var kindIndex: Int
     @State private var category: ExpenseCategory
     @State private var frequencyIndex: Int
     @State private var dayOfMonth: Int
@@ -21,7 +20,6 @@ struct RecurringEditorView: View {
         existing = nil
         _label = State(initialValue: "")
         _cents = State(initialValue: 0)
-        _kindIndex = State(initialValue: 0)
         _category = State(initialValue: .subscriptions)
         _frequencyIndex = State(initialValue: 0)
         _dayOfMonth = State(initialValue: 1)
@@ -32,22 +30,16 @@ struct RecurringEditorView: View {
         existing = entry
         _label = State(initialValue: entry.label)
         _cents = State(initialValue: entry.amountCents)
-        _kindIndex = State(initialValue: RecurringEditorView.index(of: entry.kind))
-        _category = State(initialValue: entry.category)
+        // Une récurrente héritée pouvait être revenu/épargne ; en édition on la ramène à une dépense.
+        _category = State(initialValue: entry.kind == .expense ? entry.category : .subscriptions)
         _frequencyIndex = State(initialValue: entry.frequency == .weekly ? 1 : 0)
         _dayOfMonth = State(initialValue: entry.dayOfMonth)
         _isActive = State(initialValue: entry.isActive)
     }
 
-    /// Ordre des segments du picker de type : index → `TransactionKind`.
-    private static let kinds: [TransactionKind] = [.expense, .income, .saving]
-    static func index(of kind: TransactionKind) -> Int {
-        kinds.firstIndex(of: kind) ?? 0
-    }
-
-    private var kind: TransactionKind {
-        Self.kinds[min(kindIndex, Self.kinds.count - 1)]
-    }
+    /// Une récurrente est TOUJOURS une dépense fixe : revenu/épargne/loyer sont gérés par le profil
+    /// (« Mon budget »). On ne propose donc plus de picker de type ici.
+    private let kind: TransactionKind = .expense
 
     private var frequency: RecurrenceFrequency {
         frequencyIndex == 1 ? .weekly : .monthly
@@ -57,25 +49,15 @@ struct RecurringEditorView: View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 LumeCard {
-                    TextField("Nom (ex. Loyer, Spotify)", text: $label)
+                    TextField("Nom (ex. Spotify, Assurance)", text: $label)
                         .font(.lumeHeadline).foregroundStyle(LumeColor.ink)
                 }
-                SegmentedPicker(options: ["Dépense", "Revenu", "Épargne"], selection: $kindIndex)
-                    .onChange(of: kindIndex) { _, _ in
-                        switch kind {
-                        case .income: category = .salary
-                        case .saving: category = .savings
-                        case .expense: if category == .salary || category == .savings { category = .subscriptions }
-                        }
-                    }
                 LumeCard { AmountStepper(cents: $cents, tint: kind.tint) }
 
-                if kind == .expense {
-                    VStack(alignment: .leading, spacing: Spacing.sm) {
-                        SectionHeader(title: "Catégorie")
-                        // Loyer exclu : il se gère dans « Mon budget » (sinon double-comptage).
-                        CategoryPicker(selection: $category, categories: ExpenseCategory.manualRecurringExpenseCases)
-                    }
+                VStack(alignment: .leading, spacing: Spacing.sm) {
+                    SectionHeader(title: "Catégorie")
+                    // Loyer exclu : il se gère dans « Mon budget » (sinon double-comptage).
+                    CategoryPicker(selection: $category, categories: ExpenseCategory.manualRecurringExpenseCases)
                 }
 
                 SegmentedPicker(options: ["Mensuel", "Hebdomadaire"], selection: $frequencyIndex)
@@ -125,21 +107,17 @@ struct RecurringEditorView: View {
 
     private func save() {
         guard cents > 0 else { return }
-        let cat: ExpenseCategory = switch kind {
-        case .saving: .savings
-        case .income: .salary
-        case .expense: category
-        }
+        // Toujours une dépense fixe (kind == .expense) ; la catégorie choisie ne peut pas être housing.
         if let e = existing {
             e.label = label
             e.amountCents = cents
             e.kindRaw = kind.rawValue
-            e.categoryRaw = cat.rawValue
+            e.categoryRaw = category.rawValue
             e.frequencyRaw = frequency.rawValue
             e.dayOfMonth = min(31, max(1, dayOfMonth))
             e.isActive = isActive
         } else {
-            ctx.insert(RecurringTransaction(label: label, amountCents: cents, kind: kind, category: cat,
+            ctx.insert(RecurringTransaction(label: label, amountCents: cents, kind: kind, category: category,
                                             frequency: frequency, dayOfMonth: dayOfMonth, isActive: isActive))
         }
         dismiss()

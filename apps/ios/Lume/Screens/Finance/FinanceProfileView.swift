@@ -101,13 +101,10 @@ struct FinanceProfileView: View {
         profile.fixedChargesCents = charges
         profile.monthlySavingCents = saving
 
-        // Récurrente salaire : upsert (purge l'ancienne avant de recréer, pas de doublon).
-        for r in recurrings where r.kind == .income && r.category == .salary {
+        // Le revenu vit dans le profil (lu par le hub) → plus de récurrente Salaire. On purge toute
+        // récurrente revenu/épargne héritée (modèle ancien) pour éviter les doublons.
+        for r in recurrings where r.kind == .income || r.kind == .saving {
             ctx.delete(r)
-        }
-        if income > 0 {
-            ctx.insert(RecurringTransaction(label: "Salaire", amountCents: income, kind: .income,
-                                            category: .salary, frequency: .monthly, dayOfMonth: 1))
         }
         globalBudgetCents = profile.variableBudgetCents
         dismiss()

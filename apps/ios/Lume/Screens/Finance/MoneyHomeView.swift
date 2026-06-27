@@ -57,8 +57,12 @@ struct MoneyHomeView: View {
             .fullScreenCover(isPresented: Binding(get: { !setupDone }, set: { setupDone = !$0 })) {
                 FinanceSetupView()
             }
-            // Matérialise les récurrentes dues à l'ouverture (idempotent).
-            .task(id: recurrings.count) { RecurrenceEngine.materializeDue(in: ctx) }
+            // Purge les récurrentes incohérentes (revenu/épargne/loyer gérés par le profil) et les
+            // doublons hérités, PUIS matérialise les récurrentes (dépenses fixes) dues. Idempotent.
+            .task(id: recurrings.count) {
+                RecurringCleaner.purge(in: ctx)
+                RecurrenceEngine.materializeDue(in: ctx)
+            }
             // Dépense loggée : on revient d'abord au mois courant (la transaction est datée aujourd'hui ;
             // sinon on pulserait un mois passé où elle n'apparaît pas), puis pulse bref de l'anneau.
             .onChange(of: highlightTrigger) { _, _ in
@@ -123,8 +127,12 @@ struct MoneyHomeView: View {
         FinanceCalculator.totalSpent(data, in: selectedMonth)
     }
 
+    /// Revenu du mois = revenu fixe du profil (mois courant) + revenus PONCTUELS saisis (prime, extra).
+    /// Le revenu fixe n'est plus matérialisé en récurrente (modèle enveloppe) : on le lit du profil.
     private var income: Int {
-        FinanceCalculator.totalIncome(data, in: selectedMonth)
+        let punctual = FinanceCalculator.totalIncome(data, in: selectedMonth)
+        let fixed = (isCurrentMonth ? profiles.first?.monthlyNetIncomeCents : nil) ?? 0
+        return fixed + punctual
     }
 
     /// Engagements fixes du profil (loyer + charges + épargne), déduits du solde réel.
@@ -156,8 +164,12 @@ struct MoneyHomeView: View {
         FinanceCalculator.monthlySeries(allTx.map(\.data), months: 6, reference: selectedMonth)
     }
 
+    /// Épargne du mois = épargne fixe du profil (mois courant) + épargnes PONCTUELLES saisies.
+    /// L'épargne fixe n'est plus matérialisée (modèle enveloppe) : on la lit du profil.
     private var savedThisMonth: Int {
-        FinanceCalculator.totalSaved(data, in: selectedMonth)
+        let punctual = FinanceCalculator.totalSaved(data, in: selectedMonth)
+        let fixed = (isCurrentMonth ? profiles.first?.monthlySavingCents : nil) ?? 0
+        return fixed + punctual
     }
 
     private var savedTotal: Int {

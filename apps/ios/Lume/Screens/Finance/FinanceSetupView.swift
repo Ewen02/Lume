@@ -447,10 +447,10 @@ struct FinanceSetupView: View {
         withAnimation(LumeMotion.smooth) { step = max(0, step - 1) }
     }
 
-    /// Modèle enveloppe : on upsert le profil (source de vérité), on ne matérialise QUE le salaire
-    /// (revenu, pour le solde), les courses deviennent un budget catégorie, et le budget global =
-    /// dépenses variables. Loyer/charges/épargne ne sont PAS matérialisés (déjà déduits du budget).
-    /// Reconfiguration : on purge ce qu'on avait posé (pas de doublons).
+    /// Modèle enveloppe : on upsert le profil (SEULE source de vérité du fixe). Revenu, loyer, charges
+    /// et épargne vivent dans le profil, NE sont PAS matérialisés (pas de récurrente Salaire — c'était
+    /// la source des doublons). Les courses deviennent un budget catégorie ; le budget global =
+    /// dépenses variables. Reconfiguration : on purge ce qu'on avait posé (pas de doublons).
     private func finish() {
         // 1. Upsert du profil (source de vérité).
         let profile = profiles.first ?? {
@@ -470,13 +470,10 @@ struct FinanceSetupView: View {
             ctx.insert(FixedCharge(label: c.label, amountCents: c.cents, category: c.category))
         }
 
-        // 2. Salaire : une seule récurrente revenu (purge les anciennes salaires avant de recréer).
-        for r in recurrings where r.kind == .income && r.category == .salary {
+        // 2. Le revenu vit dans le profil (lu directement par le hub) → on ne crée PLUS de récurrente
+        // Salaire. On purge toute récurrente revenu/épargne héritée (modèle ancien) pour éviter les doublons.
+        for r in recurrings where r.kind == .income || r.kind == .saving {
             ctx.delete(r)
-        }
-        if monthlyIncomeCents > 0 {
-            ctx.insert(RecurringTransaction(label: "Salaire", amountCents: monthlyIncomeCents,
-                                            kind: .income, category: .salary, frequency: .monthly, dayOfMonth: 1))
         }
 
         // 3. Courses : plafond de budget catégorie (pas une transaction). Upsert.
