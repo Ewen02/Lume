@@ -5,6 +5,12 @@ import SwiftUI
 /// Reduce Motion respecté. Source unique : évite la triple duplication de la logique de navigation.
 struct MonthStepper: View {
     @Binding var month: Date
+    /// Couleur du libellé (mois/année). Surcharger en blanc sur un fond coloré.
+    var labelTint: Color = LumeColor.ink
+    /// Couleur des chevrons actifs. Surcharger en blanc translucide sur un fond coloré.
+    var controlTint: Color = LumeColor.muted
+    /// Couleur du chevron « avant » désactivé (mois courant).
+    var disabledTint: Color = LumeColor.faint
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Le mois affiché est-il le mois courant ? (borne la navigation vers le futur).
@@ -22,17 +28,17 @@ struct MonthStepper: View {
     var body: some View {
         HStack(spacing: Spacing.md) {
             Button { change(-1) } label: {
-                Image(appIcon: .back).lumeIcon(12, weight: .bold).foregroundStyle(LumeColor.muted)
+                Image(appIcon: .back).lumeIcon(12, weight: .bold).foregroundStyle(controlTint)
                     .frame(width: 44, height: 44).contentShape(Rectangle())
             }.buttonStyle(.lumePress).accessibilityLabel("Mois précédent")
 
             Text(Formatters.monthYearFR(month)).font(.lumeSubhead.weight(.semibold))
-                .foregroundStyle(LumeColor.ink).contentTransition(.numericText())
+                .foregroundStyle(labelTint).contentTransition(.numericText())
                 .frame(minWidth: 110)
 
             Button { change(1) } label: {
                 Image(appIcon: .forward).lumeIcon(12, weight: .bold)
-                    .foregroundStyle(isCurrentMonth ? LumeColor.faint : LumeColor.muted)
+                    .foregroundStyle(isCurrentMonth ? disabledTint : controlTint)
                     .frame(width: 44, height: 44).contentShape(Rectangle())
             }.buttonStyle(.lumePress).disabled(isCurrentMonth).accessibilityLabel("Mois suivant")
         }

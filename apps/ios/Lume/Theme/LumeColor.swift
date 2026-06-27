@@ -36,3 +36,19 @@ enum LumeColor {
     static let warning = Color(hex: 0xE2B532)
     static let negative = Color(hex: 0xE0454F)
 }
+
+/// Échelle d'opacité du design system : niveaux nommés au lieu de nombres nus dispersés.
+/// Sert surtout aux teintes posées sur une couleur (pastilles d'icône, textes secondaires sur fond
+/// coloré, pistes translucides). Centralise les valeurs jusque-là codées en dur (0.7, 0.85, 0.14…).
+enum LumeOpacity {
+    /// Fond de pastille / halo d'icône teintée (cercle derrière un glyphe coloré).
+    static let pill: Double = 0.14
+    /// Fill très discret (piste de barre, surface translucide sur fond coloré).
+    static let track: Double = 0.22
+    /// Élément désactivé / fantôme sur fond coloré.
+    static let disabled: Double = 0.3
+    /// Texte secondaire posé sur un fond coloré (sous-titres du hero).
+    static let secondary: Double = 0.7
+    /// Texte/contrôle quasi opaque mais légèrement atténué (libellés forts sur fond coloré).
+    static let strong: Double = 0.85
+}

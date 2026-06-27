@@ -137,9 +137,15 @@ struct MoneyHomeView: View {
     }
 
     /// Solde RÉEL « à vivre » : revenus − dépenses variables − engagements fixes (loyer/charges/épargne).
-    /// C'est le chiffre honnête, cohérent avec l'anneau (qui travaille déjà net des fixes).
-    private var balance: Int {
+    /// C'est le chiffre honnête, cohérent avec le hero (qui travaille déjà net des fixes).
+    private var realBalance: Int {
         FinanceCalculator.realBalance(data, in: selectedMonth, committed: committedOutflow)
+    }
+
+    /// N'affiche le solde réel QUE si un revenu a été encaissé ce mois : sans salaire matérialisé en
+    /// début de mois, le solde serait fortement négatif (engagements sans revenu) et trompeur.
+    private var showsRealBalance: Bool {
+        income > 0
     }
 
     private var byCategory: [ExpenseCategory: Int] {
@@ -156,14 +162,6 @@ struct MoneyHomeView: View {
 
     private var savedTotal: Int {
         FinanceCalculator.cumulativeSaved(allTx.map(\.data))
-    }
-
-    private var budgetStatusColor: Color {
-        switch BudgetStatus.of(spent: spent, budget: displayedBudgetCents) {
-        case .under: LumeColor.success
-        case .near: LumeColor.warning
-        case .over: LumeColor.negative
-        }
     }
 
     /// Alerte contextuelle sous l'anneau (B1 + B5), par ordre de gravité.
@@ -263,43 +261,92 @@ struct MoneyHomeView: View {
         displayedBudgetCents > 0
     }
 
-    private var budgetCard: some View {
-        LumeCard(padding: Spacing.xxl, radius: Radius.xxl) {
-            VStack(spacing: Spacing.md) {
-                MonthStepper(month: $selectedMonth)
-                ProgressRing(progress: hasBudget ? FinanceCalculator.progress(spent: spent, budget: displayedBudgetCents) : 0,
-                             color: hasBudget ? budgetStatusColor : LumeColor.faint, lineWidth: 12)
-                {
-                    VStack(spacing: 2) {
-                        // Le montant central « monte » à l'apparition et se ré-anime à chaque dépense du
-                        // mois courant. En navigation vers un mois passé, on saute la valeur (pas de
-                        // count-up « slot-machine » sans rapport avec une vraie variation).
-                        CountUpAmount(targetCents: hasBudget ? max(0, displayedBudgetCents - spent) : spent,
-                                      animatesOnChange: isCurrentMonth)
-                        Text(hasBudget ? "Reste" : "dépensé")
-                            .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
-                    }
-                    .padding(.horizontal, Spacing.sm)
-                }
-                .frame(width: 130, height: 130)
-                .scaleEffect(ringPulse ? 1.04 : 1)
-
-                if hasBudget, spent == 0, isCurrentMonth {
-                    // Premier jour du mois / aucune dépense : message positif, pas un « 0 % » anxiogène.
-                    Text("Tout ton budget t'attend ce mois-ci.")
-                        .font(.lumeFootnote).foregroundStyle(LumeColor.success)
-                } else if hasBudget {
-                    Text("\(Money.format(spent)) sur \(Money.format(displayedBudgetCents)) · \(Int(FinanceCalculator.progress(spent: spent, budget: displayedBudgetCents) * 100)) %")
-                        .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
-                } else {
-                    // Le budget global est DÉRIVÉ du profil (revenu − fixes − épargne) : on envoie donc
-                    // vers « Mon budget » (revenu), pas vers les plafonds par catégorie.
-                    Button { route = .profile } label: {
-                        Text("Définir mon budget").font(.lumeSubhead.weight(.semibold)).foregroundStyle(LumeColor.success)
-                    }.buttonStyle(.lumePress)
-                }
-            }.frame(maxWidth: .infinity)
+    /// Couleur d'état (teinte la barre + le point) selon le statut budgétaire du mois affiché.
+    private var heroAccent: Color {
+        guard hasBudget else { return LumeColor.muted }
+        switch BudgetStatus.of(spent: spent, budget: displayedBudgetCents) {
+        case .under: return LumeColor.success
+        case .near: return LumeColor.warning
+        case .over: return LumeColor.negative
         }
+    }
+
+    /// Hero coloré plein : grande carte encre, montant blanc, barre fine. Remplace l'anneau (qui
+    /// « criait vide » à 0 %). Le mois se change DANS la carte ; l'état budgétaire teinte la barre.
+    private var budgetCard: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            // Mois (blanc sur fond sombre) + pastille d'état à droite.
+            HStack {
+                MonthStepper(month: $selectedMonth,
+                             labelTint: LumeColor.surface,
+                             controlTint: LumeColor.surface.opacity(LumeOpacity.strong),
+                             disabledTint: LumeColor.surface.opacity(LumeOpacity.disabled))
+                Spacer()
+                if hasBudget { heroStatusChip }
+            }
+
+            // Chiffre clé : le RESTE (ou le dépensé si pas de budget), blanc, qui monte.
+            VStack(alignment: .leading, spacing: Spacing.xs) {
+                CountUpAmount(targetCents: hasBudget ? max(0, displayedBudgetCents - spent) : spent,
+                              font: .lumeNumberXL, tint: LumeColor.surface,
+                              animatesOnChange: isCurrentMonth)
+                    .scaleEffect(ringPulse ? 1.03 : 1, anchor: .leading)
+                    .animation(reduceMotion ? nil : LumeMotion.celebrate, value: ringPulse)
+                Text(hasBudget ? "reste à dépenser" : "dépensé ce mois")
+                    .font(.lumeSubhead).foregroundStyle(LumeColor.surface.opacity(LumeOpacity.secondary))
+            }
+
+            if hasBudget {
+                BudgetProgressBar(progress: FinanceCalculator.progress(spent: spent, budget: displayedBudgetCents),
+                                  fill: heroAccent)
+                HStack {
+                    if spent == 0, isCurrentMonth {
+                        Text("Tout ton budget t'attend.")
+                            .font(.lumeFootnote).foregroundStyle(LumeColor.surface.opacity(LumeOpacity.secondary))
+                    } else {
+                        Text("\(Money.format(spent)) sur \(Money.format(displayedBudgetCents))")
+                            .font(.lumeFootnote).foregroundStyle(LumeColor.surface.opacity(LumeOpacity.secondary))
+                    }
+                    Spacer()
+                    Text("\(Int(FinanceCalculator.progress(spent: spent, budget: displayedBudgetCents) * 100)) %")
+                        .font(.lumeFootnote.weight(.bold)).foregroundStyle(LumeColor.surface)
+                        .monospacedDigit().contentTransition(.numericText())
+                }
+            } else {
+                // Pas de budget → CTA blanc plein vers « Mon budget » (revenu, source du budget dérivé).
+                Button { route = .profile } label: {
+                    HStack(spacing: Spacing.sm) {
+                        Text("Définir mon budget").font(.lumeCallout)
+                        Image(appIcon: .forward).lumeIcon(12, weight: .bold)
+                    }
+                    .foregroundStyle(LumeColor.ink)
+                    .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.md)
+                    .frame(maxWidth: .infinity)
+                    .background(LumeColor.surface, in: Capsule())
+                }.buttonStyle(.lumePress)
+            }
+        }
+        .padding(Spacing.xxl)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(LumeColor.ink, in: RoundedRectangle(cornerRadius: Radius.xxl, style: .continuous))
+        .lumeShadow(.card)
+    }
+
+    /// Petite pastille d'état (vert/ambre/rouge) en haut à droite du hero.
+    private var heroStatusChip: some View {
+        let label: String = {
+            switch BudgetStatus.of(spent: spent, budget: displayedBudgetCents) {
+            case .under: return "Dans les clous"
+            case .near: return "Bientôt limite"
+            case .over: return "Dépassé"
+            }
+        }()
+        return HStack(spacing: Spacing.xs) {
+            Circle().fill(heroAccent).frame(width: 7, height: 7)
+            Text(label).font(.lumeCaption).foregroundStyle(LumeColor.surface.opacity(LumeOpacity.strong))
+        }
+        .padding(.horizontal, Spacing.sm).padding(.vertical, Spacing.xs)
+        .background(LumeColor.surface.opacity(LumeOpacity.pill), in: Capsule())
     }
 
     /// Objectif d'épargne mensuel (depuis le profil) atteint ce mois ?
@@ -318,14 +365,14 @@ struct MoneyHomeView: View {
                 Image(appIcon: .savings).lumeIcon(18, weight: .semibold)
                     .foregroundStyle(savingGoalReached ? LumeColor.success : LumeColor.fat)
                     .frame(width: 40, height: 40)
-                    .background((savingGoalReached ? LumeColor.success : LumeColor.fat).opacity(0.14), in: Circle())
+                    .background((savingGoalReached ? LumeColor.success : LumeColor.fat).opacity(LumeOpacity.pill), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: Spacing.xs) {
                         Text("Épargne").font(.lumeCallout).foregroundStyle(LumeColor.ink)
                         if savingGoalReached {
                             Text("Objectif atteint").font(.lumeCaption.weight(.bold)).foregroundStyle(LumeColor.success)
                                 .padding(.horizontal, Spacing.sm).padding(.vertical, 2)
-                                .background(LumeColor.success.opacity(0.14), in: Capsule())
+                                .background(LumeColor.success.opacity(LumeOpacity.pill), in: Capsule())
                         }
                     }
                     Text("\(Money.format(savedThisMonth)) ce mois").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
@@ -338,17 +385,37 @@ struct MoneyHomeView: View {
             }
         }
         .scaleEffect(savingGoalReached && ringPulse ? 1.02 : 1)
+        .animation(reduceMotion ? nil : LumeMotion.celebrate, value: ringPulse)
     }
 
-    /// 2 tuiles larges (au lieu de 3 étroites) → les montants en euros ne wrappent plus.
-    /// Les valeurs « roulent » (numericText) quand une dépense est ajoutée.
+    /// 2 tuiles « Revenus / Épargne » (icônes en pastille colorée).
+    /// On n'affiche PLUS un « Solde » net brut ici : sans salaire encore matérialisé en début de mois,
+    /// il devenait fortement négatif et contredisait le « reste à dépenser » du hero. Le dépensé est
+    /// déjà lisible dans le hero (« X sur Y »). Ces deux tuiles restent toujours positives et claires.
     private var statsRow: some View {
-        HStack(spacing: Spacing.md) {
-            StatTile(icon: .expenseArrow, tint: LumeColor.ink, value: Money.format(spent), label: "Dépensé")
-            StatTile(icon: .money, tint: balance >= 0 ? LumeColor.success : LumeColor.negative,
-                     value: Money.format(balance, showSign: true), label: "Solde")
+        VStack(spacing: Spacing.md) {
+            HStack(spacing: Spacing.md) {
+                StatTile(icon: .salary, tint: LumeColor.success, value: Money.format(income),
+                         label: "Revenus du mois", iconInPill: true)
+                StatTile(icon: .savings, tint: LumeColor.fat, value: Money.format(savedThisMonth),
+                         label: "Épargné ce mois", iconInPill: true)
+            }
+            // Solde réel « à vivre » : seulement quand un revenu est tombé (sinon trompeusement négatif).
+            if showsRealBalance {
+                HStack {
+                    Text("Solde réel à vivre").font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                    Spacer()
+                    Text(Money.format(realBalance, showSign: true))
+                        .font(.lumeCallout.weight(.bold)).monospacedDigit()
+                        .foregroundStyle(realBalance >= 0 ? LumeColor.success : LumeColor.negative)
+                        .contentTransition(.numericText())
+                }
+                .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.md)
+                .background(LumeColor.surface, in: RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+                .lumeShadow(.soft)
+            }
         }
-        .animation(reduceMotion ? nil : LumeMotion.smooth, value: spent)
+        .animation(reduceMotion ? nil : LumeMotion.smooth, value: income)
     }
 
     /// Catégories ayant un budget défini (> 0), triées par dépense décroissante.
