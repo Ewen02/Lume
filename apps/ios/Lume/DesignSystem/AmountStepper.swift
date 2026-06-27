@@ -5,6 +5,9 @@ import SwiftUI
 struct AmountStepper: View {
     @Binding var cents: Int
     var tint: Color = LumeColor.ink
+    /// Si vrai, ouvre le clavier automatiquement à l'apparition (saisie rapide : pas besoin de taper
+    /// le champ d'abord). À n'activer qu'en création, pas en édition.
+    var autofocus: Bool = false
 
     @State private var text: String = ""
     @FocusState private var focused: Bool
@@ -41,6 +44,11 @@ struct AmountStepper: View {
         .onAppear {
             // Pré-remplit depuis le binding (édition d'une transaction existante).
             if cents > 0 { text = Money.plainDecimal(cents) }
+            // Ouvre le clavier d'emblée en saisie rapide (création). Léger délai : le focus posé trop
+            // tôt pendant la présentation de la sheet est parfois ignoré par UIKit.
+            if autofocus {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { focused = true }
+            }
         }
         // Le binding peut changer hors saisie (ex. chips « +50 € », pré-remplissage) :
         // on resynchronise le texte affiché, avec garde anti-boucle.
