@@ -419,8 +419,10 @@ struct MoneyHomeView: View {
     }
 
     /// Catégories ayant un budget défini (> 0), triées par dépense décroissante.
+    /// On masque `housing` : le loyer est géré dans « Mon budget » (jamais un plafond catégorie) —
+    /// défense en profondeur contre un éventuel plafond Logement orphelin créé avant le fix.
     private var activeBudgets: [(category: ExpenseCategory, spent: Int, limit: Int)] {
-        budgets.filter { $0.monthlyLimitCents > 0 }
+        budgets.filter { $0.monthlyLimitCents > 0 && $0.category != .housing }
             .map { (category: $0.category, spent: byCategory[$0.category] ?? 0, limit: $0.monthlyLimitCents) }
             .sorted { $0.spent > $1.spent }
     }

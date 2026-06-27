@@ -36,7 +36,7 @@ struct BudgetsEditorView: View {
                     }
                 }.buttonStyle(.lumePress)
                 SectionHeader(title: "Plafonds par catégorie (facultatif)")
-                ForEach(ExpenseCategory.expenseCases) { cat in
+                ForEach(ExpenseCategory.categoryBudgetCases) { cat in
                     LumeCard {
                         HStack(spacing: Spacing.md) {
                             Image(appIcon: cat.icon).lumeIcon(16, weight: .semibold).foregroundStyle(cat.tint)
@@ -91,7 +91,7 @@ struct BudgetsEditorView: View {
         for b in budgets {
             existing[b.category] = b
         }
-        for cat in ExpenseCategory.expenseCases {
+        for cat in ExpenseCategory.categoryBudgetCases {
             let limit = limits[cat] ?? 0
             if let b = existing[cat] {
                 b.monthlyLimitCents = limit
@@ -99,6 +99,9 @@ struct BudgetsEditorView: View {
                 ctx.insert(CategoryBudget(category: cat, monthlyLimitCents: limit))
             }
         }
+        // Purge un éventuel plafond « Logement » orphelin (créé avant l'exclusion du loyer des plafonds) :
+        // le loyer ne se gère QUE dans « Mon budget » → on supprime tout doublon pour éviter la désynchro.
+        if let stray = existing[.housing] { ctx.delete(stray) }
         dismiss()
     }
 }

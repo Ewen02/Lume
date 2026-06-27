@@ -20,6 +20,13 @@ enum ExpenseCategory: String, CaseIterable, Identifiable {
         expenseCases.filter { $0 != .housing }
     }
 
+    /// Catégories éligibles à un PLAFOND par catégorie. On exclut `housing` : le loyer vit dans
+    /// « Mon budget » (source unique, déduit du budget global) — lui donner un plafond ici créerait
+    /// une 2ᵉ notion du même poste, jamais réconciliée (répétition + désynchro entre les deux écrans).
+    static var categoryBudgetCases: [ExpenseCategory] {
+        expenseCases.filter { $0 != .housing }
+    }
+
     var title: String {
         switch self {
         case .food: "Alimentation"
