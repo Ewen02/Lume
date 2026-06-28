@@ -68,7 +68,9 @@ private struct ShimmerModifier: ViewModifier {
         content.overlay(
             GeometryReader { geo in
                 if !reduceMotion {
-                    LinearGradient(colors: [.clear, .white.opacity(0.5), .clear],
+                    // Reflet adaptatif : un balayage blanc tranche trop sur un squelette sombre.
+                    // En dark, un reflet plus doux (gris chaud translucide) reste subtil.
+                    LinearGradient(colors: [.clear, Color(light: 0xFFFFFF, dark: 0x55524C).opacity(0.5), .clear],
                                    startPoint: .leading, endPoint: .trailing)
                         .frame(width: geo.size.width * 0.6)
                         .offset(x: phase * geo.size.width * 1.6)
