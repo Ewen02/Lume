@@ -66,15 +66,14 @@ struct RootView: View {
             .transition(.opacity)
             .animation(LumeMotion.smooth, value: tab)
 
-            // Le FAB flotte au-dessus de la barre (offset négatif) : il surplombe les onglets sans
-            // « prendre » la place de l'un d'eux. Il reste donc centré sur TOUS les onglets — y
-            // compris Argent — pour préserver la signature visuelle de l'app.
-            LumeTabBar(selection: $tab, tabs: visibleTabs)
-                .padding(.horizontal, Spacing.lg)
-                .overlay(alignment: .top) {
-                    FloatingActionButton(icon: fabIcon) { fabAction() }
-                        .offset(y: -30)
-                }
+            // Le FAB est détaché : il flotte centré AU-DESSUS de la barre, séparé d'elle. La barre
+            // garde ainsi ses N onglets pleins et réguliers (4 ou 5), sans qu'aucun ne soit recouvert
+            // — robuste pour un nombre d'onglets pair comme impair.
+            VStack(spacing: Spacing.sm) {
+                FloatingActionButton(icon: fabIcon) { fabAction() }
+                LumeTabBar(selection: $tab, tabs: visibleTabs)
+                    .padding(.horizontal, Spacing.lg)
+            }
         }
         .sheet(isPresented: $showCapture) {
             CaptureView {

@@ -39,6 +39,7 @@ struct LumeTabBar: View {
     @Binding var selection: LumeTab
     /// Onglets à afficher (par défaut tous) — `RootView` passe la liste filtrée par modules actifs.
     var tabs: [LumeTab] = LumeTab.allCases
+
     var body: some View {
         HStack {
             ForEach(tabs, id: \.rawValue) { tab in
