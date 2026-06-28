@@ -4,9 +4,14 @@ import { VisionPort, RecognizedMeal } from '../../domain/ports/vision.port';
 import { RecognizedItem } from '../../domain/value-objects/recognized-item.vo';
 import { fetchWithTimeout } from '../http/fetch-with-timeout';
 
-/** Données de démonstration utilisées tant qu'aucune clé Anthropic n'est configurée. */
+/**
+ * Repas de démonstration servi quand la vraie reconnaissance n'est pas disponible
+ * (clé Anthropic absente, ou appel Claude en échec/timeout). Toujours marqué `degraded: true`
+ * pour que l'UI ne le présente pas comme une analyse réelle.
+ */
 const MOCK: RecognizedMeal = {
   dish: 'Poulet riz brocoli',
+  degraded: true,
   items: [
     new RecognizedItem('Poulet grillé', 150, 0.96, 'grilled chicken breast'),
     new RecognizedItem('Riz basmati', 200, 0.91, 'white rice cooked'),

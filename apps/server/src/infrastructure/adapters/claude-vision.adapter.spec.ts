@@ -23,6 +23,7 @@ describe('ClaudeVisionAdapter', () => {
     const spy = jest.spyOn(global, 'fetch');
     const meal = await adapter.recognize('data:image/jpeg;base64,xxx');
     expect(meal.items.length).toBeGreaterThan(0);
+    expect(meal.degraded).toBe(true); // démo → mode dégradé signalé
     // Sans clé, on n'appelle jamais l'API.
     expect(spy).not.toHaveBeenCalled();
   });
@@ -40,6 +41,7 @@ describe('ClaudeVisionAdapter', () => {
 
     expect(meal.dish).toBe('Poke bowl');
     expect(meal.items).toHaveLength(1);
+    expect(meal.degraded).toBeFalsy(); // vraie analyse → pas de mode dégradé
     const item = meal.items[0];
     expect(item.name).toBe('Saumon cru');
     expect(item.queryName).toBe('raw salmon'); // l'anglais sert à la recherche en base
@@ -69,6 +71,7 @@ describe('ClaudeVisionAdapter', () => {
     const adapter = new ClaudeVisionAdapter(fakeConfig({ anthropicApiKey: 'k' }));
     const meal = await adapter.recognize('img');
     expect(meal.items.length).toBeGreaterThan(0); // MOCK de démo
+    expect(meal.degraded).toBe(true); // repli signalé à l'UI
   });
 
   it('replie sur la démo si le JSON est illisible', async () => {
@@ -76,6 +79,7 @@ describe('ClaudeVisionAdapter', () => {
     const adapter = new ClaudeVisionAdapter(fakeConfig({ anthropicApiKey: 'k' }));
     const meal = await adapter.recognize('img');
     expect(meal.items.length).toBeGreaterThan(0); // MOCK de démo
+    expect(meal.degraded).toBe(true); // repli signalé à l'UI
   });
 
   it('replie sur la démo en cas d\'exception réseau', async () => {

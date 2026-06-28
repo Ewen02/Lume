@@ -48,4 +48,16 @@ describe('AnalyzeController', () => {
     await ctrl.run({ image: 'img-data' });
     expect(fake.receivedImage).toBe('img-data');
   });
+
+  it('expose degraded:false pour une vraie analyse', async () => {
+    const ctrl = new AnalyzeController(new FakeAnalyze(new AnalyzedMeal([], null)));
+    const res = await ctrl.run({ image: 'x' });
+    expect(res.degraded).toBe(false);
+  });
+
+  it('expose degraded:true quand le repas vient du repli de démo', async () => {
+    const ctrl = new AnalyzeController(new FakeAnalyze(new AnalyzedMeal([], 'Démo', true)));
+    const res = await ctrl.run({ image: 'x' });
+    expect(res.degraded).toBe(true);
+  });
 });

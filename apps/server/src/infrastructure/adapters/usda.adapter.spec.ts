@@ -133,5 +133,28 @@ describe('UsdaAdapter', () => {
       const food = await adapter().resolve('grilled chicken breast');
       expect(food?.name).toBe('Grilled chicken breast');
     });
+
+    it('rejette un faux positif où un seul mot recoupe (anti « chicken broth »)', async () => {
+      // Seul candidat : « Chicken broth » pour la requête « fried chicken thigh » → un seul mot
+      // commun (« chicken »). L'ancien garde-fou l'aurait accepté avec des macros fausses.
+      jest.spyOn(global, 'fetch').mockResolvedValue(
+        usdaResponse([
+          { description: 'Chicken broth', dataType: 'Branded', foodNutrients: [{ nutrientId: 1008, value: 7 }] },
+        ]),
+      );
+      const food = await adapter().resolve('fried chicken thigh');
+      expect(food).toBeNull();
+    });
+
+    it('accepte quand au moins la moitié des mots recoupent', async () => {
+      jest.spyOn(global, 'fetch').mockResolvedValue(
+        usdaResponse([
+          { description: 'Fried chicken, meat only', dataType: 'SR Legacy', foodNutrients: [{ nutrientId: 1008, value: 200 }] },
+        ]),
+      );
+      // « fried chicken thigh » : 2/3 mots présents (« fried » + « chicken ») → accepté.
+      const food = await adapter().resolve('fried chicken thigh');
+      expect(food?.name).toBe('Fried chicken, meat only');
+    });
   });
 });

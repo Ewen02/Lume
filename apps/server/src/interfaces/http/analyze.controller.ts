@@ -16,6 +16,8 @@ export class AnalyzeController {
   @Throttle({ analyze: {} })
   async run(@Body() dto: AnalyzeDto) {
     const meal = await this.analyze.execute(dto.image);
-    return { dish: meal.dish, items: meal.items, total: meal.total };
+    // `degraded: true` → l'analyse est un repli de démo (vision indisponible). L'app doit
+    // l'afficher comme tel et ne pas enregistrer ces macros en silence.
+    return { dish: meal.dish, items: meal.items, total: meal.total, degraded: meal.degraded };
   }
 }

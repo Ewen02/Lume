@@ -32,11 +32,17 @@ export class UsdaAdapter implements NutritionDbPort {
     // `search` renvoie déjà la liste triée par pertinence + fiabilité de source.
     const list = await this.search(name);
     if (list.length === 0) return null;
-    // Garde-fou : au moins un mot de la requête doit apparaître dans le meilleur candidat.
+    // Garde-fou anti-faux-positif : on exige un recouvrement FORT entre la requête et le
+    // meilleur candidat. « 1 mot suffit » laissait passer « fried chicken thigh » → « chicken
+    // broth » (juste « chicken »), affiché comme `matched:true` avec des macros fausses.
     const words = name.toLowerCase().split(/\s+/).filter((w) => w.length > 2);
     if (words.length === 0) return list[0];
     const top = list[0].name.toLowerCase();
-    return words.some((w) => top.includes(w)) ? list[0] : null;
+    const overlap = words.filter((w) => top.includes(w)).length;
+    // Requête à un seul mot : ce mot doit être présent. Requête multi-mots : au moins la moitié
+    // des mots significatifs (et jamais moins de 2), pour rejeter un recoupement accidentel.
+    const required = words.length === 1 ? 1 : Math.max(2, Math.ceil(words.length / 2));
+    return overlap >= required ? list[0] : null;
   }
 
   /** Fiabilité d'une source USDA pour des aliments génériques (plus haut = mieux). */

@@ -38,6 +38,6 @@ export class NutritionResolver {
         });
       }
     }
-    return new AnalyzedMeal(analyzed, meal.dish);
+    return new AnalyzedMeal(analyzed, meal.dish, meal.degraded ?? false);
   }
 }

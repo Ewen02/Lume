@@ -22,6 +22,11 @@ export class AnalyzedMeal {
     readonly items: AnalyzedItem[],
     /** Nom du plat global (ex. "Burger"), ou null. */
     readonly dish: string | null = null,
+    /**
+     * Vrai si le repas provient du repli de démonstration (vision indisponible) plutôt que
+     * d'une vraie analyse. L'UI doit le signaler et ne pas enregistrer ces macros en silence.
+     */
+    readonly degraded: boolean = false,
   ) {}
   get total(): Macros {
     return this.items.reduce((acc, it) => acc.add(it.macros), Macros.zero());

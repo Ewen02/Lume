@@ -51,4 +51,11 @@ describe('NutritionResolver', () => {
     const result = await resolver.resolve({ dish: 'Burger', items: [new RecognizedItem('riz', 100, 0.9)] });
     expect(result.dish).toBe('Burger');
   });
+
+  it('propage le flag degraded de la reconnaissance', async () => {
+    const real = await resolver.resolve(meal(new RecognizedItem('riz', 100, 0.9)));
+    expect(real.degraded).toBe(false);
+    const demo = await resolver.resolve({ dish: null, degraded: true, items: [new RecognizedItem('riz', 100, 0.9)] });
+    expect(demo.degraded).toBe(true);
+  });
 });

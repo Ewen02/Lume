@@ -22,8 +22,15 @@ Règles :
 Auth : `Authorization: Bearer <API_TOKEN>` (jeton statique, `.env`).
 
 ## État des adaptateurs
-**Stubbés** (mock) : `ClaudeVisionAdapter`, `UsdaAdapter`, `OpenFoodFactsAdapter`. Brancher les vraies API =
-remplacer le corps de ces classes, **sans toucher** au domaine ni aux use-cases.
+**Réellement branchés** sur les vraies API, avec repli de démo si la clé manque ou si l'appel échoue :
+- `ClaudeVisionAdapter` → Anthropic Messages (vision). Repli = repas de démo **marqué `degraded: true`**.
+- `UsdaAdapter` → FoodData Central. Repli = table locale de 7 aliments.
+- `OpenFoodFactsAdapter` → API publique OFF (sans clé).
+
+Le repli de vision est **signalé** : `RecognizedMeal.degraded` → `AnalyzedMeal.degraded` → champ `degraded`
+de la réponse `/analyze`. L'app l'affiche (bandeau) pour ne pas faire passer un repas de démo pour une vraie
+analyse. Garde-fou de matching USDA : on exige un **recouvrement fort** (≥ moitié des mots, jamais < 2) entre
+le nom recherché et le meilleur candidat, pour éviter les faux positifs (`matched:true` avec macros fausses).
 
 ## Ajouter un endpoint
 Suis le skill **nest-endpoint** : (1) port si nouvelle dépendance externe, (2) adapter dans `infrastructure/`,
