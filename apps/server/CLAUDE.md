@@ -18,8 +18,20 @@ Règles :
 5. Contrôleurs **fins** : ils délèguent à un use-case et sérialisent, rien de plus.
 
 ## Endpoints
-`POST /analyze` (Bearer) · `GET /foods/search?q=` (Bearer) · `GET /foods/barcode/:code` (Bearer) · `GET /health`.
-Auth : `Authorization: Bearer <API_TOKEN>` (jeton statique, `.env`).
+`POST /analyze` (Bearer + App Attest si activé) · `GET /foods/search?q=` (Bearer) · `GET /foods/barcode/:code` (Bearer) · `GET /attest/challenge` (Bearer) · `GET /health`.
+Auth : `Authorization: Bearer <API_TOKEN>` (jeton statique, `.env`). `TokenGuard` durci : comparaison
+**constant-time** (`timingSafeEqual`), **refus du jeton par défaut `change-me`** (un déploiement non
+configuré n'est pas ouvert), message d'erreur générique.
+
+## App Attest (protection de `/analyze`)
+Le jeton Bearer est extractible du binaire iOS → App Attest prouve que l'appel vient d'une vraie
+instance de l'app. **Gaté par `APP_ATTEST_ENABLED` (défaut: off)** car nécessite un compte Apple
+Developer payant + un vrai device (le simulateur n'a pas de Secure Enclave). Flux : l'app récupère un
+challenge (`/attest/challenge`, à usage unique, `ChallengeService` en mémoire, anti-rejeu), le signe
+(Secure Enclave), et le renvoie sur `/analyze` via `X-App-Attest-Challenge` / `X-App-Attest-Object`.
+`AppAttestGuard` (flag OFF = pass-through) consomme le challenge et vérifie l'attestation. La vérif
+crypto X.509/CBOR (`verifyAttestation`) reste à brancher avec un device réel (refuse par sécurité tant
+que non implémentée). Côté iOS : `AppAttestManager` (gaté par `APP_ATTEST_ENABLED` + `isSupported`).
 
 ## État des adaptateurs
 **Réellement branchés** sur les vraies API, avec repli de démo si la clé manque ou si l'appel échoue :

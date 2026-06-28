@@ -5,9 +5,12 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import configuration from './config/configuration';
 import { NutritionModule } from './infrastructure/nutrition.module';
 import { TokenGuard } from './common/auth/token.guard';
+import { ChallengeService } from './common/attest/challenge.service';
+import { AppAttestGuard } from './common/attest/app-attest.guard';
 import { AnalyzeController } from './interfaces/http/analyze.controller';
 import { FoodsController } from './interfaces/http/foods.controller';
 import { HealthController } from './interfaces/http/health.controller';
+import { AttestController } from './interfaces/http/attest.controller';
 
 @Module({
   imports: [
@@ -23,7 +26,13 @@ import { HealthController } from './interfaces/http/health.controller';
     }),
     NutritionModule,
   ],
-  controllers: [AnalyzeController, FoodsController, HealthController],
-  providers: [TokenGuard, { provide: APP_GUARD, useClass: ThrottlerGuard }],
+  controllers: [AnalyzeController, FoodsController, HealthController, AttestController],
+  providers: [
+    TokenGuard,
+    // ChallengeService est un singleton (l'état des challenges émis vit dans l'instance).
+    { provide: ChallengeService, useFactory: () => new ChallengeService() },
+    AppAttestGuard,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

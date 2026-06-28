@@ -1,13 +1,15 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { TokenGuard } from '../../common/auth/token.guard';
+import { AppAttestGuard } from '../../common/attest/app-attest.guard';
 import { AnalyzeMealUseCase } from '../../application/use-cases/analyze-meal.usecase';
 import { AnalyzeDto } from './dto/analyze.dto';
 
 // `/analyze` déclenche un appel Claude (coûteux) → seule la fenêtre stricte « analyze »
 // s'applique ; on neutralise la fenêtre « global » plus permissive.
+// Double barrière : jeton (toujours) + App Attest (si le flag est activé — pass-through sinon).
 @Controller()
-@UseGuards(TokenGuard)
+@UseGuards(TokenGuard, AppAttestGuard)
 @SkipThrottle({ global: true })
 export class AnalyzeController {
   constructor(private readonly analyze: AnalyzeMealUseCase) {}

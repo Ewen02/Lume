@@ -132,6 +132,14 @@ struct APIClient: FoodAPI {
 
     // MARK: Endpoints
 
+    private struct ChallengeResponse: Decodable { let challenge: String }
+
+    /// GET /attest/challenge — challenge App Attest à usage unique (utilisé seulement si App Attest actif).
+    private func fetchChallenge() async throws -> String {
+        let req = try makeRequest("attest/challenge")
+        return try await send(req, as: ChallengeResponse.self).challenge
+    }
+
     /// POST /analyze — image base64 → repas analysé (nom du plat + aliments, macros déterministes côté serveur).
     func analyze(imageData: Data) async throws -> AnalyzedMeal {
         // Redimensionne avant envoi : upload + analyse Claude bien plus rapides, précision conservée.
@@ -139,7 +147,13 @@ struct APIClient: FoodAPI {
         // Data URL complète : le serveur (et Claude vision) attend le préfixe data:image/jpeg;base64,
         let dataURL = "data:image/jpeg;base64,\(payload.base64EncodedString())"
         let body = try JSONSerialization.data(withJSONObject: ["image": dataURL])
-        let req = try makeRequest("analyze", method: "POST", body: body)
+        var req = try makeRequest("analyze", method: "POST", body: body)
+        // App Attest (si actif) : prouve que l'appel vient d'une vraie instance de l'app. Inactif par
+        // défaut (simulateur / compte gratuit) → en-têtes vides, requête inchangée.
+        let attestHeaders = await AppAttestManager.attestationHeaders { try await self.fetchChallenge() }
+        for (k, v) in attestHeaders {
+            req.setValue(v, forHTTPHeaderField: k)
+        }
         let res = try await send(req, as: AnalyzeResponse.self)
         let items = res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model,
                                              per100g: $0.per100g?.model,

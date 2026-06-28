@@ -40,4 +40,27 @@ describe('TokenGuard', () => {
     const ctx = contextWith({ authorization: 'Bearer ' });
     expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException);
   });
+
+  it('rejette un jeton de longueur différente (garde-fou timingSafeEqual)', () => {
+    const ctx = contextWith({ authorization: 'Bearer secret-tok' }); // plus court
+    expect(() => guard.canActivate(ctx)).toThrow(UnauthorizedException);
+  });
+
+  it('refuse TOUT accès si le serveur garde le jeton par défaut « change-me »', () => {
+    const openGuard = new TokenGuard(fakeConfig('change-me'));
+    // Même le « bon » jeton est refusé : un déploiement non configuré ne doit pas être ouvert.
+    const ctx = contextWith({ authorization: 'Bearer change-me' });
+    expect(() => openGuard.canActivate(ctx)).toThrow(UnauthorizedException);
+  });
+
+  it('refuse TOUT accès si le jeton serveur est vide', () => {
+    const noTokenGuard = new TokenGuard(fakeConfig(''));
+    const ctx = contextWith({ authorization: 'Bearer whatever' });
+    expect(() => noTokenGuard.canActivate(ctx)).toThrow(UnauthorizedException);
+  });
+
+  it('message d\'erreur générique (ne révèle pas la cause)', () => {
+    const ctx = contextWith({ authorization: 'Bearer wrong' });
+    expect(() => guard.canActivate(ctx)).toThrow('Accès refusé.');
+  });
 });

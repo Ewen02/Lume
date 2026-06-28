@@ -14,6 +14,12 @@ export interface AppConfig {
   rateLimitGlobalPerMin: number;
   /** Débit de `/analyze` : appels Claude (coûteux) max par minute et par IP. */
   rateLimitAnalyzePerMin: number;
+  /** App Attest activé (exige une attestation valide en plus du jeton sur `/analyze`). */
+  appAttestEnabled: boolean;
+  /** Apple Team ID (10 caractères) — préfixe de l'App ID attesté. */
+  appAttestTeamId: string;
+  /** Bundle ID de l'app iOS (ex. `com.ewen.lume`) — l'App ID attesté = `<teamId>.<bundleId>`. */
+  appAttestBundleId: string;
 }
 
 export default (): AppConfig => ({
@@ -27,4 +33,8 @@ export default (): AppConfig => ({
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
   rateLimitGlobalPerMin: parseInt(process.env.RATE_LIMIT_GLOBAL_PER_MIN ?? '60', 10),
   rateLimitAnalyzePerMin: parseInt(process.env.RATE_LIMIT_ANALYZE_PER_MIN ?? '10', 10),
+  // App Attest : désactivé par défaut (exige un compte Apple Developer payant + un vrai device).
+  appAttestEnabled: (process.env.APP_ATTEST_ENABLED ?? 'false') === 'true',
+  appAttestTeamId: process.env.APP_ATTEST_TEAM_ID ?? '',
+  appAttestBundleId: process.env.APP_ATTEST_BUNDLE_ID ?? 'com.ewen.lume',
 });
