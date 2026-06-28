@@ -12,7 +12,7 @@ enum LumeTab: Int, CaseIterable {
         }
     }
 
-    var label: String {
+    var label: LocalizedStringKey {
         switch self {
         case .today: "Aujourd'hui"
         case .money: "Budget"
@@ -21,13 +21,27 @@ enum LumeTab: Int, CaseIterable {
         case .profile: "Profil"
         }
     }
+
+    /// Onglets visibles selon les modules activés à l'onboarding. Aujourd'hui / Progrès / Profil
+    /// sont toujours présents (cœur nutrition) ; Budget et Muscu sont conditionnés.
+    static func visible(finance: Bool, workout: Bool) -> [LumeTab] {
+        allCases.filter { tab in
+            switch tab {
+            case .money: finance
+            case .workout: workout
+            default: true
+            }
+        }
+    }
 }
 
 struct LumeTabBar: View {
     @Binding var selection: LumeTab
+    /// Onglets à afficher (par défaut tous) — `RootView` passe la liste filtrée par modules actifs.
+    var tabs: [LumeTab] = LumeTab.allCases
     var body: some View {
         HStack {
-            ForEach(LumeTab.allCases, id: \.rawValue) { tab in
+            ForEach(tabs, id: \.rawValue) { tab in
                 let active = tab == selection
                 VStack(spacing: 5) {
                     Image(appIcon: tab.icon).lumeIcon(22, weight: .regular)

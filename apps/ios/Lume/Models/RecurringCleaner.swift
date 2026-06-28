@@ -28,7 +28,16 @@ enum RecurringCleaner {
             context.delete(r)
             deleted += 1
         }
-        if deleted > 0 { try? context.save() }
+        // Save d'abord ; si ça échoue, on annule les suppressions en attente (pas d'état
+        // incohérent où la base a « perdu » des règles en mémoire mais pas sur disque).
+        if deleted > 0 {
+            do {
+                try context.save()
+            } catch {
+                context.rollback()
+                return 0
+            }
+        }
         return deleted
     }
 }

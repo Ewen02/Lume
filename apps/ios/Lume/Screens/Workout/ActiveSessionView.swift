@@ -19,6 +19,9 @@ struct ActiveSessionView: View {
     @State private var startedAt = Date()
     @State private var finished = false
     @State private var summary: WorkoutSummary?
+    /// Vrai si la sauvegarde de la séance a échoué : on garde l'écran ouvert et on alerte
+    /// (les insertions restent en mémoire → l'utilisateur peut réessayer sans rien re-saisir).
+    @State private var saveFailed = false
     /// Note libre de la séance (ressenti, douleur…).
     @State private var note = ""
     /// Badges fraîchement débloqués par cette séance (affichés dans le récap).
@@ -91,10 +94,20 @@ struct ActiveSessionView: View {
                 ctx.insert(m)
             }
         }
+        // Persiste AVANT tout le reste : pas de récap gratifiant ni d'écriture Santé tant que
+        // la séance n'est pas réellement sauvegardée (sinon perte silencieuse de données).
+        do {
+            try ctx.save()
+        } catch {
+            // Échec : on annule les insertions en attente, on garde l'écran ouvert et on alerte.
+            ctx.rollback()
+            saveFailed = true
+            return
+        }
+
         Task { await health.saveWorkout(start: start, end: end) }
 
         // Réconcilie les badges (la séance vient d'être insérée → re-fetch frais inclus).
-        try? ctx.save()
         let all = (try? ctx.fetch(FetchDescriptor<WorkoutSessionModel>())) ?? []
         let goal = profiles.first?.weeklyWorkoutGoal ?? 3
         newBadges = BadgeEvaluator.reconcile(sessions: all, goal: goal, context: ctx, date: end)
@@ -171,7 +184,14 @@ struct ActiveSessionView: View {
         .sheet(item: $summary) { s in
             WorkoutSummaryView(summary: s, newBadges: newBadges, newPRs: newPRs) { dismiss() }
         }
+        .alert("Sauvegarde impossible", isPresented: $saveFailed) {
+            Button("Réessayer") { finish() }
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("Ta séance n'a pas pu être enregistrée. Tes séries sont toujours là — réessaie sans rien perdre.")
+        }
         .sensoryFeedback(.success, trigger: finished)
+        .sensoryFeedback(.error, trigger: saveFailed)
     }
 
     // MARK: En-tête riche (chrono live + stats)

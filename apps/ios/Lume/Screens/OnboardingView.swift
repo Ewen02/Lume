@@ -13,10 +13,13 @@ struct OnboardingView: View {
                                              weightKg: 70, activity: .moderate, goal: .maintain)
     @State private var cameraGranted = Permissions.cameraGranted
     @State private var notifGranted = false
+    /// Modules optionnels choisis ici (la nutrition est le cœur, toujours active).
+    @AppStorage(ModuleSettings.workoutKey) private var workoutEnabled = ModuleSettings.defaultEnabled
+    @AppStorage(ModuleSettings.financeKey) private var financeEnabled = ModuleSettings.defaultEnabled
 
     var onFinish: () -> Void = {}
 
-    private let lastStep = 3
+    private let lastStep = 4
     private var target: Macros {
         TDEECalculator.target(profile)
     }
@@ -47,7 +50,8 @@ struct OnboardingView: View {
                 welcome.tag(0)
                 infos.tag(1)
                 goal.tag(2)
-                permissions.tag(3)
+                modules.tag(3)
+                permissions.tag(4)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(LumeMotion.snappy, value: step)
@@ -155,7 +159,46 @@ struct OnboardingView: View {
         }.padding(.horizontal, Spacing.xl).padding(.top, Spacing.xxl)
     }
 
-    // MARK: Étape 3 — permissions
+    // MARK: Étape 3 — modules (Muscu / Finance optionnels)
+
+    private var modules: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            stepTitle("Que veux-tu suivre ?", "Tu pourras changer d'avis plus tard.")
+            VStack(spacing: Spacing.md) {
+                moduleRow(.calories, LumeColor.protein, "Nutrition", "Calories et macros par photo",
+                          locked: true, on: .constant(true))
+                moduleRow(.workout, LumeColor.ink, "Muscu", "Séances, routines, records",
+                          locked: false, on: $workoutEnabled)
+                moduleRow(.wallet, LumeColor.success, "Budget", "Dépenses, budgets, récurrentes",
+                          locked: false, on: $financeEnabled)
+            }
+            Spacer()
+        }.padding(.horizontal, Spacing.xl).padding(.top, Spacing.xxl)
+    }
+
+    private func moduleRow(_ icon: AppIcon, _ tint: Color, _ title: String, _ subtitle: String,
+                           locked: Bool, on: Binding<Bool>) -> some View
+    {
+        LumeCard {
+            HStack(spacing: Spacing.md) {
+                Image(appIcon: icon).lumeIcon(20).foregroundStyle(tint)
+                    .frame(width: 44, height: 44).background(tint.opacity(0.14))
+                    .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title).font(.lumeCallout).foregroundStyle(LumeColor.ink)
+                    Text(locked ? "Toujours actif" : subtitle).font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                }
+                Spacer()
+                if locked {
+                    Image(appIcon: .validate).lumeIcon(20).foregroundStyle(LumeColor.success)
+                } else {
+                    Toggle("", isOn: on).labelsHidden().tint(LumeColor.ink)
+                }
+            }
+        }
+    }
+
+    // MARK: Étape 4 — permissions
 
     private var permissions: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {

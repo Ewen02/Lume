@@ -32,7 +32,16 @@ enum RecurrenceEngine {
         }
         // Persistance déterministe : on sauve dès qu'on a créé quelque chose (la vue peut
         // disparaître avant l'autosave), pour que le curseur d'idempotence soit fiable.
-        if created > 0 { try? context.save() }
+        // Si le save échoue, on ANNULE tout (transactions ET curseurs) : sinon les curseurs
+        // avancés en mémoire mais non persistés provoqueraient trous ou doublons au prochain cycle.
+        if created > 0 {
+            do {
+                try context.save()
+            } catch {
+                context.rollback()
+                return 0
+            }
+        }
         return created
     }
 }

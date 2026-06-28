@@ -56,6 +56,9 @@ enum APIError: LocalizedError {
 struct AnalyzedMeal {
     var dish: String?
     var items: [FoodItem]
+    /// Vrai si le serveur a renvoyé un repas de démonstration (vision indisponible côté backend)
+    /// plutôt qu'une vraie analyse. L'UI doit le signaler avant d'enregistrer ces macros.
+    var degraded: Bool = false
 }
 
 /// Abstraction réseau injectable (permet un faux client en tests/preview).
@@ -94,7 +97,7 @@ struct APIClient: FoodAPI {
         let confidence: Double?
     }
 
-    private struct AnalyzeResponse: Decodable { let dish: String?; let items: [AnalyzedItemDTO] }
+    private struct AnalyzeResponse: Decodable { let dish: String?; let items: [AnalyzedItemDTO]; let degraded: Bool? }
     private struct FoodDTO: Decodable { let name: String; let per100g: MacrosDTO; let source: String; let barcode: String? }
     private struct BarcodeResponse: Decodable { let product: FoodDTO? }
     private struct SearchResponse: Decodable { let results: [FoodDTO] }
@@ -141,7 +144,7 @@ struct APIClient: FoodAPI {
         let items = res.items.map { FoodItem(name: $0.name, grams: $0.grams, macros: $0.macros.model,
                                              per100g: $0.per100g?.model,
                                              matched: $0.matched ?? true, confidence: $0.confidence ?? 1) }
-        return AnalyzedMeal(dish: res.dish, items: items)
+        return AnalyzedMeal(dish: res.dish, items: items, degraded: res.degraded ?? false)
     }
 
     /// Réduit l'image à ~1024 px de côté max et la recompresse en JPEG (≈ quelques centaines de Ko).

@@ -6,6 +6,9 @@ struct ProfileView: View {
     @Query private var profiles: [ProfileRecord]
     @Environment(HealthManager.self) private var health
     @AppStorage(WeightFormat.defaultsKey) private var useImperial = false
+    /// Modules optionnels (cf. onboarding) — afficher/masquer les onglets Muscu et Budget.
+    @AppStorage(ModuleSettings.workoutKey) private var workoutEnabled = ModuleSettings.defaultEnabled
+    @AppStorage(ModuleSettings.financeKey) private var financeEnabled = ModuleSettings.defaultEnabled
     @Environment(\.modelContext) private var ctx
     @State private var showGoal = false
     @State private var showAbout = false
@@ -235,6 +238,16 @@ struct ProfileView: View {
                 Button { withAnimation(LumeMotion.snappy) { useImperial.toggle() } } label: {
                     SettingsRow(icon: .settings, tint: LumeColor.fat, title: "Unités",
                                 value: useImperial ? "lb · kcal" : "kg · kcal", showsChevron: false)
+                }.buttonStyle(.lumePress)
+                divider
+                Button { withAnimation(LumeMotion.snappy) { workoutEnabled.toggle() } } label: {
+                    SettingsRow(icon: .workout, tint: LumeColor.ink, title: "Module Muscu",
+                                value: workoutEnabled ? "Activé" : "Masqué", showsChevron: false)
+                }.buttonStyle(.lumePress)
+                divider
+                Button { withAnimation(LumeMotion.snappy) { financeEnabled.toggle() } } label: {
+                    SettingsRow(icon: .wallet, tint: LumeColor.success, title: "Module Budget",
+                                value: financeEnabled ? "Activé" : "Masqué", showsChevron: false)
                 }.buttonStyle(.lumePress)
                 divider
                 Button { showReminders = true } label: {

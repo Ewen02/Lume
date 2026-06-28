@@ -3,6 +3,9 @@ import SwiftUI
 
 struct RootView: View {
     @AppStorage("lume.hasOnboarded") private var hasOnboarded = false
+    /// Modules optionnels choisis à l'onboarding (cf. `ModuleSettings`). Pilotent les onglets visibles.
+    @AppStorage(ModuleSettings.financeKey) private var financeEnabled = ModuleSettings.defaultEnabled
+    @AppStorage(ModuleSettings.workoutKey) private var workoutEnabled = ModuleSettings.defaultEnabled
     @Query private var profiles: [ProfileRecord]
     @Query(sort: \WeightSample.date, order: .reverse) private var weightSamples: [WeightSample]
     @State private var tab: LumeTab = .today
@@ -20,6 +23,11 @@ struct RootView: View {
             OnboardingView { withAnimation(LumeMotion.smooth) { hasOnboarded = true } }
                 .transition(.opacity)
         }
+    }
+
+    /// Onglets affichés, filtrés par les modules activés (Budget/Muscu optionnels).
+    private var visibleTabs: [LumeTab] {
+        LumeTab.visible(finance: financeEnabled, workout: workoutEnabled)
     }
 
     /// L'icône du bouton flottant change selon l'onglet (action contextuelle).
@@ -61,7 +69,7 @@ struct RootView: View {
             // Le FAB flotte au-dessus de la barre (offset négatif) : il surplombe les onglets sans
             // « prendre » la place de l'un d'eux. Il reste donc centré sur TOUS les onglets — y
             // compris Argent — pour préserver la signature visuelle de l'app.
-            LumeTabBar(selection: $tab)
+            LumeTabBar(selection: $tab, tabs: visibleTabs)
                 .padding(.horizontal, Spacing.lg)
                 .overlay(alignment: .top) {
                     FloatingActionButton(icon: fabIcon) { fabAction() }
@@ -90,6 +98,10 @@ struct RootView: View {
         }
         .sensoryFeedback(.selection, trigger: tab)
         .sensoryFeedback(.success, trigger: justLoggedID)
+        // Un module désactivé depuis le Profil ne doit pas laisser un onglet « fantôme » sélectionné.
+        .onChange(of: visibleTabs) { _, tabs in
+            if !tabs.contains(tab) { withAnimation(LumeMotion.smooth) { tab = .today } }
+        }
         // (Re)pose les rappels au lancement et dès que le profil apparaît/change.
         .task(id: profiles.first?.persistentModelID) {
             if let r = profiles.first { await NotificationManager.reschedule(from: r) }

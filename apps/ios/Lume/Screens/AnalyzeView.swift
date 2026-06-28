@@ -19,6 +19,9 @@ struct AnalyzeView: View {
     @State private var showFullImage = false
     @State private var didStart = false
     @State private var dish: String?
+    /// Vrai si le serveur a renvoyé un repas de démo (vision indisponible) : on l'affiche
+    /// clairement pour ne pas faire passer de fausses macros pour une vraie analyse.
+    @State private var degraded = false
     /// Message d'erreur réel (depuis APIError), affiché tel quel à l'utilisateur.
     @State private var errorMessage: String?
     /// Nombre d'aliments non résolus ignorés au dernier ajout (toast d'avertissement).
@@ -81,6 +84,7 @@ struct AnalyzeView: View {
                 let result = try await api.analyze(imageData: data)
                 items = result.items
                 dish = result.dish
+                degraded = result.degraded
                 per100g = Dictionary(uniqueKeysWithValues: result.items.map { ($0.id, basis($0)) })
                 // 0 aliment ≠ erreur réseau : la photo ne contient simplement pas de plat reconnu.
                 phase = result.items.isEmpty ? .empty : .loaded
@@ -144,6 +148,7 @@ struct AnalyzeView: View {
                     case .empty: emptyCard
                     case .loaded:
                         VStack(spacing: Spacing.lg) {
+                            if degraded { degradedBanner }
                             if skippedCount > 0 { skippedBanner }
                             totalCard.lumeEntrance(0)
                             SectionHeader(title: "Aliments détectés", actionTitle: "Ajouter", actionIcon: .add)
@@ -255,11 +260,24 @@ struct AnalyzeView: View {
         }
     }
 
+    /// Avertit que le serveur a renvoyé un repas de DÉMO (vision indisponible côté backend) :
+    /// les aliments et macros ci-dessous sont fictifs — à ne pas enregistrer tels quels.
+    private var degradedBanner: some View {
+        HStack(spacing: Spacing.sm) {
+            Image(appIcon: .warning).lumeIcon(15, weight: .semibold).foregroundStyle(LumeColor.fat)
+            Text("Analyse indisponible — exemple de démonstration. Ces aliments ne viennent pas de ta photo : corrige-les avant d'ajouter.")
+                .font(.lumeFootnote).foregroundStyle(LumeColor.textSecondary)
+            Spacer()
+        }
+        .padding(Spacing.md)
+        .background(LumeColor.fat.opacity(0.12), in: RoundedRectangle(cornerRadius: Radius.md, style: .continuous))
+    }
+
     /// Avertit que des aliments non résolus ont été ignorés (pas de disparition silencieuse).
     private var skippedBanner: some View {
         HStack(spacing: Spacing.sm) {
             Image(appIcon: .warning).lumeIcon(15, weight: .semibold).foregroundStyle(LumeColor.warning)
-            Text("\(skippedCount) aliment\(skippedCount > 1 ? "s" : "") sans macros — touche son nom pour le corriger avant d'ajouter.")
+            Text("\(skippedCount) aliments sans macros — touche son nom pour le corriger avant d'ajouter.")
                 .font(.lumeFootnote).foregroundStyle(LumeColor.textSecondary)
             Spacer()
         }
