@@ -13,6 +13,8 @@ struct OnboardingView: View {
                                              weightKg: 70, activity: .moderate, goal: .maintain)
     @State private var cameraGranted = Permissions.cameraGranted
     @State private var notifGranted = false
+    /// Affiche l'écran Confidentialité & conditions depuis la mention de consentement.
+    @State private var showLegal = false
     /// Modules optionnels choisis ici (la nutrition est le cœur, toujours active).
     @AppStorage(ModuleSettings.workoutKey) private var workoutEnabled = ModuleSettings.defaultEnabled
     @AppStorage(ModuleSettings.financeKey) private var financeEnabled = ModuleSettings.defaultEnabled
@@ -64,6 +66,17 @@ struct OnboardingView: View {
                 }
             }.padding(.bottom, Spacing.lg)
 
+            // Mention de consentement (dernière étape) : continuer vaut acceptation.
+            if step == lastStep {
+                Button { showLegal = true } label: {
+                    Text("En continuant, tu acceptes nos conditions et notre politique de confidentialité.")
+                        .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                        .underline().multilineTextAlignment(.center)
+                }
+                .buttonStyle(.plain)
+                .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.sm)
+            }
+
             PrimaryButton(title: step < lastStep ? "Continuer" : "Commencer",
                           icon: step < lastStep ? nil : .validate)
             {
@@ -79,6 +92,7 @@ struct OnboardingView: View {
                     .padding(.bottom, Spacing.sm)
             }
         }
+        .sheet(isPresented: $showLegal) { LegalView() }
         .background(LumeColor.cream.ignoresSafeArea())
         .sensoryFeedback(.selection, trigger: step)
     }

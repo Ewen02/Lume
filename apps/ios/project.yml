@@ -51,10 +51,10 @@ targets:
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         # Permissions (obligatoires pour caméra / photos / Santé)
-        NSCameraUsageDescription: "Lume utilise l'appareil photo pour scanner et photographier tes repas."
-        NSPhotoLibraryUsageDescription: "Lume accède à tes photos pour analyser un repas depuis ta galerie."
-        NSHealthShareUsageDescription: "Lume lit ton poids et tes données d'activité depuis l'app Santé."
-        NSHealthUpdateUsageDescription: "Lume enregistre tes repas, ton eau et tes séances dans l'app Santé."
+        NSCameraUsageDescription: "Lume utilise l'appareil photo pour photographier tes repas et scanner les codes-barres, afin d'en estimer les calories et macros."
+        NSPhotoLibraryUsageDescription: "Lume accède à une photo de ton choix pour analyser un repas depuis ta galerie. Aucune autre photo n'est lue."
+        NSHealthShareUsageDescription: "Lume lit ton poids et ton énergie active depuis Apple Santé pour calculer tes objectifs et afficher ta progression. Ces données restent sur ton appareil."
+        NSHealthUpdateUsageDescription: "Lume enregistre tes repas, ton eau, ton poids et tes séances dans Apple Santé pour garder tes données de santé centralisées et à jour."
         # CloudKit : notifications distantes en arrière-plan
         # ⚠️ Désactivé pour Personal Team (compte gratuit) — réactiver avec un compte payant.
         # UIBackgroundModes: [remote-notification]

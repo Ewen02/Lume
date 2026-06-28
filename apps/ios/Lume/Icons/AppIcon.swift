@@ -41,6 +41,7 @@ enum AppIcon: String {
     case gallery = "photo.on.rectangle"
     case viewfinder
     case warning = "exclamationmark.triangle"
+    case info = "info.circle.fill"
 
     // MARK: Repas
 

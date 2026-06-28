@@ -4166,6 +4166,550 @@
           }
         }
       }
+    },
+    "Confidentialité & conditions": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confidentialité & conditions"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy & Terms"
+          }
+        }
+      }
+    },
+    "Confidentialité": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confidentialité"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Privacy"
+          }
+        }
+      }
+    },
+    "Conditions": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Conditions"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Terms"
+          }
+        }
+      }
+    },
+    "Lume respecte ta vie privée. Cette politique explique quelles données l'app traite, comment, et tes droits.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lume respecte ta vie privée. Cette politique explique quelles données l'app traite, comment, et tes droits."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lume respects your privacy. This policy explains what data the app processes, how, and your rights."
+          }
+        }
+      }
+    },
+    "Données qui restent sur ton appareil": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données qui restent sur ton appareil"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Data that stays on your device"
+          }
+        }
+      }
+    },
+    "Ton journal alimentaire, ton poids, tes séances, ton budget, ton profil et tes réglages sont enregistrés localement sur ton appareil (et, si tu l'actives, synchronisés via ton compte iCloud privé). Nous n'y avons pas accès.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ton journal alimentaire, ton poids, tes séances, ton budget, ton profil et tes réglages sont enregistrés localement sur ton appareil (et, si tu l'actives, synchronisés via ton compte iCloud privé). Nous n'y avons pas accès."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your food log, weight, workouts, budget, profile and settings are stored locally on your device (and, if you enable it, synced via your private iCloud account). We have no access to them."
+          }
+        }
+      }
+    },
+    "Quand tu analyses un repas par photo, l'image est envoyée à notre service pour reconnaître les aliments. La reconnaissance s'appuie sur un fournisseur d'IA tiers (Anthropic). L'image sert uniquement à cette analyse et n'est pas utilisée pour t'identifier ni à des fins publicitaires.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quand tu analyses un repas par photo, l'image est envoyée à notre service pour reconnaître les aliments. La reconnaissance s'appuie sur un fournisseur d'IA tiers (Anthropic). L'image sert uniquement à cette analyse et n'est pas utilisée pour t'identifier ni à des fins publicitaires."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When you analyze a meal by photo, the image is sent to our service to recognize the foods. Recognition relies on a third-party AI provider (Anthropic). The image is used only for this analysis and never to identify you or for advertising."
+          }
+        }
+      }
+    },
+    "Données de santé (Apple Santé)": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Données de santé (Apple Santé)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Health data (Apple Health)"
+          }
+        }
+      }
+    },
+    "Avec ton autorisation, Lume lit ton poids et ton activité, et écrit tes repas, ton eau et tes séances dans Apple Santé. Ces données restent sur ton appareil / dans Apple Santé et ne sont jamais envoyées à nos serveurs.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avec ton autorisation, Lume lit ton poids et ton activité, et écrit tes repas, ton eau et tes séances dans Apple Santé. Ces données restent sur ton appareil / dans Apple Santé et ne sont jamais envoyées à nos serveurs."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "With your permission, Lume reads your weight and activity, and writes your meals, water and workouts to Apple Health. This data stays on your device / in Apple Health and is never sent to our servers."
+          }
+        }
+      }
+    },
+    "Lume ne contient ni publicité, ni traceur, ni SDK d'analyse tiers. Nous ne vendons aucune donnée et ne te suivons pas entre les apps.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lume ne contient ni publicité, ni traceur, ni SDK d'analyse tiers. Nous ne vendons aucune donnée et ne te suivons pas entre les apps."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lume contains no advertising, no trackers, and no third-party analytics SDKs. We do not sell any data and do not track you across apps."
+          }
+        }
+      }
+    },
+    "Tu peux exporter toutes tes données (Profil → Exporter mes données) et tout effacer à tout moment (Profil → Effacer mes données). La suppression est définitive et inclut les données écrites dans Apple Santé.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu peux exporter toutes tes données (Profil → Exporter mes données) et tout effacer à tout moment (Profil → Effacer mes données). La suppression est définitive et inclut les données écrites dans Apple Santé."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can export all your data (Profile → Export my data) and erase everything at any time (Profile → Erase my data). Deletion is permanent and includes data written to Apple Health."
+          }
+        }
+      }
+    },
+    "En utilisant Lume, tu acceptes les conditions ci-dessous.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En utilisant Lume, tu acceptes les conditions ci-dessous."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By using Lume, you agree to the terms below."
+          }
+        }
+      }
+    },
+    "Usage informatif, pas un avis médical": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Usage informatif, pas un avis médical"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Informational use, not medical advice"
+          }
+        }
+      }
+    },
+    "Lume fournit des estimations de calories, de macronutriments et d'objectifs à titre informatif et de bien-être. Elles ne constituent pas un avis médical, un diagnostic ni un traitement. Consulte un professionnel de santé avant tout changement important d'alimentation, d'activité ou de poids, surtout en cas de condition médicale, de grossesse ou de trouble alimentaire.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lume fournit des estimations de calories, de macronutriments et d'objectifs à titre informatif et de bien-être. Elles ne constituent pas un avis médical, un diagnostic ni un traitement. Consulte un professionnel de santé avant tout changement important d'alimentation, d'activité ou de poids, surtout en cas de condition médicale, de grossesse ou de trouble alimentaire."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lume provides calorie, macronutrient and goal estimates for informational and wellness purposes. They do not constitute medical advice, diagnosis or treatment. Consult a healthcare professional before any significant change to your diet, activity or weight, especially in case of a medical condition, pregnancy or eating disorder."
+          }
+        }
+      }
+    },
+    "Fiabilité de l'analyse par IA": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fiabilité de l'analyse par IA"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reliability of AI analysis"
+          }
+        }
+      }
+    },
+    "La reconnaissance des aliments et l'estimation des portions reposent sur une IA qui peut se tromper. Vérifie et corrige toujours les valeurs proposées avant de les enregistrer. Tu restes responsable de l'exactitude de ton journal.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La reconnaissance des aliments et l'estimation des portions reposent sur une IA qui peut se tromper. Vérifie et corrige toujours les valeurs proposées avant de les enregistrer. Tu restes responsable de l'exactitude de ton journal."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Food recognition and portion estimation rely on AI, which can be wrong. Always check and correct the proposed values before saving them. You remain responsible for the accuracy of your log."
+          }
+        }
+      }
+    },
+    "Limitation de responsabilité": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limitation de responsabilité"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limitation of liability"
+          }
+        }
+      }
+    },
+    "Lume est fourni « en l'état », sans garantie d'exactitude des estimations. Dans les limites permises par la loi, nous déclinons toute responsabilité pour les décisions prises sur la base des informations de l'app.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lume est fourni « en l'état », sans garantie d'exactitude des estimations. Dans les limites permises par la loi, nous déclinons toute responsabilité pour les décisions prises sur la base des informations de l'app."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lume is provided \"as is\", without warranty as to the accuracy of estimates. To the extent permitted by law, we disclaim all liability for decisions made based on the app's information."
+          }
+        }
+      }
+    },
+    "Ces conditions peuvent évoluer avec les mises à jour de l'app. La version en vigueur est celle présentée ici.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ces conditions peuvent évoluer avec les mises à jour de l'app. La version en vigueur est celle présentée ici."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These terms may change with app updates. The version in effect is the one shown here."
+          }
+        }
+      }
+    },
+    "Tu t'engages à utiliser l'app pour ton usage personnel et à fournir des informations exactes pour le calcul de tes objectifs.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tu t'engages à utiliser l'app pour ton usage personnel et à fournir des informations exactes pour le calcul de tes objectifs."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You agree to use the app for your personal use and to provide accurate information for calculating your goals."
+          }
+        }
+      }
+    },
+    "Ces cibles sont des estimations de bien-être, pas un avis médical. Consulte un professionnel de santé avant un changement important.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ces cibles sont des estimations de bien-être, pas un avis médical. Consulte un professionnel de santé avant un changement important."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "These targets are wellness estimates, not medical advice. Consult a healthcare professional before any significant change."
+          }
+        }
+      }
+    },
+    "Aliments et portions estimés par IA : vérifie et corrige les valeurs avant d'ajouter.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aliments et portions estimés par IA : vérifie et corrige les valeurs avant d'ajouter."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Foods and portions estimated by AI: check and correct the values before adding."
+          }
+        }
+      }
+    },
+    "Les valeurs sont estimées par IA : vérifie-les avant d'ajouter.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Les valeurs sont estimées par IA : vérifie-les avant d'ajouter."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Values are estimated by AI: check them before adding."
+          }
+        }
+      }
+    },
+    "Lume fournit des estimations à titre informatif et ne remplace pas un avis médical.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lume fournit des estimations à titre informatif et ne remplace pas un avis médical."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lume provides estimates for informational purposes and is not a substitute for medical advice."
+          }
+        }
+      }
+    },
+    "En continuant, tu acceptes nos conditions et notre politique de confidentialité.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "En continuant, tu acceptes nos conditions et notre politique de confidentialité."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By continuing, you accept our terms and privacy policy."
+          }
+        }
+      }
+    },
+    "Pour toute question sur tes données : %@.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pour toute question sur tes données : %@."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "For any question about your data: %@."
+          }
+        }
+      }
+    },
+    "Photos de repas": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Photos de repas"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Meal photos"
+          }
+        }
+      }
+    },
+    "Aucun pistage": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aucun pistage"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No tracking"
+          }
+        }
+      }
+    },
+    "Tes droits": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tes droits"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your rights"
+          }
+        }
+      }
+    },
+    "Contact": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contact"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contact"
+          }
+        }
+      }
+    },
+    "Tes responsabilités": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tes responsabilités"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your responsibilities"
+          }
+        }
+      }
+    },
+    "Évolution des conditions": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Évolution des conditions"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Changes to these terms"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

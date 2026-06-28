@@ -12,6 +12,7 @@ struct ProfileView: View {
     @Environment(\.modelContext) private var ctx
     @State private var showGoal = false
     @State private var showAbout = false
+    @State private var showLegal = false
     @State private var showName = false
     @State private var showReminders = false
     @State private var showExport = false
@@ -132,6 +133,7 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $showGoal) { GoalView() }
         .sheet(isPresented: $showAbout) { AboutView() }
+        .sheet(isPresented: $showLegal) { LegalView() }
         .sheet(isPresented: $showName) {
             NameEditView(initial: record?.name ?? "") { newName in
                 if let r = record { r.name = newName }
@@ -264,6 +266,10 @@ struct ProfileView: View {
                 divider
                 Button { contactSupport() } label: {
                     SettingsRow(icon: .envelope, tint: LumeColor.fat, title: "Nous contacter", showsChevron: true)
+                }.buttonStyle(.lumePress)
+                divider
+                Button { showLegal = true } label: {
+                    SettingsRow(icon: .lock, tint: LumeColor.protein, title: "Confidentialité & conditions", showsChevron: true)
                 }.buttonStyle(.lumePress)
                 divider
                 Button { showAbout = true } label: {

@@ -156,6 +156,11 @@ struct AnalyzeView: View {
                             ForEach(Array($items.enumerated()), id: \.element.id) { idx, $item in
                                 itemRow($item).lumeEntrance(2 + idx)
                             }
+                            // Disclaimer IA permanent (hors mode démo, déjà signalé par degradedBanner).
+                            if !degraded {
+                                LumeDisclaimer(text: "Aliments et portions estimés par IA : vérifie et corrige les valeurs avant d'ajouter.")
+                                    .lumeEntrance(2 + items.count)
+                            }
                         }
                     }
                 }

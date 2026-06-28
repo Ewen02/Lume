@@ -42,6 +42,7 @@ struct GoalView: View {
                 if let objectiveWarning { warningBanner(objectiveWarning) }
                 formCard
                 PrimaryButton(title: "Enregistrer l'objectif", icon: .validate) { save() }
+                LumeDisclaimer(text: "Ces cibles sont des estimations de bien-être, pas un avis médical. Consulte un professionnel de santé avant un changement important.")
             }
             .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.xxl)
         }
