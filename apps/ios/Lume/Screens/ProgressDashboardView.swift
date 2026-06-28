@@ -22,8 +22,8 @@ struct ProgressDashboardView: View {
     @State private var period: ChartPeriod = .week
     /// Anime les barres du graphe calories à l'apparition (montée de 0 → valeur).
     @State private var chartGrow: Double = 0
-    /// Affiche brièvement la pastille de célébration quand l'objectif de poids est atteint.
-    @State private var showGoalBurst = false
+    /// Présente la célébration plein écran quand l'objectif de poids est atteint (une seule fois).
+    @State private var showGoalCelebration = false
 
     init() {
         // `weekFoods` reste borné à 7 j pour la carte « Cette semaine » (jours suivis, kcal vs cible).
@@ -194,19 +194,13 @@ struct ProgressDashboardView: View {
         .onAppear { withAnimation(reduceMotion ? nil : LumeMotion.smooth.delay(0.25)) { chartGrow = 1 } }
         // Transition douce des graphes au changement de période.
         .animation(LumeMotion.smooth, value: period)
-        // Jalon léger : petite fête quand l'objectif de poids est atteint.
-        .sensoryFeedback(.success, trigger: goalReached)
-        .overlay(alignment: .top) {
-            if goalReached, showGoalBurst {
-                goalBurst.transition(.scale(scale: 0.6).combined(with: .opacity))
-            }
-        }
-        .onChange(of: goalReached) { _, reached in
-            guard reached else { return }
-            withAnimation(LumeMotion.celebrate) { showGoalBurst = true }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
-                withAnimation(LumeMotion.smooth) { showGoalBurst = false }
-            }
+        // Sommet émotionnel : célébration plein écran quand l'objectif de poids est atteint,
+        // une seule fois (gravé dans le ledger). L'haptique est portée par la sheet elle-même.
+        .onChange(of: goalReached) { _, reached in presentGoalCelebrationIfReached(reached) }
+        .onAppear { presentGoalCelebrationIfReached(goalReached) }
+        .sheet(isPresented: $showGoalCelebration) {
+            WeightGoalCelebrationView(startKg: goalStartKg, targetKg: targetWeightKg,
+                                      journeyDays: goalJourneyDays, imperial: useImperial)
         }
         .sheet(isPresented: $showStreak) {
             StreakDetailView(streak: streak, record: streakRecord)
@@ -284,21 +278,30 @@ struct ProgressDashboardView: View {
         return WeightTrend.targetLabel(current: current, target: targetWeightKg, goal: goal)
     }
 
-    /// Objectif de poids atteint → déclenche le jalon (haptique + pastille).
+    /// Objectif de poids atteint → déclenche le jalon (célébration plein écran, une fois).
     private var goalReached: Bool {
         targetLabel == "Objectif atteint"
     }
 
-    /// Pastille de célébration éphémère affichée quand l'objectif est atteint.
-    private var goalBurst: some View {
-        HStack(spacing: Spacing.sm) {
-            Image(appIcon: .validate).lumeIcon(16, weight: .bold).foregroundStyle(LumeColor.surface)
-            Text("Objectif atteint 🎉").font(.lumeSubhead.weight(.bold)).foregroundStyle(LumeColor.surface)
-        }
-        .padding(.horizontal, Spacing.lg).padding(.vertical, Spacing.sm)
-        .background(LumeColor.success, in: Capsule())
-        .lumeShadow(.card)
-        .padding(.top, Spacing.sm)
+    /// Identifiant de jalon « objectif de poids atteint » pour le ledger one-shot.
+    private var goalLedgerID: String { "weight.goalReached" }
+
+    /// Poids de départ du parcours = première pesée connue (sinon le poids actuel, en repli).
+    private var goalStartKg: Double {
+        allWeights.first?.kg ?? current
+    }
+
+    /// Durée du parcours (jours) entre la première pesée et aujourd'hui ; 0 si une seule pesée.
+    private var goalJourneyDays: Int {
+        guard let first = allWeights.first?.date, let last = allWeights.last?.date else { return 0 }
+        return max(0, Calendar.current.dateComponents([.day], from: first, to: last).day ?? 0)
+    }
+
+    /// Présente la célébration d'objectif si atteint et jamais fêtée. Idempotent (ledger).
+    private func presentGoalCelebrationIfReached(_ reached: Bool) {
+        guard reached, CelebrationLedger.shouldFire(goalLedgerID) else { return }
+        CelebrationLedger.markFired(goalLedgerID)
+        showGoalCelebration = true
     }
 
     /// Progression vers l'objectif (0…1) : du poids de départ vers la cible. nil si non pertinent.

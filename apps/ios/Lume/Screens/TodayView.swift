@@ -24,12 +24,23 @@ struct TodayView: View {
     @State private var highlight = false
     /// Badges nutrition fraîchement débloqués (affichés en célébration).
     @State private var celebrateBadges: [Badge] = []
+    /// Palier de série fraîchement franchi (déclenche l'ouverture proactive de la grande flamme).
+    @State private var celebrateStreak: StreakCelebration?
+    /// Flamme en attente : si des badges s'affichent déjà, on la présente à leur fermeture.
+    @State private var pendingStreak: StreakCelebration?
 
     /// Repas en attente de confirmation de suppression.
     private struct DeletableMeal: Identifiable {
         let id: String
         let title: String
         let foods: [LoggedFood]
+    }
+
+    /// Palier de série franchi à fêter (wrapper Identifiable pour `.sheet(item:)` : la flamme
+    /// joue son burst à l'apparition, donc on (re)présente une vue neuve par palier).
+    private struct StreakCelebration: Identifiable {
+        let threshold: Int
+        var id: Int { threshold }
     }
 
     private var isToday: Bool {
@@ -239,6 +250,8 @@ struct TodayView: View {
             // Un repas vient d'être logué : vérifie les badges nutrition à débloquer.
             let fresh = BadgeEvaluator.reconcileNutrition(foods: streakFoods, target: target, context: ctx)
             if !fresh.isEmpty { celebrateBadges = fresh }
+            // …puis un éventuel franchissement de palier de série (la grande flamme s'ouvre toute seule).
+            checkStreakMilestone()
         }
         // Rafraîchit les lectures Santé (conso externe, pas, calories actives) à l'ouverture.
         .task { await health.requestAuthorization() }
@@ -248,6 +261,22 @@ struct TodayView: View {
         .task { BadgeEvaluator.reconcileNutrition(foods: streakFoods, target: target, context: ctx) }
         .sheet(isPresented: Binding(get: { !celebrateBadges.isEmpty }, set: { if !$0 { celebrateBadges = [] } })) {
             BadgeCelebrationView(badges: celebrateBadges) { celebrateBadges = [] }
+        }
+        // Quand la feuille de badges se ferme, on enchaîne sur la flamme de palier en attente.
+        .onChange(of: celebrateBadges.isEmpty) { _, empty in
+            if empty, let pending = pendingStreak {
+                pendingStreak = nil
+                celebrateStreak = pending
+            }
+        }
+        // Palier de série franchi : la grande flamme s'ouvre d'elle-même (record inclus).
+        // Le ledger est gravé à l'affichage effectif (onAppear), pas à la détection.
+        .sheet(item: $celebrateStreak) { celebration in
+            StreakDetailView(streak: streak, record: streakRecord)
+                .onAppear {
+                    CelebrationLedger.markFired(
+                        StreakMilestone.ledgerID(domain: "nutrition", threshold: celebration.threshold))
+                }
         }
         .sheet(isPresented: $showWater) { WaterDetailView() }
         .sheet(isPresented: $showSearch) { SearchView() }
@@ -268,6 +297,31 @@ struct TodayView: View {
             MealRenameSheet(currentName: meal.title) { newName in
                 rename(meal, to: newName)
             }
+        }
+    }
+
+    /// Détecte le franchissement d'un palier de série nutrition (3/7/30 j) non encore fêté et,
+    /// le cas échéant, programme l'ouverture proactive de la grande flamme. Le palier étant aussi
+    /// matérialisé par un badge `nstreak_*`, on retire ce badge de la file pour ne pas fêter deux
+    /// fois la même chose : la flamme EST la célébration de la série.
+    private func checkStreakMilestone() {
+        guard let threshold = StreakMilestone.crossed(
+            streak: streak, thresholds: StreakMilestone.nutrition,
+            alreadyFired: { CelebrationLedger.hasFired(StreakMilestone.ledgerID(domain: "nutrition", threshold: $0)) }
+        ) else { return }
+
+        // Évite le doublon flamme + badge pour ce même palier.
+        let streakBadgeID = "nstreak_\(threshold)"
+        celebrateBadges.removeAll { $0.id == streakBadgeID }
+
+        // Le ledger est marqué au moment de l'AFFICHAGE de la flamme (cf. .sheet onAppear), pas ici :
+        // une feuille avalée par une autre présentation ne « consomme » donc jamais le palier sans être vue.
+        if celebrateBadges.isEmpty {
+            celebrateStreak = StreakCelebration(threshold: threshold)
+        } else {
+            // Si des badges (non-série) s'affichent déjà, on présente la flamme à leur fermeture
+            // (cf. .onChange(of: celebrateBadges.isEmpty)) pour ne pas empiler deux feuilles.
+            pendingStreak = StreakCelebration(threshold: threshold)
         }
     }
 

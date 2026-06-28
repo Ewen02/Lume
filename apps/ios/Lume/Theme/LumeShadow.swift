@@ -19,3 +19,23 @@ extension View {
         modifier(LumeShadow(style: style))
     }
 }
+
+/// Halo coloré pour les moments de célébration (anneau qui « claque », record qui apparaît).
+/// Distinct de `lumeShadow` (ombre de profondeur) : ici c'est une lueur teintée, animable via
+/// `active`. Le rayon vit dans le token (pas de valeur magique dans les écrans).
+private struct LumeGlow: ViewModifier {
+    let color: Color
+    let active: Bool
+    /// Intensité du halo (opacité à pleine puissance).
+    var intensity: Double = 0.6
+    func body(content: Content) -> some View {
+        content.shadow(color: color.opacity(active ? intensity : 0), radius: active ? 16 : 0)
+    }
+}
+
+extension View {
+    /// Lueur teintée de célébration (s'allume quand `active`). Voir `LumeGlow`.
+    func lumeGlow(_ color: Color, active: Bool, intensity: Double = 0.6) -> some View {
+        modifier(LumeGlow(color: color, active: active, intensity: intensity))
+    }
+}

@@ -42,6 +42,14 @@ struct WorkoutHomeView: View {
 
     @State private var route: Route?
     @State private var showStartChoice = false
+    /// Palier de série hebdo fraîchement franchi à fêter (sheet dédiée, découplée de `route`).
+    @State private var celebrateWeeklyStreak: WeeklyStreakCelebration?
+
+    /// Wrapper Identifiable pour présenter la flamme hebdo proactivement via `.sheet(item:)`.
+    private struct WeeklyStreakCelebration: Identifiable {
+        let threshold: Int
+        var id: Int { threshold }
+    }
 
     /// Vrais records (1RM estimé). Vide tant qu'aucune séance — pas de chiffres inventés.
     private var topRecords: [PersonalRecord] {
@@ -133,6 +141,28 @@ struct WorkoutHomeView: View {
         .task { BadgeEvaluator.reconcile(sessions: sessions, goal: goal, context: ctx) }
         // Charge les séances importées de Santé (lecture seule).
         .task { await health.refreshExternalWorkouts() }
+        // Franchissement d'un palier de série hebdo (2/4/12 sem.) : la grande flamme s'ouvre seule
+        // au retour sur l'écran après une séance qui fait passer un cap. Une fois par palier (ledger).
+        // Sheet DÉDIÉE (pas `route`) pour ne pas entrer en conflit avec la navigation, et marquage
+        // au moment de l'affichage effectif (pas du déclencheur) → jamais « consommée » sans être vue.
+        .onChange(of: streak) { _, _ in presentStreakMilestoneIfCrossed() }
+        .onAppear { presentStreakMilestoneIfCrossed() }
+        .sheet(item: $celebrateWeeklyStreak) { celebration in
+            WorkoutStreakDetailView(streak: streak, record: streakRecord, goal: goal)
+                .onAppear {
+                    CelebrationLedger.markFired(
+                        StreakMilestone.ledgerID(domain: "workout", threshold: celebration.threshold))
+                }
+        }
+    }
+
+    /// Détecte un palier hebdo (2/4/12) fraîchement franchi et programme la flamme proactive.
+    private func presentStreakMilestoneIfCrossed() {
+        guard celebrateWeeklyStreak == nil, let threshold = StreakMilestone.crossed(
+            streak: streak, thresholds: StreakMilestone.workout,
+            alreadyFired: { CelebrationLedger.hasFired(StreakMilestone.ledgerID(domain: "workout", threshold: $0)) }
+        ) else { return }
+        celebrateWeeklyStreak = WeeklyStreakCelebration(threshold: threshold)
     }
 
     // MARK: Engagement (flamme + objectif de la semaine)

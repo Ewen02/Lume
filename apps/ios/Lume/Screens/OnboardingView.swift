@@ -17,6 +17,8 @@ struct OnboardingView: View {
     @State private var showLegal = false
     /// Pilote l'animation de révélation de la démo « aha » (étape 1).
     @State private var demoRevealed = false
+    /// Affiche la célébration « Bienvenue » une fois le profil persisté, avant d'entrer dans l'app.
+    @State private var showWelcome = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Modules optionnels choisis ici (la nutrition est le cœur, toujours active).
     @AppStorage(ModuleSettings.workoutKey) private var workoutEnabled = ModuleSettings.defaultEnabled
@@ -35,6 +37,8 @@ struct OnboardingView: View {
         profile.name.trimmingCharacters(in: .whitespaces)
     }
 
+    /// Persiste le profil (et la 1ʳᵉ pesée), puis présente la célébration « Bienvenue ».
+    /// Le basculement dans l'app (`onFinish`) n'a lieu qu'au tap de cette célébration.
     private func finish() {
         var saved = profile
         saved.name = trimmedName
@@ -48,7 +52,7 @@ struct OnboardingView: View {
                 Task { await health.saveWeight(kg: saved.weightKg) }
             }
         }
-        onFinish()
+        showWelcome = true
     }
 
     var body: some View {
@@ -99,6 +103,13 @@ struct OnboardingView: View {
             }
         }
         .sheet(isPresented: $showLegal) { LegalView() }
+        // Célébration de bienvenue (scelle l'activation) → puis entrée dans l'app.
+        .sheet(isPresented: $showWelcome) {
+            WelcomeCelebrationView(name: trimmedName) {
+                showWelcome = false
+                onFinish()
+            }
+        }
         .background(LumeColor.cream.ignoresSafeArea())
         .sensoryFeedback(.selection, trigger: step)
     }

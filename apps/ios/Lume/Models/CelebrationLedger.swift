@@ -37,4 +37,54 @@ enum CelebrationLedger {
     static func markCelebrated(_ id: String, now: Date = Date(), calendar: Calendar = .current) {
         UserDefaults.standard.set(monthKey(now, calendar: calendar), forKey: storageKey(id))
     }
+
+    // MARK: Jalons « une fois pour toutes » (non mensuels)
+
+    // Certaines célébrations ne se rejouent JAMAIS une fois vues : franchissement d'un palier de
+    // série (7 jours…), objectif de poids atteint, fin d'onboarding. On les marque par un simple
+    // booléen persistant, sans logique de mois. Préfixe distinct de la façade mensuelle.
+
+    private static func milestoneKey(_ id: String) -> String {
+        "lume.celebration.milestone.\(id)"
+    }
+
+    /// Ce jalon `id` a-t-il déjà été fêté (à vie) ?
+    static func hasFired(_ id: String) -> Bool {
+        UserDefaults.standard.bool(forKey: milestoneKey(id))
+    }
+
+    /// Marque le jalon `id` comme fêté définitivement (à appeler une fois la célébration affichée).
+    static func markFired(_ id: String) {
+        UserDefaults.standard.set(true, forKey: milestoneKey(id))
+    }
+
+    /// Doit-on fêter le jalon `id` maintenant ? Vrai seulement la première fois.
+    /// Ne marque pas : l'appelant marque après affichage (cohérent avec la façade mensuelle).
+    static func shouldFire(_ id: String) -> Bool {
+        !hasFired(id)
+    }
+}
+
+/// Paliers de série fêtés proactivement (la grande flamme s'ouvre toute seule au franchissement).
+/// Pure et testable : `crossed` renvoie le plus haut palier atteint par `streak` et pas encore fêté.
+enum StreakMilestone {
+    /// Paliers nutrition (jours consécutifs) — alignés sur les badges `nstreak_*`.
+    static let nutrition = [3, 7, 30]
+    /// Paliers muscu (semaines consécutives) — alignés sur les badges `streak_*`.
+    static let workout = [2, 4, 12]
+
+    /// Identifiant de jalon stable pour le ledger (ex. `streak.nutrition.7`).
+    static func ledgerID(domain: String, threshold: Int) -> String {
+        "streak.\(domain).\(threshold)"
+    }
+
+    /// Plus haut palier (`thresholds`) atteint par `streak` et non encore fêté (`alreadyFired`), ou `nil`.
+    /// On ne fête qu'un palier à la fois (le plus haut nouvellement atteint), pour éviter une rafale.
+    static func crossed(streak: Int, thresholds: [Int],
+                        alreadyFired: (Int) -> Bool) -> Int?
+    {
+        thresholds
+            .filter { streak >= $0 && !alreadyFired($0) }
+            .max()
+    }
 }
