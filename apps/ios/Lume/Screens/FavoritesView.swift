@@ -10,6 +10,7 @@ struct FavoritesView: View {
 
     @State private var tab = 0
     @State private var routeFood: FoodItem?
+    @State private var showCustomEditor = false
 
     /// Favoris (macros pour 100 g).
     private var favProducts: [ScannedProduct] {
@@ -45,18 +46,21 @@ struct FavoritesView: View {
         .padding(.horizontal, Spacing.xl)
         .background(LumeColor.cream.ignoresSafeArea())
         .safeAreaInset(edge: .top) {
-            TopBar(title: "Mes aliments", leading: .back, onLeading: { dismiss() })
+            TopBar(title: "Mes aliments", leading: .back, trailing: .add,
+                   onLeading: { dismiss() }, onTrailing: { showCustomEditor = true })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
         .sheet(item: $routeFood) { FoodDetailView(food: $0, meal: .snack, canAddToJournal: true) }
+        .sheet(isPresented: $showCustomEditor) { CustomFoodEditorView() }
     }
 
     @ViewBuilder
     private var content: some View {
         if tab == 0 {
             if favProducts.isEmpty {
-                LumeEmptyState(icon: .favorite, title: "Aucun favori",
-                               message: "Épingle un aliment depuis la recherche (appui long) pour le retrouver ici.")
+                LumeEmptyState(icon: .favorite, title: "Aucun aliment enregistré",
+                               message: "Crée ton propre aliment (repas maison, plat de resto…) ou épingle un résultat de recherche.",
+                               actionTitle: "Créer un aliment", action: { showCustomEditor = true })
             } else {
                 ForEach(favProducts) { row($0) }
             }
