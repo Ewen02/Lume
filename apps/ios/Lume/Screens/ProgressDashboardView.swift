@@ -537,7 +537,7 @@ struct ProgressDashboardView: View {
     }
 
     private var periodPicker: some View {
-        SegmentedPicker(options: ChartPeriod.allCases.map(\.label),
+        SegmentedPicker(options: ChartPeriod.allCases.map { LocalizedStringKey($0.label) },
                         selection: Binding(get: { period.rawValue },
                                            set: { period = ChartPeriod(rawValue: $0) ?? .week }))
             .frame(maxWidth: .infinity)

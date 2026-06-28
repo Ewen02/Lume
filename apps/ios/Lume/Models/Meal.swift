@@ -6,6 +6,17 @@ enum MealType: String, CaseIterable, Identifiable {
         rawValue
     }
 
+    /// Créneau de repas par défaut selon l'heure (utilisé au moment de logger : photo, code-barres,
+    /// recette…). Centralisé ici pour éviter de dupliquer la règle dans chaque écran.
+    static func forNow(_ date: Date = Date(), calendar: Calendar = .current) -> MealType {
+        switch calendar.component(.hour, from: date) {
+        case 5 ..< 11: .breakfast
+        case 11 ..< 15: .lunch
+        case 18 ..< 23: .dinner
+        default: .snack
+        }
+    }
+
     var title: String {
         switch self {
         case .breakfast: "Petit-déjeuner"

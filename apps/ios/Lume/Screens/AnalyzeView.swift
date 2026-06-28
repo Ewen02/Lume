@@ -60,14 +60,6 @@ struct AnalyzeView: View {
         per100g = Dictionary(uniqueKeysWithValues: items.map { ($0.id, basis($0)) })
     }
 
-    private func mealForNow() -> MealType {
-        switch Calendar.current.component(.hour, from: Date()) {
-        case 5 ..< 11: .breakfast
-        case 11 ..< 15: .lunch
-        case 18 ..< 23: .dinner
-        default: .snack
-        }
-    }
 
     private func runAnalyze() async {
         guard let data = imageData else { return }
@@ -110,7 +102,7 @@ struct AnalyzeView: View {
     }
 
     private func addToJournal() {
-        let meal = mealForNow()
+        let meal = MealType.forNow()
         // Tous les aliments de ce scan partagent un même identifiant de repas → carte groupée.
         let groupID = UUID()
         // Les aliments non résolus (macros à 0) ne sont pas journalisés faute de chiffres fiables.

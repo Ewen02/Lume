@@ -24,17 +24,8 @@ struct BarcodeResultView: View {
         product.source == "OpenFoodFacts" ? "Open Food Facts" : product.source
     }
 
-    private func mealForNow() -> MealType {
-        switch Calendar.current.component(.hour, from: Date()) {
-        case 5 ..< 11: .breakfast
-        case 11 ..< 15: .lunch
-        case 18 ..< 23: .dinner
-        default: .snack
-        }
-    }
-
     private func add() {
-        ctx.insert(LoggedFood(meal: mealForNow(), name: product.name, grams: grams,
+        ctx.insert(LoggedFood(meal: MealType.forNow(), name: product.name, grams: grams,
                               kcal: portion.kcal, protein: portion.protein,
                               carbs: portion.carbs, fat: portion.fat))
         let p = portion

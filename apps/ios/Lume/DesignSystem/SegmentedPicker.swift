@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Sélecteur segmenté en pilule (modes de capture, etc.).
 struct SegmentedPicker: View {
-    var options: [String]
+    var options: [LocalizedStringKey]
     @Binding var selection: Int
     var body: some View {
         HStack(spacing: 2) {

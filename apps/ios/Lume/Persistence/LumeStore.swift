@@ -9,7 +9,7 @@ import SwiftData
 enum LumeStore {
     static let schema = Schema([
         LoggedFood.self, WaterLog.self, WeightSample.self, ProfileRecord.self,
-        FavoriteFood.self,
+        FavoriteFood.self, RecipeModel.self, RecipeIngredientModel.self,
         WorkoutSessionModel.self, LoggedExerciseModel.self, LoggedSetModel.self,
         RoutineModel.self, RoutineExerciseModel.self, ExerciseModel.self,
         BadgeUnlock.self,

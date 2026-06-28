@@ -7,10 +7,14 @@ struct FavoritesView: View {
     @Environment(\.modelContext) private var ctx
     @Query(sort: \FavoriteFood.addedAt, order: .reverse) private var favorites: [FavoriteFood]
     @Query(sort: \LoggedFood.date, order: .reverse) private var logged: [LoggedFood]
+    @Query(sort: \RecipeModel.createdAt, order: .reverse) private var recipes: [RecipeModel]
 
     @State private var tab = 0
     @State private var routeFood: FoodItem?
     @State private var showCustomEditor = false
+    @State private var showRecipeEditor = false
+    /// Recette qui vient d'être journalisée (déclenche l'haptique de succès + le retour).
+    @State private var loggedRecipeID: UUID?
 
     /// Favoris (macros pour 100 g).
     private var favProducts: [ScannedProduct] {
@@ -33,7 +37,7 @@ struct FavoritesView: View {
 
     var body: some View {
         VStack(spacing: Spacing.lg) {
-            SegmentedPicker(options: ["Favoris", "Récents"], selection: $tab)
+            SegmentedPicker(options: ["Favoris", "Récents", "Recettes"], selection: $tab)
             ScrollView {
                 LazyVStack(spacing: Spacing.sm) {
                     content
@@ -46,17 +50,21 @@ struct FavoritesView: View {
         .padding(.horizontal, Spacing.xl)
         .background(LumeColor.cream.ignoresSafeArea())
         .safeAreaInset(edge: .top) {
+            // Le « + » crée un aliment (onglets Favoris/Récents) ou une recette (onglet Recettes).
             TopBar(title: "Mes aliments", leading: .back, trailing: .add,
-                   onLeading: { dismiss() }, onTrailing: { showCustomEditor = true })
+                   onLeading: { dismiss() }, onTrailing: { if tab == 2 { showRecipeEditor = true } else { showCustomEditor = true } })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
         .sheet(item: $routeFood) { FoodDetailView(food: $0, meal: .snack, canAddToJournal: true) }
         .sheet(isPresented: $showCustomEditor) { CustomFoodEditorView() }
+        .sheet(isPresented: $showRecipeEditor) { RecipeEditorView() }
+        .sensoryFeedback(.success, trigger: loggedRecipeID)
     }
 
     @ViewBuilder
     private var content: some View {
-        if tab == 0 {
+        switch tab {
+        case 0:
             if favProducts.isEmpty {
                 LumeEmptyState(icon: .favorite, title: "Aucun aliment enregistré",
                                message: "Crée ton propre aliment (repas maison, plat de resto…) ou épingle un résultat de recherche.",
@@ -64,12 +72,41 @@ struct FavoritesView: View {
             } else {
                 ForEach(favProducts) { row($0) }
             }
-        } else {
+        case 1:
             if recents.isEmpty {
                 LumeEmptyState(icon: .recents, title: "Aucun aliment récent",
                                message: "Les aliments que tu logues apparaîtront ici.")
             } else {
                 ForEach(recents) { row($0) }
+            }
+        default:
+            if recipes.isEmpty {
+                LumeEmptyState(icon: .lunch, title: "Aucune recette",
+                               message: "Compose un plat à partir de tes aliments enregistrés, logable en un geste.",
+                               actionTitle: "Créer une recette", action: { showRecipeEditor = true })
+            } else {
+                ForEach(recipes) { recipeRow($0) }
+            }
+        }
+    }
+
+    /// Ligne recette : tap → journalise la recette (repas groupé) ; menu → supprimer.
+    private func recipeRow(_ recipe: RecipeModel) -> some View {
+        let total = recipe.totalMacros
+        let count = recipe.orderedIngredients.count
+        return Button {
+            RecipeLogger.log(recipe, into: ctx)
+            loggedRecipeID = recipe.id
+            dismiss()
+        } label: {
+            FoodRow(name: recipe.name,
+                    detail: String(localized: "\(count) ingrédients · \(total.kcal) kcal"),
+                    kcal: total.kcal, trailing: .add)
+        }
+        .buttonStyle(.lumePress)
+        .contextMenu {
+            Button(role: .destructive) { ctx.delete(recipe) } label: {
+                Label("Supprimer la recette", systemImage: "trash")
             }
         }
     }
