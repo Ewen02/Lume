@@ -15,10 +15,17 @@ struct CustomFoodEditorView: View {
     @State private var fat = 0
 
     /// Repère de cohérence : kcal théoriques depuis les macros (4/4/9). Aide sans imposer.
-    private var kcalFromMacros: Int { protein * 4 + carbs * 4 + fat * 9 }
+    private var kcalFromMacros: Int {
+        protein * 4 + carbs * 4 + fat * 9
+    }
 
-    private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
-    private var canSave: Bool { !trimmedName.isEmpty && kcal > 0 }
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var canSave: Bool {
+        !trimmedName.isEmpty && kcal > 0
+    }
 
     var body: some View {
         ScrollView {

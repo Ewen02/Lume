@@ -67,16 +67,16 @@ struct ExportView: View {
         }
         // Restauration destructive : on confirme avant de remplacer les données actuelles.
         .alert("Restaurer cette sauvegarde ?", isPresented: Binding(
-            get: { pendingBackup != nil }, set: { if !$0 { pendingBackup = nil } }))
-        {
+            get: { pendingBackup != nil }, set: { if !$0 { pendingBackup = nil } }
+        )) {
             Button("Restaurer", role: .destructive) { performRestore() }
             Button("Annuler", role: .cancel) { pendingBackup = nil }
         } message: {
             Text("Tes données actuelles (repas, poids, séances, finances…) seront remplacées par celles de la sauvegarde. Cette action est irréversible.")
         }
         .alert("Sauvegarde restaurée", isPresented: Binding(
-            get: { restoreResult != nil }, set: { if !$0 { restoreResult = nil } }))
-        {
+            get: { restoreResult != nil }, set: { if !$0 { restoreResult = nil } }
+        )) {
             Button("OK", role: .cancel) { restoreResult = nil; dismiss() }
         } message: {
             if let r = restoreResult {

@@ -50,8 +50,12 @@ final class RecipeIngredientModel {
         self.order = order
     }
 
-    var per100g: Macros { Macros(kcal: kcal, protein: protein, carbs: carbs, fat: fat) }
+    var per100g: Macros {
+        Macros(kcal: kcal, protein: protein, carbs: carbs, fat: fat)
+    }
 
     /// Macros de l'ingrédient à sa portion réelle (`grams`).
-    var macros: Macros { per100g.scaled(Double(grams) / 100) }
+    var macros: Macros {
+        per100g.scaled(Double(grams) / 100)
+    }
 }

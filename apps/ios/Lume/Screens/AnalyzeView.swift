@@ -60,7 +60,6 @@ struct AnalyzeView: View {
         per100g = Dictionary(uniqueKeysWithValues: items.map { ($0.id, basis($0)) })
     }
 
-
     private func runAnalyze() async {
         guard let data = imageData else { return }
         // Garde-fou : image illisible → on ne gaspille pas 3 tentatives réseau.

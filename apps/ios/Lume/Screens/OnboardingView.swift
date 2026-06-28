@@ -119,8 +119,13 @@ struct OnboardingView: View {
     // MARK: Étape 1 — démo « aha » (montrer la valeur avant de demander quoi que ce soit)
 
     /// Aliments de démo révélés un à un (effet « Lume vient d'analyser ta photo »).
-    private var demoFoods: [FoodItem] { Mock.detected }
-    private var demoTotal: Macros { demoFoods.reduce(.zero) { $0 + $1.macros } }
+    private var demoFoods: [FoodItem] {
+        Mock.detected
+    }
+
+    private var demoTotal: Macros {
+        demoFoods.reduce(.zero) { $0 + $1.macros }
+    }
 
     private var ahaDemo: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {

@@ -20,12 +20,22 @@ struct RecipeEditorView: View {
         var name: String
         var per100g: Macros
         var grams: Int
-        var macros: Macros { per100g.scaled(Double(grams) / 100) }
+        var macros: Macros {
+            per100g.scaled(Double(grams) / 100)
+        }
     }
 
-    private var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
-    private var canSave: Bool { !trimmedName.isEmpty && !drafts.isEmpty }
-    private var total: Macros { drafts.reduce(.zero) { $0 + $1.macros } }
+    private var trimmedName: String {
+        name.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var canSave: Bool {
+        !trimmedName.isEmpty && !drafts.isEmpty
+    }
+
+    private var total: Macros {
+        drafts.reduce(.zero) { $0 + $1.macros }
+    }
 
     var body: some View {
         ScrollView {

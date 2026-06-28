@@ -86,7 +86,9 @@ enum DataExporter {
         var foods = 0, weights = 0, favorites = 0, workouts = 0
         var routines = 0, customExercises = 0, transactions = 0, recurring = 0, budgets = 0
         var profileRestored = false
-        var total: Int { foods + weights + favorites + workouts + routines + customExercises + transactions + recurring + budgets }
+        var total: Int {
+            foods + weights + favorites + workouts + routines + customExercises + transactions + recurring + budgets
+        }
     }
 
     enum RestoreError: LocalizedError {
@@ -111,11 +113,13 @@ enum DataExporter {
     @MainActor
     @discardableResult
     static func restore(_ backup: Backup, into ctx: ModelContext) throws -> RestoreSummary {
-        // 1) Purge des modèles concernés (mêmes types que ceux du backup). On supprime objet par
-        // objet après fetch : plus robuste que `delete(model:where:)` (qui peut planter selon le store)
-        // et la cascade des relations (séances→exos→séries, routines→exos) s'applique correctement.
-        func wipe<T: PersistentModel>(_ type: T.Type) {
-            for object in (try? ctx.fetch(FetchDescriptor<T>())) ?? [] { ctx.delete(object) }
+        /// 1) Purge des modèles concernés (mêmes types que ceux du backup). On supprime objet par
+        /// objet après fetch : plus robuste que `delete(model:where:)` (qui peut planter selon le store)
+        /// et la cascade des relations (séances→exos→séries, routines→exos) s'applique correctement.
+        func wipe<T: PersistentModel>(_: T.Type) {
+            for object in (try? ctx.fetch(FetchDescriptor<T>())) ?? [] {
+                ctx.delete(object)
+            }
         }
         wipe(LoggedFood.self)
         wipe(WeightSample.self)
