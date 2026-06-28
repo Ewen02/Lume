@@ -15,13 +15,18 @@ struct OnboardingView: View {
     @State private var notifGranted = false
     /// Affiche l'écran Confidentialité & conditions depuis la mention de consentement.
     @State private var showLegal = false
+    /// Pilote l'animation de révélation de la démo « aha » (étape 1).
+    @State private var demoRevealed = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Modules optionnels choisis ici (la nutrition est le cœur, toujours active).
     @AppStorage(ModuleSettings.workoutKey) private var workoutEnabled = ModuleSettings.defaultEnabled
     @AppStorage(ModuleSettings.financeKey) private var financeEnabled = ModuleSettings.defaultEnabled
 
     var onFinish: () -> Void = {}
 
-    private let lastStep = 4
+    private let lastStep = 5
+    /// Index de l'étape « profil » (saisie du prénom) — sert au gate du bouton Continuer.
+    private let profileStep = 2
     private var target: Macros {
         TDEECalculator.target(profile)
     }
@@ -50,10 +55,11 @@ struct OnboardingView: View {
         VStack(spacing: 0) {
             TabView(selection: $step) {
                 welcome.tag(0)
-                infos.tag(1)
-                goal.tag(2)
-                modules.tag(3)
-                permissions.tag(4)
+                ahaDemo.tag(1)
+                infos.tag(2)
+                goal.tag(3)
+                modules.tag(4)
+                permissions.tag(5)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .animation(LumeMotion.snappy, value: step)
@@ -82,8 +88,8 @@ struct OnboardingView: View {
             {
                 if step < lastStep { withAnimation { step += 1 } } else { finish() }
             }
-            .disabled(step == 1 && trimmedName.isEmpty)
-            .opacity(step == 1 && trimmedName.isEmpty ? 0.5 : 1)
+            .disabled(step == profileStep && trimmedName.isEmpty)
+            .opacity(step == profileStep && trimmedName.isEmpty ? 0.5 : 1)
             .padding(.horizontal, Spacing.xl).padding(.bottom, Spacing.lg)
 
             if step == lastStep {
@@ -110,7 +116,69 @@ struct OnboardingView: View {
         }.padding(.horizontal, Spacing.xxl)
     }
 
-    // MARK: Étape 1 — profil (modifiable)
+    // MARK: Étape 1 — démo « aha » (montrer la valeur avant de demander quoi que ce soit)
+
+    /// Aliments de démo révélés un à un (effet « Lume vient d'analyser ta photo »).
+    private var demoFoods: [FoodItem] { Mock.detected }
+    private var demoTotal: Macros { demoFoods.reduce(.zero) { $0 + $1.macros } }
+
+    private var ahaDemo: some View {
+        VStack(alignment: .leading, spacing: Spacing.lg) {
+            stepTitle("Voilà ce que Lume voit", "Une photo de ton repas suffit.")
+
+            LumeCard(radius: Radius.xxl) {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    // Faux « aperçu photo » : une bande colorée évoquant l'assiette.
+                    ZStack {
+                        RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                            .fill(LumeColor.placeholder)
+                            .frame(height: 96)
+                        Image(appIcon: .lunch).lumeIcon(34, weight: .semibold).foregroundStyle(LumeColor.placeholderTint)
+                    }
+
+                    // Total calories qui s'anime (compteur).
+                    HStack(alignment: .firstTextBaseline, spacing: 6) {
+                        Text(demoRevealed ? "\(demoTotal.kcal)" : "0")
+                            .font(.lumeNumberL).foregroundStyle(LumeColor.ink).monospacedDigit()
+                            .contentTransition(.numericText(value: Double(demoRevealed ? demoTotal.kcal : 0)))
+                        Text("kcal").font(.lumeHeadline).foregroundStyle(LumeColor.muted)
+                    }
+                    HStack(spacing: Spacing.sm) {
+                        Chip(color: LumeColor.protein, text: "P \(demoTotal.protein)")
+                        Chip(color: LumeColor.carbs, text: "G \(demoTotal.carbs)")
+                        Chip(color: LumeColor.fat, text: "L \(demoTotal.fat)")
+                    }
+
+                    Divider().background(LumeColor.border)
+
+                    // Aliments détectés, apparition décalée.
+                    ForEach(Array(demoFoods.enumerated()), id: \.element.id) { idx, food in
+                        HStack {
+                            // Aliments de démo : on les localise (clés au catalogue) pour un aha EN propre.
+                            Text(LocalizedStringKey(food.name)).font(.lumeCallout).foregroundStyle(LumeColor.ink)
+                            Spacer()
+                            Text("\(food.macros.kcal) kcal").font(.lumeFootnote).foregroundStyle(LumeColor.muted).monospacedDigit()
+                        }
+                        .opacity(demoRevealed ? 1 : 0)
+                        .offset(y: demoRevealed ? 0 : 8)
+                        .animation(reduceMotion ? nil : LumeMotion.smooth.delay(0.15 * Double(idx + 1)), value: demoRevealed)
+                    }
+                }
+            }
+
+            Text("Les valeurs sont estimées : tu peux toujours les corriger.")
+                .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+            Spacer()
+        }
+        .padding(.horizontal, Spacing.xl).padding(.top, Spacing.xxl)
+        .onAppear {
+            // Déclenche la révélation à l'arrivée sur l'étape (et la rejoue si on y revient).
+            demoRevealed = false
+            withAnimation(reduceMotion ? nil : LumeMotion.snappy.delay(0.2)) { demoRevealed = true }
+        }
+    }
+
+    // MARK: Étape 2 — profil (modifiable)
 
     private var infos: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
@@ -148,7 +216,7 @@ struct OnboardingView: View {
         }.padding(.horizontal, Spacing.xl).padding(.top, Spacing.xxl)
     }
 
-    // MARK: Étape 2 — objectif
+    // MARK: Étape 3 — objectif
 
     private var goal: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
@@ -173,7 +241,7 @@ struct OnboardingView: View {
         }.padding(.horizontal, Spacing.xl).padding(.top, Spacing.xxl)
     }
 
-    // MARK: Étape 3 — modules (Muscu / Finance optionnels)
+    // MARK: Étape 4 — modules (Muscu / Finance optionnels)
 
     private var modules: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
@@ -212,7 +280,7 @@ struct OnboardingView: View {
         }
     }
 
-    // MARK: Étape 4 — permissions
+    // MARK: Étape 5 — permissions
 
     private var permissions: some View {
         VStack(alignment: .leading, spacing: Spacing.lg) {
@@ -231,7 +299,7 @@ struct OnboardingView: View {
 
     // MARK: Helpers
 
-    private func stepTitle(_ t: String, _ s: String) -> some View {
+    private func stepTitle(_ t: LocalizedStringKey, _ s: LocalizedStringKey) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(t).font(.lumeDisplay).foregroundStyle(LumeColor.ink)
             Text(s).font(.lumeSubhead).foregroundStyle(LumeColor.muted)
