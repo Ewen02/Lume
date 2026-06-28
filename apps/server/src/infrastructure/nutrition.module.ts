@@ -7,6 +7,8 @@ import { ClaudeVisionAdapter } from './adapters/claude-vision.adapter';
 import { UsdaAdapter } from './adapters/usda.adapter';
 import { OpenFoodFactsAdapter } from './adapters/openfoodfacts.adapter';
 import { CompositeNutritionAdapter } from './adapters/composite-nutrition.adapter';
+import { CachingNutritionDbAdapter } from './adapters/caching-nutrition-db.adapter';
+import { CachingVisionAdapter } from './adapters/caching-vision.adapter';
 import { AnalyzeMealUseCase } from '../application/use-cases/analyze-meal.usecase';
 import { SearchFoodsUseCase } from '../application/use-cases/search-foods.usecase';
 import { LookupBarcodeUseCase } from '../application/use-cases/lookup-barcode.usecase';
@@ -15,12 +17,18 @@ import { LookupBarcodeUseCase } from '../application/use-cases/lookup-barcode.us
   providers: [
     UsdaAdapter,
     OpenFoodFactsAdapter,
-    { provide: VISION_PORT, useClass: ClaudeVisionAdapter },
-    // Base composite : USDA en premier, Open Food Facts en repli.
+    ClaudeVisionAdapter,
+    // Vision : cache par hash d'image devant Claude (évite de re-payer les retries / re-soumissions).
+    {
+      provide: VISION_PORT,
+      useFactory: (vision: ClaudeVisionAdapter) => new CachingVisionAdapter(vision),
+      inject: [ClaudeVisionAdapter],
+    },
+    // Base composite (USDA d'abord, Open Food Facts en repli), enveloppée d'un cache par nom d'aliment.
     {
       provide: NUTRITION_DB_PORT,
       useFactory: (usda: UsdaAdapter, off: OpenFoodFactsAdapter) =>
-        new CompositeNutritionAdapter(usda, off),
+        new CachingNutritionDbAdapter(new CompositeNutritionAdapter(usda, off)),
       inject: [UsdaAdapter, OpenFoodFactsAdapter],
     },
     { provide: BARCODE_PORT, useClass: OpenFoodFactsAdapter },

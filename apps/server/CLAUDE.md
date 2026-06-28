@@ -32,6 +32,15 @@ de la réponse `/analyze`. L'app l'affiche (bandeau) pour ne pas faire passer un
 analyse. Garde-fou de matching USDA : on exige un **recouvrement fort** (≥ moitié des mots, jamais < 2) entre
 le nom recherché et le meilleur candidat, pour éviter les faux positifs (`matched:true` avec macros fausses).
 
+## Cache (écrasement du COGS)
+Deux **décorateurs de port** (archi hexagonale : même interface, domaine ignorant) en cache LRU+TTL mémoire :
+- `CachingVisionAdapter` devant `VISION_PORT` : clé = SHA-256 de l'image (TTL 7 j). Évite de re-payer Claude
+  sur les retries de l'app / re-soumissions. **Ne cache JAMAIS un `degraded`** (un repli de démo
+  n'empoisonne pas le cache).
+- `CachingNutritionDbAdapter` devant `NUTRITION_DB_PORT` : clé = nom d'aliment normalisé (TTL 24 h). Cache
+  aussi les « non trouvé » (`null`). Câblage dans `nutrition.module.ts` ; util générique `cache/lru-cache.ts`.
+- Process-local (Railway 1 instance). Passer à Redis si multi-instance.
+
 ## Ajouter un endpoint
 Suis le skill **nest-endpoint** : (1) port si nouvelle dépendance externe, (2) adapter dans `infrastructure/`,
 (3) use-case dans `application/`, (4) câblage dans `nutrition.module.ts`, (5) contrôleur fin dans `interfaces/http/`.
