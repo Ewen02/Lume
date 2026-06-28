@@ -19,16 +19,17 @@ struct MonthGrid {
 
     /// Libellé "Mois AAAA" en français (ex. « Juin 2026 »).
     var title: String {
-        Formatters.monthYearFR(firstOfMonth)
+        Formatters.monthYearLabel(firstOfMonth)
     }
 
-    /// Les jours de la grille, alignés sur des semaines commençant le lundi.
+    /// Les jours de la grille, alignés sur le 1er jour de semaine de la LOCALE
+    /// (lundi en France, dimanche aux US — via `calendar.firstWeekday`).
     /// Longueur multiple de 7 ; `nil` = case vide (avant le 1er ou après le dernier jour).
     var days: [Date?] {
         guard let range = calendar.range(of: .day, in: .month, for: firstOfMonth) else { return [] }
         let weekday = calendar.component(.weekday, from: firstOfMonth) // 1 = dimanche … 7 = samedi
-        // Décalage pour une semaine commençant le LUNDI.
-        let leading = (weekday + 5) % 7
+        // Décalage du 1er du mois par rapport au 1er jour de semaine de la locale.
+        let leading = (weekday - calendar.firstWeekday + 7) % 7
         var cells: [Date?] = Array(repeating: nil, count: leading)
         for day in range {
             if let date = calendar.date(byAdding: .day, value: day - 1, to: firstOfMonth) {
@@ -42,8 +43,14 @@ struct MonthGrid {
         return cells
     }
 
-    /// En-têtes de colonnes (lundi → dimanche).
-    static let weekdaySymbols = ["L", "M", "M", "J", "V", "S", "D"]
+    /// En-têtes de colonnes localisés, dans l'ordre du 1er jour de semaine de la locale.
+    /// FR : « L M M J V S D » · EN : « S M T W T F S ». Dérivé des symboles système, pas codé en dur.
+    static func weekdaySymbols(calendar: Calendar = .current) -> [String] {
+        let symbols = calendar.veryShortStandaloneWeekdaySymbols // index 0 = dimanche
+        // Rotation pour démarrer au firstWeekday (1 = dimanche).
+        let start = calendar.firstWeekday - 1
+        return (0 ..< 7).map { symbols[(start + $0) % 7] }
+    }
 
     /// Mois précédent / suivant.
     func adding(_ months: Int) -> MonthGrid {

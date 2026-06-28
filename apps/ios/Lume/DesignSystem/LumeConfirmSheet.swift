@@ -6,9 +6,10 @@ struct LumeConfirmSheet: View {
     @Environment(\.dismiss) private var dismiss
     var icon: AppIcon
     var tint: Color
-    var title: String
+    var title: LocalizedStringKey
+    /// Message : souvent dynamique (nom de repas interpolé) → reste `String`, déjà résolu/localisé en amont.
     var message: String
-    var confirmTitle: String
+    var confirmTitle: LocalizedStringKey
     var isDestructive: Bool = true
     var onConfirm: () -> Void
 

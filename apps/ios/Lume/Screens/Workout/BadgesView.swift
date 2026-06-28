@@ -32,7 +32,7 @@ struct BadgesView: View {
                 ForEach(categories) { category in
                     let cat = badges.filter { $0.category == category }
                     VStack(alignment: .leading, spacing: Spacing.sm) {
-                        SectionHeader(title: category.label)
+                        SectionHeader(title: LocalizedStringKey(category.label))
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: Spacing.md)], spacing: Spacing.md) {
                             ForEach(cat) { badge in
                                 cell(badge).lumeEntrance(badges.firstIndex(where: { $0.id == badge.id }) ?? 0)

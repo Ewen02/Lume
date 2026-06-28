@@ -3,10 +3,10 @@ import SwiftUI
 /// État vide homogène (liste ou écran sans contenu), avec action optionnelle (CTA).
 struct LumeEmptyState: View {
     var icon: AppIcon
-    var title: String
-    var message: String? = nil
+    var title: LocalizedStringKey
+    var message: LocalizedStringKey? = nil
     /// Bouton d'action optionnel (titre + closure) : un état vide actionnable plutôt qu'un cul-de-sac.
-    var actionTitle: String? = nil
+    var actionTitle: LocalizedStringKey? = nil
     var action: (() -> Void)? = nil
     var body: some View {
         VStack(spacing: Spacing.sm) {
@@ -27,7 +27,7 @@ struct LumeEmptyState: View {
 
 /// État de chargement homogène.
 struct LumeLoadingState: View {
-    var label: String = "Chargement…"
+    var label: LocalizedStringKey = "Chargement…"
     var body: some View {
         LumeCard(padding: Spacing.xxl, radius: Radius.xxl) {
             VStack(spacing: Spacing.md) {
@@ -40,7 +40,7 @@ struct LumeLoadingState: View {
 
 /// État d'erreur homogène, avec action de réessai optionnelle.
 struct LumeErrorState: View {
-    var title: String = "Une erreur est survenue"
+    var title: LocalizedStringKey = "Une erreur est survenue"
     var message: String? = nil
     var retry: (() -> Void)? = nil
     var body: some View {

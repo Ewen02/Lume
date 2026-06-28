@@ -48,7 +48,10 @@ enum Money {
     private static let currencyFormatter: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .currency
-        f.locale = Locale(identifier: "fr_FR")
+        // Le FORMAT suit la langue de l'appareil (€1,234.50 en EN, 1 234,50 € en FR), mais la
+        // DEVISE reste l'euro (app euro-dénominée) : on épingle currencyCode, sinon un appareil
+        // en_US afficherait le symbole « $ » sur un montant en euros.
+        f.locale = .autoupdatingCurrent
         f.currencyCode = currencyCode
         return f
     }()

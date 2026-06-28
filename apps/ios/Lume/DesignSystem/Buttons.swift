@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PrimaryButton: View {
-    var title: String
+    var title: LocalizedStringKey
     var icon: AppIcon? = nil
     var action: () -> Void = {}
     var body: some View {
@@ -21,7 +21,7 @@ struct PrimaryButton: View {
 }
 
 struct SecondaryButton: View {
-    var title: String
+    var title: LocalizedStringKey
     var icon: AppIcon? = nil
     var action: () -> Void = {}
     var body: some View {

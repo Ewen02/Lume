@@ -220,7 +220,7 @@ struct ProgressDashboardView: View {
         .sheet(item: $deletingSample) { sample in
             LumeConfirmSheet(icon: .minusCircle, tint: LumeColor.negative,
                              title: "Supprimer cette pesée ?",
-                             message: "\(WeightFormat.body(sample.kg, imperial: useImperial)) le \(Formatters.dayMonthFR.string(from: sample.date)). Gère tes données Apple Santé depuis l'app Santé.",
+                             message: String(localized: "\(WeightFormat.body(sample.kg, imperial: useImperial)) le \(Formatters.dayMonth.string(from: sample.date)). Gère tes données Apple Santé depuis l'app Santé."),
                              confirmTitle: "Supprimer")
             {
                 ctx.delete(sample)
@@ -410,7 +410,7 @@ struct ProgressDashboardView: View {
     @ViewBuilder private var selectionLollipop: some View {
         if let e = selectedEntry {
             ChartLollipop(title: WeightFormat.body(e.kg, imperial: useImperial),
-                          subtitle: Formatters.dayMonthFR.string(from: e.date))
+                          subtitle: Formatters.dayMonth.string(from: e.date))
             {
                 if let sample = selectedSample {
                     Button { editingSample = sample } label: {

@@ -66,7 +66,7 @@ struct TransactionEditorView: View {
 
     /// Résumé compact de la date/note quand la section est repliée (« Aujourd'hui », « 27 juin · Café »…).
     private var detailSummary: String {
-        let day = Calendar.current.isDateInToday(date) ? "Aujourd'hui" : Formatters.dayMonthFR.string(from: date).capitalized
+        let day = Calendar.current.isDateInToday(date) ? String(localized: "Aujourd'hui") : Formatters.dayMonthLabel(date)
         let trimmed = note.trimmingCharacters(in: .whitespaces)
         return trimmed.isEmpty ? day : "\(day) · \(trimmed)"
     }

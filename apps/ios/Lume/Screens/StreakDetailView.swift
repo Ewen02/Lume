@@ -45,7 +45,7 @@ struct StreakDetailView: View {
                 Divider().background(LumeColor.border)
                 infoRow(icon: .pr, tint: LumeColor.warning,
                         title: "Ton record",
-                        value: "\(record) jour\(record > 1 ? "s" : "") consécutif\(record > 1 ? "s" : "")")
+                        value: String(localized: "\(record) jours consécutifs"))
             }
             .padding(Spacing.lg)
             .background(LumeColor.surface)

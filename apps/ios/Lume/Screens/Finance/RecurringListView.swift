@@ -66,7 +66,8 @@ struct RecurringListView: View {
                     HStack(spacing: Spacing.md) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(r.label.isEmpty ? r.category.title : r.label).font(.lumeCallout).foregroundStyle(LumeColor.ink)
-                            Text("\(r.frequency.title) · jour \(r.dayOfMonth)\(r.isActive ? "" : " · inactif")")
+                            let suffix = r.isActive ? "" : String(localized: " · inactif")
+                            Text("\(r.frequency.title) · jour \(r.dayOfMonth)\(suffix)")
                                 .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
                         }
                         Spacer()

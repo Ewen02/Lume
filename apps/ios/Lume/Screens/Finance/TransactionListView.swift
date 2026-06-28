@@ -66,7 +66,7 @@ struct TransactionListView: View {
                 } else {
                     ForEach(filtered) { t in
                         TransactionRow(category: t.category, title: t.note,
-                                       detail: Formatters.dayMonthFR.string(from: t.date).capitalized,
+                                       detail: Formatters.dayMonthLabel(t.date),
                                        amountCents: t.amountCents, kind: t.kind,
                                        isRecurring: t.recurringID != nil) { editing = t }
                             .transition(.opacity)

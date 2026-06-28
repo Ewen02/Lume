@@ -50,7 +50,7 @@ struct DayMealsView: View {
         }
         .background(LumeColor.cream.ignoresSafeArea())
         .safeAreaInset(edge: .top) {
-            TopBar(title: Formatters.dayMonthFR.string(from: day).capitalized, leading: .back, onLeading: { dismiss() })
+            TopBar(title: LocalizedStringKey(Formatters.dayMonthLabel(day)), leading: .back, onLeading: { dismiss() })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
         }
         .sheet(item: $routeEntry) { FoodDetailView(entry: $0) }

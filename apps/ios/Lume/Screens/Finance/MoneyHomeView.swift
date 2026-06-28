@@ -101,7 +101,7 @@ struct MoneyHomeView: View {
         let lastSpent = FinanceCalculator.totalSpent(allTx.map(\.data), in: lastMonth)
         // Mois précédent réellement écoulé avec des dépenses et resté sous SON budget.
         guard lastSpent > 0, lastSpent < lastBudget else { return }
-        monthRecap = MonthRecapData(label: Formatters.monthYearFR(lastMonth),
+        monthRecap = MonthRecapData(label: Formatters.monthYearLabel(lastMonth),
                                     spent: lastSpent, budget: lastBudget)
         CelebrationLedger.markCelebrated(id)
     }

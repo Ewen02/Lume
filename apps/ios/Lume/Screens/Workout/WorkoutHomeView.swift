@@ -341,7 +341,7 @@ struct WorkoutHomeView: View {
                     .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
                 VStack(alignment: .leading, spacing: 3) {
                     Text(s.title).font(.lumeCallout).foregroundStyle(LumeColor.ink)
-                    Text("\(Formatters.relative(s.date)) · \(count) exo\(count > 1 ? "s" : "") · \(mins) min")
+                    Text("\(Formatters.relative(s.date)) · \(count) exos · \(mins) min")
                         .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
                 }
                 Spacer()

@@ -64,7 +64,7 @@ struct WorkoutStreakDetailView: View {
                 Divider().background(LumeColor.border)
                 infoRow(icon: .pr, tint: LumeColor.warning,
                         title: "Ton record",
-                        value: "\(record) semaine\(record > 1 ? "s" : "") consécutive\(record > 1 ? "s" : "")")
+                        value: String(localized: "\(record) semaines consécutives"))
             }
             .padding(Spacing.lg)
             .background(LumeColor.surface)
@@ -75,7 +75,7 @@ struct WorkoutStreakDetailView: View {
             HStack {
                 Text("Objectif hebdomadaire").font(.lumeCallout).foregroundStyle(LumeColor.ink)
                 Spacer()
-                Stepper("\(currentGoal) séance\(currentGoal > 1 ? "s" : "")", value: Binding(
+                Stepper("\(currentGoal) séances", value: Binding(
                     get: { currentGoal },
                     set: { setGoal($0) }
                 ), in: 1 ... 7)

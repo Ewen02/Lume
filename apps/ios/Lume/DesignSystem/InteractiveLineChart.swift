@@ -66,7 +66,7 @@ struct InteractiveLineChart: View {
         .overlay(alignment: .topLeading) {
             if let p = selectedPoint {
                 ChartLollipop(title: format(p.value),
-                              subtitle: Formatters.dayMonthFR.string(from: p.date), tint: tint)
+                              subtitle: Formatters.dayMonth.string(from: p.date), tint: tint)
                     .animation(LumeMotion.snappy, value: p.id)
             }
         }

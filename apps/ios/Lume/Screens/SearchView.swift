@@ -139,7 +139,7 @@ struct SearchView: View {
     }
 
     @ViewBuilder
-    private func list(_ items: [ScannedProduct], icon: AppIcon, emptyTitle: String, emptyMsg: String) -> some View {
+    private func list(_ items: [ScannedProduct], icon: AppIcon, emptyTitle: LocalizedStringKey, emptyMsg: LocalizedStringKey) -> some View {
         if items.isEmpty {
             LumeEmptyState(icon: icon, title: emptyTitle, message: emptyMsg)
         } else {

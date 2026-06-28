@@ -116,7 +116,9 @@ struct TodayView: View {
     }
 
     private var week: [WeekDay] {
-        let letters = ["D", "L", "M", "M", "J", "V", "S"]
+        // Initiales localisées, indexées par weekday (1 = dimanche, comme veryShortWeekdaySymbols).
+        // Bandeau « 7 derniers jours » : aucune rotation, on lit directement par numéro de jour.
+        let letters = cal.veryShortWeekdaySymbols
         let today0 = cal.startOfDay(for: Date())
         return (0 ..< 7).reversed().map { offset in
             let day = cal.date(byAdding: .day, value: -offset, to: today0)!
@@ -255,7 +257,7 @@ struct TodayView: View {
             let n = meal.foods.count
             LumeConfirmSheet(icon: .minusCircle, tint: LumeColor.negative,
                              title: "Supprimer ce repas ?",
-                             message: "« \(meal.title) » et ses \(n) aliment\(n > 1 ? "s" : "") seront retirés du journal.",
+                             message: String(localized: "« \(meal.title) » et ses \(n) aliments seront retirés du journal."),
                              confirmTitle: "Supprimer le repas") { confirmDelete(meal) }
         }
         .sensoryFeedback(.success, trigger: didDelete)
@@ -441,7 +443,7 @@ struct TodayView: View {
                 .transition(.move(edge: .leading).combined(with: .opacity))
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text(Formatters.dayMonthFR.string(from: selectedDay).capitalized)
+                Text(Formatters.dayMonthLabel(selectedDay))
                     .font(.lumeSubhead).foregroundStyle(LumeColor.muted)
                 Text(isToday ? "Aujourd'hui" : "Historique")
                     .font(.lumeDisplay).foregroundStyle(LumeColor.ink)

@@ -32,7 +32,7 @@ struct MonthStepper: View {
                     .frame(width: 44, height: 44).contentShape(Rectangle())
             }.buttonStyle(.lumePress).accessibilityLabel("Mois précédent")
 
-            Text(Formatters.monthYearFR(month)).font(.lumeSubhead.weight(.semibold))
+            Text(Formatters.monthYearLabel(month)).font(.lumeSubhead.weight(.semibold))
                 .foregroundStyle(labelTint).contentTransition(.numericText())
                 .frame(minWidth: 110)
 

@@ -2,7 +2,7 @@ import SwiftUI
 
 struct SearchBar: View {
     @Binding var text: String
-    var placeholder: String = "Rechercher un aliment"
+    var placeholder: LocalizedStringKey = "Rechercher un aliment"
     var body: some View {
         HStack(spacing: Spacing.sm) {
             Image(appIcon: .search).lumeIcon(16, weight: .semibold).foregroundStyle(LumeColor.muted)

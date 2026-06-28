@@ -5,7 +5,7 @@ struct MacroCard: View {
     var value: Int
     var goal: Int
     var color: Color
-    var label: String
+    var label: LocalizedStringKey
     var body: some View {
         VStack(spacing: Spacing.sm) {
             HStack(alignment: .firstTextBaseline, spacing: 1) {

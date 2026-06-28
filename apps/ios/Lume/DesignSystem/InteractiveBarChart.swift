@@ -75,7 +75,7 @@ struct InteractiveBarChart: View {
             .overlay(alignment: .topLeading) {
                 if let p = selectedPoint {
                     ChartLollipop(title: format(p.value),
-                                  subtitle: Formatters.dayMonthFR.string(from: p.date),
+                                  subtitle: Formatters.dayMonth.string(from: p.date),
                                   tint: diverging ? barColor(p) : LumeColor.ink)
                         .animation(LumeMotion.snappy, value: p.id)
                 }

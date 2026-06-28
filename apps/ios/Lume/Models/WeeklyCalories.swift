@@ -3,8 +3,6 @@ import Foundation
 /// Agrège les calories par jour sur les 7 derniers jours (lundi→dimanche relatif :
 /// 6 jours en arrière jusqu'à aujourd'hui). Logique extraite des vues, testable.
 enum WeeklyCalories {
-    private static let weekdayLetters = ["D", "L", "M", "M", "J", "V", "S"] // index = weekday 1...7
-
     /// - Parameters:
     ///   - entries: repas enregistrés (au moins les 7 derniers jours).
     ///   - reference: dernier jour de la fenêtre (aujourd'hui par défaut).
@@ -21,7 +19,8 @@ enum WeeklyCalories {
                 .filter { calendar.isDate($0.date, inSameDayAs: day) }
                 .reduce(0) { $0 + $1.kcal }
             let wd = calendar.component(.weekday, from: day)
-            return DayCalories(label: weekdayLetters[wd - 1], kcal: kcal)
+            // Initiale localisée (index = weekday 1...7, comme veryShortWeekdaySymbols).
+            return DayCalories(label: calendar.veryShortWeekdaySymbols[wd - 1], kcal: kcal)
         }
     }
 

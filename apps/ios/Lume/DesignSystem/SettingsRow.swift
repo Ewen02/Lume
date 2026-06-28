@@ -3,7 +3,7 @@ import SwiftUI
 struct SettingsRow: View {
     var icon: AppIcon
     var tint: Color = LumeColor.ink
-    var title: String
+    var title: LocalizedStringKey
     var value: String? = nil
     var showsChevron: Bool = true
     var body: some View {

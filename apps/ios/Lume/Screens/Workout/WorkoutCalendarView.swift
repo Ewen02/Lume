@@ -65,7 +65,7 @@ struct WorkoutCalendarView: View {
 
     private var weekdayHeader: some View {
         HStack(spacing: 0) {
-            ForEach(Array(MonthGrid.weekdaySymbols.enumerated()), id: \.offset) { _, s in
+            ForEach(Array(MonthGrid.weekdaySymbols().enumerated()), id: \.offset) { _, s in
                 Text(s).font(.lumeCaption).foregroundStyle(LumeColor.muted).frame(maxWidth: .infinity)
             }
         }
