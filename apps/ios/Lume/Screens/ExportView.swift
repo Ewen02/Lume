@@ -1,9 +1,12 @@
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Export des données : CSV (journal lisible) + JSON (sauvegarde complète), via la feuille de partage.
+/// + Import : restaurer une sauvegarde JSON (ex. nouvel appareil).
 struct ExportView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var ctx
     @Query(sort: \LoggedFood.date) private var foods: [LoggedFood]
     @Query(sort: \WeightSample.date) private var weights: [WeightSample]
     @Query(sort: \FavoriteFood.addedAt) private var favorites: [FavoriteFood]
@@ -16,6 +19,10 @@ struct ExportView: View {
     @Query private var budgets: [CategoryBudget]
 
     @State private var error: String?
+    /// État de l'import : sélection de fichier, confirmation (destructif), résultat.
+    @State private var showImporter = false
+    @State private var pendingBackup: Backup?
+    @State private var restoreResult: DataExporter.RestoreSummary?
 
     /// Exercices ajoutés par l'utilisateur (le catalogue seedé n'est pas « tes » données).
     private var customExercises: [ExerciseModel] {
@@ -39,6 +46,10 @@ struct ExportView: View {
                           subtitle: "Profil, repas, poids, favoris, séances, routines, exos, finances",
                           icon: .settings, tint: LumeColor.protein) { try backupJSONURL() }
 
+                SectionHeader(title: "Restaurer")
+                    .padding(.top, Spacing.sm)
+                importRow
+
                 if let error {
                     Text(error).font(.lumeFootnote).foregroundStyle(LumeColor.negative)
                         .multilineTextAlignment(.center)
@@ -48,8 +59,79 @@ struct ExportView: View {
         }
         .background(LumeColor.cream.ignoresSafeArea())
         .safeAreaInset(edge: .top) {
-            TopBar(title: "Exporter mes données", leading: .back, onLeading: { dismiss() })
+            TopBar(title: "Mes données", leading: .back, onLeading: { dismiss() })
                 .padding(.horizontal, Spacing.xl).padding(.vertical, Spacing.sm).background(LumeColor.cream)
+        }
+        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
+            handlePickedFile(result)
+        }
+        // Restauration destructive : on confirme avant de remplacer les données actuelles.
+        .alert("Restaurer cette sauvegarde ?", isPresented: Binding(
+            get: { pendingBackup != nil }, set: { if !$0 { pendingBackup = nil } }))
+        {
+            Button("Restaurer", role: .destructive) { performRestore() }
+            Button("Annuler", role: .cancel) { pendingBackup = nil }
+        } message: {
+            Text("Tes données actuelles (repas, poids, séances, finances…) seront remplacées par celles de la sauvegarde. Cette action est irréversible.")
+        }
+        .alert("Sauvegarde restaurée", isPresented: Binding(
+            get: { restoreResult != nil }, set: { if !$0 { restoreResult = nil } }))
+        {
+            Button("OK", role: .cancel) { restoreResult = nil; dismiss() }
+        } message: {
+            if let r = restoreResult {
+                Text("\(r.total) éléments restaurés.")
+            }
+        }
+    }
+
+    /// Ligne « Importer une sauvegarde » : ouvre le sélecteur de fichiers (.json).
+    private var importRow: some View {
+        Button { showImporter = true } label: {
+            LumeCard {
+                HStack(spacing: Spacing.md) {
+                    Image(appIcon: .gallery).lumeIcon(18, weight: .semibold).foregroundStyle(LumeColor.protein)
+                        .frame(width: 40, height: 40).background(LumeColor.protein.opacity(0.14))
+                        .clipShape(RoundedRectangle(cornerRadius: Radius.sm, style: .continuous))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Importer une sauvegarde").font(.lumeCallout).foregroundStyle(LumeColor.ink)
+                        Text("Restaure un fichier JSON Lume (remplace tes données)")
+                            .font(.lumeFootnote).foregroundStyle(LumeColor.muted)
+                    }
+                    Spacer()
+                    Image(appIcon: .forward).lumeIcon(14, weight: .semibold).foregroundStyle(LumeColor.muted)
+                }
+            }
+        }.buttonStyle(.lumePress)
+    }
+
+    // MARK: Import
+
+    /// Lit le fichier choisi et décode le backup (sans encore toucher la base : on demande confirmation).
+    private func handlePickedFile(_ result: Result<URL, Error>) {
+        error = nil
+        do {
+            let url = try result.get()
+            // Fichier hors sandbox : nécessite un accès sécurisé.
+            let needsAccess = url.startAccessingSecurityScopedResource()
+            defer { if needsAccess { url.stopAccessingSecurityScopedResource() } }
+            let data = try Data(contentsOf: url)
+            pendingBackup = try DataExporter.decodeBackup(data)
+        } catch is CocoaError {
+            error = String(localized: "Impossible de lire ce fichier.")
+        } catch {
+            self.error = (error as? LocalizedError)?.errorDescription ?? String(localized: "Ce fichier n'est pas une sauvegarde Lume valide.")
+        }
+    }
+
+    /// Restaure après confirmation utilisateur.
+    private func performRestore() {
+        guard let backup = pendingBackup else { return }
+        pendingBackup = nil
+        do {
+            restoreResult = try DataExporter.restore(backup, into: ctx)
+        } catch {
+            self.error = String(localized: "La restauration a échoué. Tes données actuelles n'ont pas été modifiées.")
         }
     }
 

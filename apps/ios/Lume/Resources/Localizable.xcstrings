@@ -4710,6 +4710,210 @@
           }
         }
       }
+    },
+    "Mes données": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mes données"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My data"
+          }
+        }
+      }
+    },
+    "Restaurer": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurer"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore"
+          }
+        }
+      }
+    },
+    "Importer une sauvegarde": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Importer une sauvegarde"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Import a backup"
+          }
+        }
+      }
+    },
+    "Restaure un fichier JSON Lume (remplace tes données)": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaure un fichier JSON Lume (remplace tes données)"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restores a Lume JSON file (replaces your data)"
+          }
+        }
+      }
+    },
+    "Restaurer cette sauvegarde ?": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restaurer cette sauvegarde ?"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore this backup?"
+          }
+        }
+      }
+    },
+    "Tes données actuelles (repas, poids, séances, finances…) seront remplacées par celles de la sauvegarde. Cette action est irréversible.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tes données actuelles (repas, poids, séances, finances…) seront remplacées par celles de la sauvegarde. Cette action est irréversible."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your current data (meals, weight, workouts, finances…) will be replaced by the backup. This action cannot be undone."
+          }
+        }
+      }
+    },
+    "Sauvegarde restaurée": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sauvegarde restaurée"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Backup restored"
+          }
+        }
+      }
+    },
+    "%lld éléments restaurés.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld éléments restaurés."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld items restored."
+          }
+        }
+      }
+    },
+    "Ce fichier n'est pas une sauvegarde Lume valide.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ce fichier n'est pas une sauvegarde Lume valide."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This file is not a valid Lume backup."
+          }
+        }
+      }
+    },
+    "Impossible de lire ce fichier.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de lire ce fichier."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unable to read this file."
+          }
+        }
+      }
+    },
+    "La restauration a échoué. Tes données actuelles n'ont pas été modifiées.": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "La restauration a échoué. Tes données actuelles n'ont pas été modifiées."
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore failed. Your current data was not changed."
+          }
+        }
+      }
+    },
+    "Exporter / importer mes données": {
+      "extractionState": "manual",
+      "localizations": {
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Exporter / importer mes données"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export / import my data"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

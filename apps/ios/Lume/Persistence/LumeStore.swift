@@ -1,10 +1,11 @@
 import Foundation
 import SwiftData
 
-/// Container SwiftData de l'app, synchronisé via CloudKit (base privée par compte iCloud).
+/// Container SwiftData de l'app. Synchronisé via CloudKit (base privée par compte iCloud) quand le
+/// flag `CLOUDKIT_ENABLED` est posé ; sinon purement local (compte Apple gratuit). Voir `cloudKitMode`.
 ///
-/// ⚠️ Xcode : activer la capability **iCloud → CloudKit** + **Background Modes → Remote notifications**
-/// sur la cible, sinon `.automatic` échoue au lancement.
+/// ⚠️ Pour CloudKit : activer la capability **iCloud → CloudKit** + **Background Modes → Remote
+/// notifications** sur la cible, restaurer `Lume.entitlements`, et poser `CLOUDKIT_ENABLED`.
 enum LumeStore {
     static let schema = Schema([
         LoggedFood.self, WaterLog.self, WeightSample.self, ProfileRecord.self,
@@ -16,14 +17,51 @@ enum LumeStore {
         FixedCharge.self,
     ])
 
+    /// Mode CloudKit du store selon la capability disponible :
+    /// - avec le flag de compilation `CLOUDKIT_ENABLED` (compte Apple Developer payant + entitlement
+    ///   iCloud activé sur la cible) → `.automatic` : sync iCloud privée par compte, multi-appareils.
+    /// - sinon (Personal Team gratuite) → `.none` : données purement locales.
+    ///
+    /// ⚠️ Pour activer CloudKit : (1) restaurer `Lume.entitlements` depuis le `.full-account.bak`,
+    /// (2) cocher iCloud → CloudKit + Background Modes → Remote notifications sur la cible,
+    /// (3) ajouter `CLOUDKIT_ENABLED` dans Build Settings → Active Compilation Conditions.
+    private static var cloudKitMode: ModelConfiguration.CloudKitDatabase {
+        #if CLOUDKIT_ENABLED
+            .automatic
+        #else
+            .none
+        #endif
+    }
+
     static let shared: ModelContainer = {
-        // ⚠️ CloudKit désactivé (.none) pour tourner avec une Personal Team (compte Apple gratuit).
-        // `.automatic` nécessite l'entitlement CloudKit (compte payant) sinon `fatalError` au lancement.
-        // Restaurer `cloudKitDatabase: .automatic` une fois le compte Apple Developer payant en place.
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .none)
-        do { return try ModelContainer(for: schema, configurations: [config]) }
-        catch { fatalError("Échec d'initialisation du ModelContainer : \(error)") }
+        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: cloudKitMode)
+        do {
+            return try ModelContainer(for: schema, configurations: [config])
+        } catch {
+            // Filet anti-crash-loop : si le store local est corrompu ou qu'une migration de schéma
+            // échoue, on ne `fatalError` PAS (sinon l'app crashe en boucle au lancement, sans recours).
+            // On repart d'un store neuf (les données locales perdues sont, le cas échéant, récupérables
+            // via l'import d'une sauvegarde JSON — cf. DataExporter.restore).
+            #if DEBUG
+                print("⚠️ ModelContainer init échoué (\(error)). Reconstruction d'un store vierge.")
+            #endif
+            return recreatedContainer(config: config)
+        }
     }()
+
+    /// Recrée un container après échec : tente d'effacer le store sur disque puis ré-ouvre.
+    /// Dernier recours = store en mémoire (l'app reste utilisable, sans persistance, plutôt qu'un crash).
+    private static func recreatedContainer(config: ModelConfiguration) -> ModelContainer {
+        if let url = config.url as URL?, FileManager.default.fileExists(atPath: url.path) {
+            try? FileManager.default.removeItem(at: url)
+        }
+        let fresh = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: cloudKitMode)
+        if let container = try? ModelContainer(for: schema, configurations: [fresh]) { return container }
+        // Tout a échoué : store en mémoire pour que l'app démarre quand même.
+        let memory = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+        // En dernier recours, si même la mémoire échoue, on laisse remonter (cas pathologique).
+        return try! ModelContainer(for: schema, configurations: [memory])
+    }
 
     /// Container en mémoire pour les #Preview, pré-rempli avec des données de démo.
     @MainActor static let preview: ModelContainer = {

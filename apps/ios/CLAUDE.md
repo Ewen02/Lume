@@ -43,10 +43,11 @@ utilisateur), VisionKit (code-barres + OCR étiquette), AVFoundation (caméra). 
 ## Persistance (SwiftData + CloudKit)
 - Modèles `@Model` dans `Lume/Persistence/` : `LoggedFood`, `WaterLog`, `WeightSample`, `ProfileRecord`, et muscu : `WorkoutSessionModel` → `LoggedExerciseModel` → `LoggedSetModel` (relations `.cascade`, optionnelles pour CloudKit).
 - Contraintes CloudKit : **toutes** les propriétés ont une valeur par défaut, **aucune** contrainte `.unique`, **pas** de relation obligatoire.
-- Container unique : `LumeStore.shared` (CloudKit `.automatic`), injecté via `.modelContainer(LumeStore.shared)` dans `LumeApp`.
+- Container unique : `LumeStore.shared`, injecté via `.modelContainer(LumeStore.shared)` dans `LumeApp`. Mode CloudKit **conditionné par le flag `CLOUDKIT_ENABLED`** (`.automatic` si présent, sinon `.none` local). Plus de `fatalError` au lancement : sur échec d'init (store corrompu / migration ratée), `LumeStore` reconstruit un store vierge (filet anti-crash-loop), les données étant récupérables via l'import d'une sauvegarde JSON.
 - Les `#Preview` utilisent `LumeStore.preview` (in-memory, pré-rempli depuis `Mock`).
 - Les vues lisent via `@Query` et écrivent via `@Environment(\.modelContext)`. Jamais de `Mock.*` dans une vue branchée au store.
-- ⚠️ Xcode : activer **Signing & Capabilities → iCloud → CloudKit** + **Background Modes → Remote notifications**, sinon `.automatic` crashe au lancement.
+- **Export/import** : `DataExporter.backupJSON` (sauvegarde complète) ↔ `DataExporter.restore` (restauration destructive, remplace les données). Écran `ExportView` (Profil → « Exporter / importer mes données »).
+- ⚠️ Pour activer CloudKit : restaurer `Lume.entitlements` (depuis `.full-account.bak`), capability **iCloud → CloudKit** + **Background Modes → Remote notifications**, et poser `CLOUDKIT_ENABLED` (compte Apple Developer payant requis).
 
 ## HealthKit
 - Pont unique : `Lume/Health/HealthManager.swift` (`@Observable @MainActor`, singleton `.shared`), injecté via `.environment(HealthManager.shared)`.

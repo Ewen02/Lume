@@ -261,7 +261,7 @@ struct ProfileView: View {
                 }.buttonStyle(.lumePress)
                 divider
                 Button { showExport = true } label: {
-                    SettingsRow(icon: .gallery, tint: LumeColor.success, title: "Exporter mes données")
+                    SettingsRow(icon: .gallery, tint: LumeColor.success, title: "Exporter / importer mes données")
                 }.buttonStyle(.lumePress)
                 divider
                 Button { contactSupport() } label: {
